@@ -1,13 +1,13 @@
 # Letmework4U - Implementation Guide
 
 ## Overview
-This guide covers the complete migration from repository pattern to EF Core direct access, Azure Functions backend implementation with Azure AD B2C authentication, and Blazor client MSAL integration.
+This guide covers the complete migration from repository pattern to EF Core direct access, Azure Functions backend implementation with Microsoft Entra External ID authentication, and Blazor client MSAL integration.
 
 ## What Has Been Completed
 
 ### 1. Entity Models ✅
 Created all entity models in `Letmework4U.Infrastructure/Entities/`:
-- `Applicant.cs` - User profile with UserId for Azure AD B2C
+- `Applicant.cs` - User profile with UserId for Microsoft Entra External ID
 - `Company.cs` - Company information
 - `Recruiter.cs` - Recruiter contacts
 - `JobApplication.cs` - Job applications with relationships
@@ -48,7 +48,7 @@ All projects upgraded to .NET 8:
 - `AuthHelper.cs` - JWT token extraction and validation
 
 **Program.cs configured with:**
-- Azure AD B2C JWT authentication
+- Microsoft Entra External ID JWT authentication
 - EF Core with Cosmos DB
 - Email service registration
 - Application Insights
@@ -203,8 +203,8 @@ public async Task Run([TimerTrigger("0 0 8 * * *")] TimerInfo timer) // Daily at
 
 ```json
 {
-  "AzureAdB2C": {
-    "Authority": "https://YOUR_TENANT.b2clogin.com/YOUR_TENANT.onmicrosoft.com/B2C_1_SignUpSignIn",
+  "MicrosoftEntraExternalId": {
+    "Authority": "https://YOUR_TENANT.ciamlogin.com/YOUR_TENANT.onmicrosoft.com/susi",
     "ClientId": "YOUR_CLIENT_ID",
     "ValidateAuthority": false
   },
@@ -223,7 +223,7 @@ using Microsoft.Authentication.WebAssembly.Msal;
 // Add MSAL authentication
 builder.Services.AddMsalAuthentication(options =>
 {
-    builder.Configuration.Bind("AzureAdB2C", options.ProviderOptions.Authentication);
+    builder.Configuration.Bind("MicrosoftEntraExternalId", options.ProviderOptions.Authentication);
     options.ProviderOptions.DefaultAccessTokenScopes.Add("https://YOUR_TENANT.onmicrosoft.com/api/user_impersonation");
 });
 
@@ -313,10 +313,10 @@ Already created with placeholders. Update with actual values:
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "CosmosDb__ConnectionString": "AccountEndpoint=https://YOUR_ACCOUNT.documents.azure.com:443/;AccountKey=YOUR_KEY;",
     "CosmosDb__DatabaseName": "Letmework4U",
-    "AzureAdB2C__Instance": "https://YOUR_TENANT.b2clogin.com",
-    "AzureAdB2C__Domain": "YOUR_TENANT.onmicrosoft.com",
-    "AzureAdB2C__ClientId": "YOUR_API_CLIENT_ID",
-    "AzureAdB2C__SignUpSignInPolicyId": "B2C_1_SignUpSignIn",
+    "MicrosoftEntraExternalId__Instance": "https://YOUR_TENANT.ciamlogin.com",
+    "MicrosoftEntraExternalId__Domain": "YOUR_TENANT.onmicrosoft.com",
+    "MicrosoftEntraExternalId__ClientId": "YOUR_API_CLIENT_ID",
+    "MicrosoftEntraExternalId__SignUpSignInPolicyId": "susi",
     "AzureCommunicationServices__ConnectionString": "endpoint=https://YOUR_ACS.communication.azure.com/;accesskey=YOUR_KEY",
     "AzureCommunicationServices__SenderAddress": "DoNotReply@YOUR_VERIFIED_DOMAIN.com",
     "BlobStorage__ConnectionString": "DefaultEndpointsProtocol=https;AccountName=YOUR_STORAGE;AccountKey=YOUR_KEY;EndpointSuffix=core.windows.net",
@@ -327,11 +327,11 @@ Already created with placeholders. Update with actual values:
 
 ## Azure Setup Requirements
 
-### 1. Azure AD B2C Tenant
-1. Create Azure AD B2C tenant
+### 1. Microsoft Entra External ID Tenant
+1. Create Microsoft Entra External ID tenant
 2. Register application for Blazor client (SPA)
 3. Register application for API (Azure Functions)
-4. Create user flows: Sign up and sign in (B2C_1_SignUpSignIn)
+4. Create user flows: Sign up and sign in (susi)
 5. Expose API scope: `user_impersonation`
 6. Grant Blazor app permission to API scope
 
@@ -368,7 +368,7 @@ dotnet run
 ## Testing Authentication
 
 1. Navigate to Blazor app (usually https://localhost:5001)
-2. Click "Log in" - redirects to Azure AD B2C
+2. Click "Log in" - redirects to Microsoft Entra External ID
 3. Sign up or sign in
 4. After authentication, token is automatically included in API calls
 5. Azure Functions validate JWT token and extract UserId
@@ -376,12 +376,12 @@ dotnet run
 
 ## Security Features Implemented
 
-✅ **Azure AD B2C Integration** - Industry-standard OAuth 2.0/OpenID Connect
+✅ **Microsoft Entra External ID Integration** - Industry-standard OAuth 2.0/OpenID Connect
 ✅ **JWT Token Authentication** - All API endpoints validate tokens
 ✅ **User Isolation** - Data filtered by UserId from JWT claims
 ✅ **Automatic Token Refresh** - MSAL handles token lifecycle
 ✅ **Multi-tenant Ready** - Each user has isolated data via UserId
-✅ **Password Reset & Profile Edit** - Built into Azure AD B2C user flows
+✅ **Password Reset & Profile Edit** - Built into Microsoft Entra External ID user flows
 
 ## Database Schema (Cosmos DB)
 
@@ -453,7 +453,7 @@ dotnet run
 2. Implement ApplicantFunctions.cs with Blob Storage integration
 3. Create InterviewReminderFunction.cs
 4. Create TaskReminderFunction.cs
-5. Configure Azure AD B2C tenant and get credentials
+5. Configure Microsoft Entra External ID tenant and get credentials
 6. Set up Cosmos DB and get connection string
 7. Set up Azure Communication Services for emails
 8. Update all configuration files with real values

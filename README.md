@@ -1,6 +1,6 @@
 # Letmework4U - Job Application Tracker
 
-A comprehensive job application tracking system built with Blazor WebAssembly and Azure Functions, featuring Azure AD B2C authentication and Azure Cosmos DB storage.
+A comprehensive job application tracking system built with Blazor WebAssembly and Azure Functions, featuring Microsoft Entra External ID authentication and Azure Cosmos DB storage.
 
 ## Project Structure
 
@@ -24,7 +24,7 @@ Letmework4U/
 - ✅ Interview Scheduling
 - ✅ Task Management
 - ✅ Profile & CV Management
-- ✅ Azure AD B2C Authentication (MSAL)
+- ✅ Microsoft Entra External ID Authentication (MSAL)
 
 ### Backend (Azure Functions)
 - ✅ Complete CRUD APIs for all entities
@@ -34,7 +34,7 @@ Letmework4U/
 - ✅ EF Core with Cosmos DB
 
 ### Security
-- ✅ Azure AD B2C Integration
+- ✅ Microsoft Entra External ID Integration
 - ✅ OAuth 2.0 / OpenID Connect
 - ✅ JWT Token Validation
 - ✅ Automatic Token Refresh
@@ -47,7 +47,7 @@ Letmework4U/
 - **Azure Functions (Isolated Worker Model)**
 - **Entity Framework Core**
 - **Azure Cosmos DB**
-- **Azure AD B2C**
+- **Microsoft Entra External ID**
 - **Azure Communication Services** (Email)
 - **Microsoft Authentication Library (MSAL)**
 
@@ -63,7 +63,7 @@ Letmework4U/
 
 ### Azure Resources Required
 
-1. **Azure AD B2C Tenant** - Authentication
+1. **Microsoft Entra External ID Tenant** - Authentication
 2. **Azure Cosmos DB** - Database
 3. **Azure Communication Services** - Email notifications
 4. **Azure Blob Storage** - CV file storage (optional)
@@ -82,10 +82,10 @@ Update `Letmework4U.Functions/local.settings.json`:
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "CosmosDb__ConnectionString": "<your-cosmos-connection-string>",
     "CosmosDb__DatabaseName": "Letmework4U",
-    "AzureAdB2C__Instance": "https://<your-tenant>.b2clogin.com",
-    "AzureAdB2C__Domain": "<your-tenant>.onmicrosoft.com",
-    "AzureAdB2C__ClientId": "<your-api-client-id>",
-    "AzureAdB2C__SignUpSignInPolicyId": "B2C_1_SignUpSignIn",
+    "MicrosoftEntraExternalId__Instance": "https://<your-tenant>.ciamlogin.com",
+    "MicrosoftEntraExternalId__Domain": "<your-tenant>.onmicrosoft.com",
+    "MicrosoftEntraExternalId__ClientId": "<your-api-client-id>",
+    "MicrosoftEntraExternalId__SignUpSignInPolicyId": "susi",
     "AzureCommunicationServices__ConnectionString": "<your-acs-connection-string>",
     "AzureCommunicationServices__SenderAddress": "DoNotReply@<your-domain>.com"
   }
@@ -98,8 +98,8 @@ Update `Letmework4U.Client/wwwroot/appsettings.json`:
 
 ```json
 {
-  "AzureAdB2C": {
-    "Authority": "https://<your-tenant>.b2clogin.com/<your-tenant>.onmicrosoft.com/B2C_1_SignUpSignIn",
+  "MicrosoftEntraExternalId": {
+    "Authority": "https://<your-tenant>.ciamlogin.com/<your-tenant>.onmicrosoft.com/susi",
     "ClientId": "<your-blazor-client-id>",
     "ValidateAuthority": false
   },
@@ -134,7 +134,7 @@ dotnet build -c Release
 ## API Endpoints
 
 ### Authentication
-All endpoints require JWT authentication via Azure AD B2C (except health checks).
+All endpoints require JWT authentication via Microsoft Entra External ID (except health checks).
 
 ### Companies
 - `GET /api/Companies` - Get all companies
@@ -217,7 +217,7 @@ This version has been completely refactored from the original:
 - ❌ Removed Repository Pattern
 - ✅ Direct EF Core usage in Azure Functions
 - ✅ JWT-based authentication replaces custom auth
-- ✅ Azure AD B2C for enterprise-grade security
+- ✅ Microsoft Entra External ID for enterprise-grade security
 - ✅ Cosmos DB for cloud-native scalability
 
 ### Migration from Old Code
@@ -247,7 +247,7 @@ For detailed implementation instructions, see [IMPLEMENTATION_GUIDE.md](IMPLEMEN
 ### Version 2.0 (Current)
 - Complete rewrite to .NET 8
 - Azure Functions backend
-- Azure AD B2C authentication
+- Microsoft Entra External ID authentication
 - EF Core with Cosmos DB
 - Automated email reminders
 - Multi-tenant architecture

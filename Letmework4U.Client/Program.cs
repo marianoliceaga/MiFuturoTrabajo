@@ -12,10 +12,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Add MSAL Authentication
+// Add MSAL Authentication (Microsoft Entra External ID)
 builder.Services.AddMsalAuthentication(options =>
 {
-    builder.Configuration.Bind("AzureAdB2C", options.ProviderOptions.Authentication);
+    builder.Configuration.Bind("MicrosoftEntraExternalId", options.ProviderOptions.Authentication);
 
     // Add API scopes for access tokens
     var apiScopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>();

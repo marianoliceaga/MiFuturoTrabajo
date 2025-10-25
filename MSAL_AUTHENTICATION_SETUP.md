@@ -2,7 +2,7 @@
 
 ## ✅ What Was Implemented
 
-I've successfully configured Azure AD B2C authentication using MSAL (Microsoft Authentication Library) for the Blazor WebAssembly client.
+I've successfully configured Microsoft Entra External ID authentication using MSAL (Microsoft Authentication Library) for the Blazor WebAssembly client.
 
 ### Files Created/Modified:
 
@@ -12,8 +12,8 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 
 ```json
 {
-  "AzureAdB2C": {
-    "Authority": "https://YOUR_TENANT.b2clogin.com/YOUR_TENANT.onmicrosoft.com/B2C_1_SignUpSignIn",
+  "MicrosoftEntraExternalId": {
+    "Authority": "https://YOUR_TENANT.ciamlogin.com/YOUR_TENANT.onmicrosoft.com/susi",
     "ClientId": "YOUR_BLAZOR_CLIENT_ID",
     "ValidateAuthority": false
   },
@@ -75,33 +75,33 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 1. **User visits app** → App loads
 2. **Page requires auth** → Checks authentication state
 3. **Not authenticated** → Redirects to `/authentication/login`
-4. **MSAL redirects** → To Azure AD B2C login page
-5. **User logs in** → Azure AD B2C authenticates
+4. **MSAL redirects** → To Microsoft Entra External ID login page
+5. **User logs in** → Microsoft Entra External ID authenticates
 6. **Returns to app** → With authentication token
 7. **Token stored** → In browser session/local storage
 8. **API calls** → Automatically include Bearer token in Authorization header
 
 ### Token Management:
 
-- **Automatic acquisition**: MSAL gets tokens from Azure AD B2C
+- **Automatic acquisition**: MSAL gets tokens from Microsoft Entra External ID
 - **Automatic refresh**: MSAL refreshes expired tokens
 - **Automatic attachment**: `AuthorizationMessageHandler` adds tokens to API calls
 - **Scope-based**: Only attaches tokens to authorized URLs with correct scopes
 
 ## 📋 Configuration Steps Required
 
-### 1. Create Azure AD B2C Tenant
+### 1. Create Microsoft Entra External ID Tenant
 
 ```bash
 # In Azure Portal:
-1. Create new Azure AD B2C tenant
+1. Create new Microsoft Entra External ID tenant
 2. Note the tenant name (e.g., "mycompany")
 ```
 
 ### 2. Register Blazor Application (SPA)
 
 ```bash
-# In Azure AD B2C:
+# In Microsoft Entra External ID:
 1. Go to "App registrations"
 2. New registration:
    - Name: "Letmework4U Blazor Client"
@@ -120,7 +120,7 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 ### 3. Register API Application
 
 ```bash
-# In Azure AD B2C:
+# In Microsoft Entra External ID:
 1. New registration:
    - Name: "Letmework4U API"
    - Supported account types: Accounts in this organizational directory only
@@ -134,12 +134,12 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 ### 4. Create User Flow
 
 ```bash
-# In Azure AD B2C:
+# In Microsoft Entra External ID:
 1. Go to "User flows"
 2. New user flow:
    - Type: Sign up and sign in
    - Version: Recommended
-   - Name: "B2C_1_SignUpSignIn"
+   - Name: "susi"
 3. Identity providers: Email signup
 4. User attributes:
    - Collect: Email, Display Name, Given Name, Surname
@@ -152,8 +152,8 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 
 ```json
 {
-  "AzureAdB2C": {
-    "Authority": "https://mycompany.b2clogin.com/mycompany.onmicrosoft.com/B2C_1_SignUpSignIn",
+  "MicrosoftEntraExternalId": {
+    "Authority": "https://mycompany.ciamlogin.com/mycompany.onmicrosoft.com/susi",
     "ClientId": "BLAZOR_CLIENT_ID_FROM_STEP_2",
     "ValidateAuthority": false
   },
@@ -170,10 +170,10 @@ I've successfully configured Azure AD B2C authentication using MSAL (Microsoft A
 {
   "Values": {
     ...
-    "AzureAdB2C__Instance": "https://mycompany.b2clogin.com",
-    "AzureAdB2C__Domain": "mycompany.onmicrosoft.com",
-    "AzureAdB2C__ClientId": "API_CLIENT_ID_FROM_STEP_3",
-    "AzureAdB2C__SignUpSignInPolicyId": "B2C_1_SignUpSignIn"
+    "MicrosoftEntraExternalId__Instance": "https://mycompany.ciamlogin.com",
+    "MicrosoftEntraExternalId__Domain": "mycompany.onmicrosoft.com",
+    "MicrosoftEntraExternalId__ClientId": "API_CLIENT_ID_FROM_STEP_3",
+    "MicrosoftEntraExternalId__SignUpSignInPolicyId": "susi"
   }
 }
 ```
@@ -280,7 +280,7 @@ These appear to be syntax errors in the code-behind files. You'll need to review
 The MSAL authentication implementation is **complete and ready**. Once you:
 
 1. Fix the pre-existing Blazor client errors
-2. Configure Azure AD B2C as described above
+2. Configure Microsoft Entra External ID as described above
 3. Update the configuration files with your tenant details
 
 You'll have a fully functional, enterprise-grade authentication system with:
@@ -307,7 +307,7 @@ dotnet run
 Then:
 1. Navigate to `https://localhost:5001`
 2. Click "Log in" in the top right
-3. You'll be redirected to Azure AD B2C
+3. You'll be redirected to Microsoft Entra External ID
 4. Sign up or sign in
 5. Redirected back to app, authenticated
 6. All API calls now include your token
@@ -318,11 +318,11 @@ Then:
 
 **Authentication setup: 100% complete**
 
-All MSAL configuration, components, and integrations are implemented. The system is ready for Azure AD B2C configuration and testing.
+All MSAL configuration, components, and integrations are implemented. The system is ready for Microsoft Entra External ID configuration and testing.
 
 The remaining work is:
 1. Fix pre-existing Blazor compilation errors (unrelated to auth)
-2. Set up Azure AD B2C tenant and register applications
+2. Set up Microsoft Entra External ID tenant and register applications
 3. Update configuration with real values
 4. Test end-to-end authentication flow
 

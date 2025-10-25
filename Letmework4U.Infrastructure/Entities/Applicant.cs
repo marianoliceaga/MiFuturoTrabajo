@@ -5,7 +5,7 @@ namespace Letmework4U.Infrastructure.Entities
     public class Applicant
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string UserId { get; set; } // Azure AD B2C User ID
+        public string UserId { get; set; } // Microsoft Entra External ID User ID
         public string Name { get; set; } = string.Empty;
         public string Lastname { get; set; } = string.Empty;
         public string CurrentJob { get; set; } = string.Empty;

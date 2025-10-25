@@ -14,7 +14,7 @@ namespace Letmework4U.Functions.Helpers
                 return null;
             }
 
-            // Azure AD B2C stores the user ID in different claim types
+            // Microsoft Entra External ID stores the user ID in different claim types
             // Try multiple claim types to ensure compatibility
             var userId = principal.Claims?.FirstOrDefault(c =>
                 c.Type == ClaimTypes.NameIdentifier ||
