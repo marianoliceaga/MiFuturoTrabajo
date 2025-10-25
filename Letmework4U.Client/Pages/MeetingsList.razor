@@ -82,12 +82,12 @@
 
         <div class="view-controls">
             <div class="view-toggle">
-                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode =list">
+                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "list"'>
                     <i class="bi bi-list-ul"></i> List
                 </button>
-                <button class="btn btn-sm @(viewMode == "timeline" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode = timeline">
+                <button class="btn btn-sm @(viewMode == "timeline" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "timeline"'>
                     <i class="bi bi-clock-history"></i> Timeline
                 </button>
             </div>
@@ -373,7 +373,7 @@
 
     private void FilterMeetings()
     {
-        filteredMeetings = meetings.AsEnumerable();
+        filteredMeetings = meetings.AsEnumerable().ToList();
 
         if (!string.IsNullOrEmpty(searchTerm))
         {
@@ -892,7 +892,12 @@
         padding: 60px 20px;
     }
 
-    .meeting-actions {
+    @@media (max-width: 768px) {
+        .meeting-card {
+            flex-direction: column;
+        }
+
+        .meeting-actions {
             flex-direction: row;
             justify-content: flex-end;
         }

@@ -82,12 +82,12 @@
 
         <div class="view-controls">
             <div class="view-toggle">
-                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode = 'list'">
+                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "list"'>
                     <i class="bi bi-list-ul"></i> List
                 </button>
-                <button class="btn btn-sm @(viewMode == "kanban" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode = kanban">
+                <button class="btn btn-sm @(viewMode == "kanban" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "kanban"'>
                     <i class="bi bi-kanban"></i> Board
                 </button>
             </div>
@@ -318,7 +318,7 @@
 
     private void FilterTasks()
     {
-        filteredTasks = tasks.AsEnumerable();
+        filteredTasks = tasks.AsEnumerable().ToList();
 
         if (!string.IsNullOrEmpty(searchTerm))
         {
@@ -760,7 +760,7 @@
         padding: 60px 20px;
     }
 
-    @media (max-width: 992px) {
+    @@media (max-width: 992px) {
         .tasks-kanban {
             grid-template-columns: 1fr;
         }

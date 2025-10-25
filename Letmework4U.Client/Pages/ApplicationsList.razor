@@ -96,12 +96,12 @@
 
         <div class="view-controls">
             <div class="view-toggle">
-                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode =list">
+                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "list"'>
                     <i class="bi bi-list-ul"></i> List
                 </button>
-                <button class="btn btn-sm @(viewMode == "grid" ? "btn-primary" : "btn-outline-secondary")" 
-                        @onclick="() => viewMode = grid">
+                <button class="btn btn-sm @(viewMode == "grid" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "grid"'>
                     <i class="bi bi-grid-3x3"></i> Grid
                 </button>
             </div>
@@ -304,7 +304,7 @@
 
     private void FilterApplications()
     {
-        filteredApplications = applications.AsEnumerable();
+        filteredApplications = applications.AsEnumerable().ToList();
 
         if (!string.IsNullOrEmpty(searchTerm))
         {
