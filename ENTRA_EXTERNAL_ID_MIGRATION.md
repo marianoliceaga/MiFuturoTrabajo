@@ -112,19 +112,28 @@ In your Azure Functions `local.settings.json`:
 
 ```json
 {
+  "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-    "CosmosDb:ConnectionString": "YOUR_COSMOS_CONNECTION_STRING",
-    "CosmosDb:DatabaseName": "Letmework4U",
-    "AzureCommunicationServices:ConnectionString": "YOUR_ACS_CONNECTION_STRING",
-    "AzureCommunicationServices:SenderEmail": "donotreply@YOUR_DOMAIN.com",
-    "EntraExternalId:TenantId": "YOUR_TENANT_ID",
-    "EntraExternalId:ClientId": "YOUR_API_CLIENT_ID",
-    "EntraExternalId:Audience": "api://YOUR_API_CLIENT_ID"
+    "CosmosDb__ConnectionString": "YOUR_COSMOS_DB_CONNECTION_STRING",
+    "CosmosDb__DatabaseName": "Letmework4U",
+    "MicrosoftEntraExternalId__Instance": "https://YOUR_TENANT.ciamlogin.com/",
+    "MicrosoftEntraExternalId__TenantId": "YOUR_TENANT_ID",
+    "MicrosoftEntraExternalId__ClientId": "YOUR_API_CLIENT_ID",
+    "MicrosoftEntraExternalId__Audience": "api://YOUR_API_CLIENT_ID",
+    "AzureCommunicationServices__ConnectionString": "YOUR_ACS_CONNECTION_STRING",
+    "AzureCommunicationServices__SenderAddress": "DoNotReply@YOUR_DOMAIN.com"
   }
 }
 ```
+
+**Important Notes:**
+- Use double underscores (`__`) in environment variables for nested configuration
+- The `Instance` should end with a trailing slash
+- `TenantId` is your External ID tenant's GUID
+- `ClientId` is the Application ID from your API app registration
+- `Audience` should match the Application ID URI (typically `api://YOUR_API_CLIENT_ID`)
 
 ## Benefits of Microsoft Entra External ID
 

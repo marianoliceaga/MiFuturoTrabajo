@@ -71,7 +71,7 @@ Letmework4U/
 ### Configuration
 
 #### 1. Azure Functions (Backend)
-
+ 
 Update `Letmework4U.Functions/local.settings.json`:
 
 ```json

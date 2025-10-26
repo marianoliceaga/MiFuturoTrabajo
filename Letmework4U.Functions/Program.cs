@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,18 @@ var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
     .ConfigureServices((context, services) =>
     {
+        // Configure Microsoft Entra External ID JWT Authentication
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddMicrosoftIdentityWebApi(options =>
+            {
+                context.Configuration.Bind("MicrosoftEntraExternalId", options);
+                options.TokenValidationParameters.NameClaimType = "name";
+            },
+            options =>
+            {
+                context.Configuration.Bind("MicrosoftEntraExternalId", options);
+            });
+
         // Configure Entity Framework Core with Cosmos DB
         services.AddDbContext<ApplicationDbContext>(options =>
         {
