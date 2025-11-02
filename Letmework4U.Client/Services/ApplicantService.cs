@@ -16,7 +16,7 @@ namespace Letmework4U.Client.Services
         public async Task<ApplicantDto> GetCurrentApplicantAsync()
         {
             // In a real app, get this from authentication
-            var id = "current-applicant-id"; 
+            var id = "current-applicant-id";
             return await _http.GetFromJsonAsync<ApplicantDto>($"Applicants/ApplicationGetById/{id}");
         }
 
@@ -33,7 +33,7 @@ namespace Letmework4U.Client.Services
             var content = new MultipartFormDataContent();
             var streamContent = new StreamContent(fileStream);
             content.Add(streamContent, "file", name);
-            
+
             var response = await _http.PostAsync("Applicants/UploadCV", content);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<CVVersionDto>();

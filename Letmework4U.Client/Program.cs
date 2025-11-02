@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
-using Microsoft.Authentication.WebAssembly.Msal;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Components.Authorization;
 using Letmework4U.Client;
 using Letmework4U.Client.Services;
 using Blazored.LocalStorage;
@@ -12,44 +10,43 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Add MSAL Authentication (Microsoft Entra External ID)
-builder.Services.AddMsalAuthentication(options =>
-{
-    builder.Configuration.Bind("MicrosoftEntraExternalId", options.ProviderOptions.Authentication);
+// Get environment and log for debugging
+var environment = builder.HostEnvironment.Environment;
+Console.WriteLine($"Running in environment: {environment}");
 
-    // Add API scopes for access tokens
-    var apiScopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>();
-    if (apiScopes != null)
-    {
-        foreach (var scope in apiScopes)
-        {
-            options.ProviderOptions.DefaultAccessTokenScopes.Add(scope);
-        }
-    }
-});
-
-// Configure HttpClient with authentication
-builder.Services.AddHttpClient("Letmework4U.API", client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/");
-})
-.AddHttpMessageHandler(sp =>
-{
-    var handler = sp.GetRequiredService<AuthorizationMessageHandler>()
-        .ConfigureHandler(
-            authorizedUrls: new[] { builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/" },
-            scopes: builder.Configuration.GetSection("ApiScopes").Get<string[]>() ?? Array.Empty<string>()
-        );
-    return handler;
-});
-
-// Register the authenticated HttpClient as the default
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>()
-    .CreateClient("Letmework4U.API"));
+// Configure API Base URL
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/";
+Console.WriteLine($"API Base URL: {apiBaseUrl}");
 
 // Add Blazored services
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddBlazoredToast();
+
+// Add Custom Authorization
+builder.Services.AddAuthorizationCore();
+
+// Register Custom Authentication State Provider
+builder.Services.AddScoped<CustomAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
+    provider.GetRequiredService<CustomAuthStateProvider>());
+
+// Register Authentication Service
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+
+// Register Authentication HTTP Message Handler
+builder.Services.AddScoped<AuthenticationHttpMessageHandler>();
+
+// Configure HttpClient with custom authentication handler
+builder.Services.AddHttpClient("Letmework4U.API", client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddHttpMessageHandler<AuthenticationHttpMessageHandler>();
+
+// Register the authenticated HttpClient as the default
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>()
+    .CreateClient("Letmework4U.API"));
 
 // Register services
 builder.Services.AddScoped<IApplicantService, ApplicantService>();

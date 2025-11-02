@@ -11,6 +11,7 @@ namespace Letmework4U.Infrastructure
         }
 
         // DbSets
+        public DbSet<User> Users { get; set; }
         public DbSet<Applicant> Applicants { get; set; }
         public DbSet<CVVersion> CVVersions { get; set; }
         public DbSet<JobReference> JobReferences { get; set; }
@@ -26,6 +27,23 @@ namespace Letmework4U.Infrastructure
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // User Configuration (for proprietary authentication)
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToContainer("Users");
+                entity.HasKey(e => e.Id);
+                entity.HasPartitionKey(e => e.Email); // Partition by email for efficient login queries
+
+                // Unique email constraint
+                entity.HasIndex(e => e.Email).IsUnique();
+
+                // One-to-one relationship with Applicant
+                entity.HasOne(e => e.Applicant)
+                    .WithOne()
+                    .HasForeignKey<User>(e => e.ApplicantId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
 
             // Applicant Configuration
             modelBuilder.Entity<Applicant>(entity =>

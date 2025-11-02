@@ -4,5 +4,16 @@
     "azureFunctions.projectLanguage": "C#",
     "azureFunctions.projectRuntime": "~4",
     "debug.internalConsoleOptions": "neverOpen",
-    "azureFunctions.preDeployTask": "publish (functions)"
+    "azureFunctions.preDeployTask": "publish (functions)",
+    "chat.mcp.serverSampling": {
+        "Letmework4U/.vscode/mcp.json: Azure MCP Server": {
+            "allowedModels": [
+                "copilot/gpt-5-mini",
+                "copilot/auto",
+                "copilot/claude-3.5-sonnet",
+                "copilot/gpt-4.1",
+                "copilot/gpt-4o"
+            ]
+        }
+    }
 }

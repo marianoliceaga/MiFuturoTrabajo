@@ -3,6 +3,40 @@
 ## Overview
 This guide covers the complete migration from repository pattern to EF Core direct access, Azure Functions backend implementation with Microsoft Entra External ID authentication, and Blazor client MSAL integration.
 
+## Recent Updates (2025-10-26)
+
+### Configuration Completed ✅
+**What was accomplished:**
+1. **Retrieved Azure resource values** using Azure CLI:
+   - Cosmos DB connection string from `letmework4udb` resource
+   - Azure subscription and tenant information
+   - Function App URL: `letmework4ufunctions.azurewebsites.net`
+
+2. **Updated local.settings.json** with real Azure values:
+   - Cosmos DB connection string and database name
+   - Microsoft Entra External ID tenant, client ID, and audience
+   - All Entra ID configuration values retrieved and set
+
+3. **Configured environment-specific settings**:
+   - Production: `appsettings.json` points to Azure Function App
+   - Development: `appsettings.Development.json` points to local Functions (localhost:7071)
+
+4. **Enhanced Program.cs** with:
+   - Environment detection and logging
+   - Automatic config file selection
+   - Improved HttpClient configuration with 30-second timeout
+   - Console logging for API URL and scopes debugging
+
+5. **Identified existing Azure resources**:
+   - Entra ID tenant: `letmework4u.ciamlogin.com`
+   - Cosmos DB: `letmework4udb` in `rgCap`
+   - Function App: `Letmework4UFunctions` in `rgSwitzerland`
+   - Storage Account: `letmework4ustorage` in `rgCap`
+
+### Still Needed ⚠️
+- Azure Communication Services resource (for email reminders)
+- Blob Storage container setup (for CV uploads)
+
 ## What Has Been Completed
 
 ### 1. Entity Models ✅
@@ -196,46 +230,104 @@ public async Task Run([TimerTrigger("0 0 8 * * *")] TimerInfo timer) // Daily at
 }
 ```
 
-### 9. Blazor Client - MSAL Authentication
+### 9. Blazor Client - MSAL Authentication ✅
 
-#### Update appsettings.json
-**File:** `Letmework4U.Client/wwwroot/appsettings.json`
+#### Configuration Files - COMPLETED
+**Files:**
+- `Letmework4U.Client/wwwroot/appsettings.json` (Production)
+- `Letmework4U.Client/wwwroot/appsettings.Development.json` (Local Development)
 
+**Production (appsettings.json):**
 ```json
 {
   "MicrosoftEntraExternalId": {
-    "Authority": "https://YOUR_TENANT.ciamlogin.com/YOUR_TENANT.onmicrosoft.com/susi",
-    "ClientId": "YOUR_CLIENT_ID",
+    "Authority": "https://letmework4u.ciamlogin.com/letmework4u.onmicrosoft.com",
+    "ClientId": "37b37fa2-c0c4-4766-8bc7-1478524d359d",
     "ValidateAuthority": false
   },
-  "ApiBaseUrl": "http://localhost:7071/api/"
+  "ApiBaseUrl": "https://letmework4ufunctions.azurewebsites.net/api/",
+  "ApiScopes": [
+    "api://f0788507-bdab-4aa8-bf96-857dda053319/user_impersonation"
+  ]
 }
 ```
 
-#### Update Program.cs
+**Development (appsettings.Development.json):**
+```json
+{
+  "MicrosoftEntraExternalId": {
+    "Authority": "https://letmework4u.ciamlogin.com/letmework4u.onmicrosoft.com",
+    "ClientId": "37b37fa2-c0c4-4766-8bc7-1478524d359d",
+    "ValidateAuthority": false
+  },
+  "ApiBaseUrl": "http://localhost:7071/api/",
+  "ApiScopes": [
+    "api://f0788507-bdab-4aa8-bf96-857dda053319/user_impersonation"
+  ]
+}
+```
+
+#### Program.cs - COMPLETED ✅
 **File:** `Letmework4U.Client/Program.cs`
 
-Add these services:
+Implementation includes:
 
 ```csharp
 using Microsoft.Authentication.WebAssembly.Msal;
+
+// Environment detection and logging
+var environment = builder.HostEnvironment.Environment;
+Console.WriteLine($"Running in environment: {environment}");
 
 // Add MSAL authentication
 builder.Services.AddMsalAuthentication(options =>
 {
     builder.Configuration.Bind("MicrosoftEntraExternalId", options.ProviderOptions.Authentication);
-    options.ProviderOptions.DefaultAccessTokenScopes.Add("https://YOUR_TENANT.onmicrosoft.com/api/user_impersonation");
+
+    // Add API scopes for access tokens
+    var apiScopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>();
+    if (apiScopes != null)
+    {
+        foreach (var scope in apiScopes)
+        {
+            options.ProviderOptions.DefaultAccessTokenScopes.Add(scope);
+        }
+    }
 });
 
-// Update HttpClient to include authentication
-builder.Services.AddHttpClient("AuthenticatedAPI", client =>
+// Configure HttpClient with authentication and environment-specific base URL
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/";
+var apiScopes = builder.Configuration.GetSection("ApiScopes").Get<string[]>() ?? [];
+
+Console.WriteLine($"API Base URL: {apiBaseUrl}");
+Console.WriteLine($"API Scopes: {string.Join(", ", apiScopes)}");
+
+builder.Services.AddHttpClient("Letmework4U.API", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/");
-}).AddHttpMessageHandler<BaseAddressAuthorizationMessageHandler>();
+    client.BaseAddress = new Uri(apiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddHttpMessageHandler(sp =>
+{
+    var handler = sp.GetRequiredService<AuthorizationMessageHandler>()
+        .ConfigureHandler(
+            authorizedUrls: new[] { apiBaseUrl },
+            scopes: apiScopes
+        );
+    return handler;
+});
 
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>()
-    .CreateClient("AuthenticatedAPI"));
+    .CreateClient("Letmework4U.API"));
 ```
+
+**Key Features:**
+- ✅ Environment detection (Development/Production)
+- ✅ Automatic config file selection based on environment
+- ✅ Console logging for debugging configuration
+- ✅ 30-second HTTP timeout
+- ✅ Proper scope configuration from appsettings
+- ✅ Authenticated HttpClient with automatic token attachment
 
 #### Update App.razor
 Add authentication routes:
@@ -300,10 +392,12 @@ Add to MainLayout or NavMenu:
 }
 ```
 
-### 10. Configuration Files
+### 10. Configuration Files ✅
 
-#### Azure Functions - local.settings.json
-Already created with placeholders. Update with actual values:
+#### Azure Functions - local.settings.json - COMPLETED
+**File:** `Letmework4U.Functions/local.settings.json`
+
+**Current Configuration (Retrieved from Azure):**
 
 ```json
 {
@@ -311,45 +405,78 @@ Already created with placeholders. Update with actual values:
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-    "CosmosDb__ConnectionString": "AccountEndpoint=https://YOUR_ACCOUNT.documents.azure.com:443/;AccountKey=YOUR_KEY;",
-    "CosmosDb__DatabaseName": "Letmework4U",
-    "MicrosoftEntraExternalId__Instance": "https://YOUR_TENANT.ciamlogin.com",
-    "MicrosoftEntraExternalId__Domain": "YOUR_TENANT.onmicrosoft.com",
-    "MicrosoftEntraExternalId__ClientId": "YOUR_API_CLIENT_ID",
-    "MicrosoftEntraExternalId__SignUpSignInPolicyId": "susi",
-    "AzureCommunicationServices__ConnectionString": "endpoint=https://YOUR_ACS.communication.azure.com/;accesskey=YOUR_KEY",
-    "AzureCommunicationServices__SenderAddress": "DoNotReply@YOUR_VERIFIED_DOMAIN.com",
-    "BlobStorage__ConnectionString": "DefaultEndpointsProtocol=https;AccountName=YOUR_STORAGE;AccountKey=YOUR_KEY;EndpointSuffix=core.windows.net",
-    "BlobStorage__ContainerName": "cvs"
+    "CosmosDb__ConnectionString": "AccountEndpoint=https://letmework4udb.documents.azure.com:443/;AccountKey=***;",
+    "CosmosDb__DatabaseName": "letmework4UCosmos",
+    "MicrosoftEntraExternalId__Instance": "https://letmework4u.ciamlogin.com/",
+    "MicrosoftEntraExternalId__TenantId": "6ef4c7b2-8fee-4a0a-bfc6-4dcaaacc92ef",
+    "MicrosoftEntraExternalId__ClientId": "f0788507-bdab-4aa8-bf96-857dda053319",
+    "MicrosoftEntraExternalId__Audience": "api://f0788507-bdab-4aa8-bf96-857dda053319",
+    "AzureCommunicationServices__ConnectionString": "YOUR_ACS_CONNECTION_STRING",
+    "AzureCommunicationServices__SenderAddress": "DoNotReply@YOUR_DOMAIN.com"
   }
 }
 ```
 
+**Configuration Status:**
+- ✅ Cosmos DB Connection String - Retrieved from Azure resource `letmework4udb` in `rgCap`
+- ✅ Cosmos DB Database Name - Set to `letmework4UCosmos`
+- ✅ Entra ID Instance - Set to `https://letmework4u.ciamlogin.com/`
+- ✅ Entra ID Tenant ID - Retrieved from Azure subscription
+- ✅ Entra ID Client ID - API app registration ID
+- ✅ Entra ID Audience - API scope
+- ⚠️ Azure Communication Services - Not yet configured (resource needs to be created)
+
+**Note:** Azure Communication Services resource needs to be created for email reminders to work.
+
 ## Azure Setup Requirements
 
-### 1. Microsoft Entra External ID Tenant
-1. Create Microsoft Entra External ID tenant
-2. Register application for Blazor client (SPA)
-3. Register application for API (Azure Functions)
-4. Create user flows: Sign up and sign in (susi)
-5. Expose API scope: `user_impersonation`
-6. Grant Blazor app permission to API scope
+### 1. Microsoft Entra External ID Tenant ✅
+- ✅ Created Microsoft Entra External ID tenant: `letmework4u.ciamlogin.com`
+- ✅ Registered application for Blazor client (SPA): Client ID `37b37fa2-c0c4-4766-8bc7-1478524d359d`
+- ✅ Registered application for API (Azure Functions): Client ID `f0788507-bdab-4aa8-bf96-857dda053319`
+- ✅ User flows configured: Sign up and sign in
+- ✅ API scope exposed: `api://f0788507-bdab-4aa8-bf96-857dda053319/user_impersonation`
+- ✅ Blazor app granted permission to API scope
 
-### 2. Azure Cosmos DB
-1. Create Cosmos DB account (SQL API)
-2. Create database: `Letmework4U`
-3. Containers will be auto-created by EF Core based on `ApplicationDbContext` configuration
+**Tenant Information:**
+- **Authority**: `https://letmework4u.ciamlogin.com/letmework4u.onmicrosoft.com`
+- **Tenant ID**: `6ef4c7b2-8fee-4a0a-bfc6-4dcaaacc92ef`
+- **Subscription**: Azure subscription 1 (ID: `c3b5812f-459b-4ce1-8677-c9b117764039`)
 
-### 3. Azure Communication Services
-1. Create ACS resource
+### 2. Azure Cosmos DB ✅
+- ✅ Created Cosmos DB account (SQL API): `letmework4udb`
+- ✅ Resource Group: `rgCap`
+- ✅ Endpoint: `https://letmework4udb.documents.azure.com:443/`
+- ✅ Database: `letmework4UCosmos`
+- ✅ Containers auto-created by EF Core based on `ApplicationDbContext` configuration
+
+### 3. Azure Communication Services ⚠️
+**Status:** NOT YET CREATED - Required for email reminders
+
+**To Complete:**
+1. Create ACS resource in Azure Portal
 2. Get connection string
 3. Add verified email domain or use Azure Managed Domain
 4. Configure sender address
+5. Update `local.settings.json` with connection string and sender address
 
-### 4. Azure Blob Storage (for CV uploads)
-1. Create storage account
-2. Create container: `cvs`
-3. Set public access level or use SAS tokens
+### 4. Azure Functions ✅
+- ✅ Function App Created: `Letmework4UFunctions`
+- ✅ Resource Group: `rgSwitzerland`
+- ✅ URL: `https://letmework4ufunctions.azurewebsites.net`
+- ✅ Status: Running
+
+### 5. Azure Blob Storage (for CV uploads) 📋
+**Status:** PLANNED - Storage account exists but not yet integrated
+
+**Existing Resource:**
+- Storage Account: `letmework4ustorage` (in `rgCap`)
+
+**To Complete:**
+1. Create container: `cvs`
+2. Set public access level or use SAS tokens
+3. Update `local.settings.json` with Blob Storage connection string
+4. Implement CV upload functionality in ApplicantFunctions
 
 ## Running the Application
 
