@@ -71,6 +71,33 @@ namespace Letmework4U.Client.Services
             }
         }
 
+        public async Task<AuthResponse?> OAuthLoginAsync(OAuthLoginRequest request)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync("auth/oauth-login", request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+                    if (authResponse != null)
+                    {
+                        await _authStateProvider.MarkUserAsAuthenticated(
+                            authResponse.AccessToken,
+                            authResponse.RefreshToken);
+                        return authResponse;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"OAuth login error: {ex.Message}");
+                return null;
+            }
+        }
+
         public async Task LogoutAsync()
         {
             await _authStateProvider.MarkUserAsLoggedOut();

@@ -26,6 +26,53 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Microsoft MSAL.js -->
+    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+
+    <!-- OAuth Helper Scripts -->
+    <script>
+        // Microsoft MSAL Configuration
+        const msalConfig = {
+            auth: {
+                clientId: '017e3aea-92a7-4724-94ed-fae35fba5131',
+                authority: 'https://login.microsoftonline.com/common',
+                redirectUri: window.location.origin + '/login-callback'
+            }
+        };
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        // Initialize MSAL
+        msalInstance.initialize().then(() => {
+            console.log('MSAL initialized');
+        });
+
+        // Microsoft Login Function
+        window.loginWithMicrosoft = async function() {
+            try {
+                const loginResponse = await msalInstance.loginPopup({
+                    scopes: ['openid', 'profile', 'email', 'User.Read']
+                });
+
+                return loginResponse.idToken;
+            } catch (error) {
+                console.error('Microsoft login error:', error);
+                throw error;
+            }
+        };
+
+        // Google Login Callback Handler
+        window.handleGoogleCredentialResponse = function(response) {
+            if (window.blazorGoogleCallback) {
+                window.blazorGoogleCallback.invokeMethodAsync('HandleGoogleCredential', response.credential);
+            }
+        };
+    </script>
+
     <script src="_content/Microsoft.Authentication.WebAssembly.Msal/AuthenticationService.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>

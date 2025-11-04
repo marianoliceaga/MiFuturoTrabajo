@@ -6,6 +6,7 @@ namespace Letmework4U.Client.Services
     {
         Task<AuthResponse?> RegisterAsync(RegisterRequest request);
         Task<AuthResponse?> LoginAsync(LoginRequest request);
+        Task<AuthResponse?> OAuthLoginAsync(OAuthLoginRequest request);
         Task LogoutAsync();
         Task<AuthResponse?> RefreshTokenAsync();
         Task<UserDto?> GetCurrentUserAsync();

@@ -1,23 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)",
-      "Bash(dotnet new:*)",
-      "Bash(dotnet sln:*)",
-      "Bash(dotnet build:*)",
-      "Bash(az resource list:*)",
-      "Bash(az cosmosdb list:*)",
-      "Bash(az communication list:*)",
-      "Bash(az functionapp list:*)",
-      "Bash(az cosmosdb keys list:*)",
-      "Bash(az webapp list:*)",
-      "Bash(az functionapp show:*)",
-      "Bash(az ad app list:*)",
-      "Bash(chmod:*)",
-      "Bash(dotnet list:*)",
-      "Bash(dotnet add package:*)",
-      "Bash(dotnet add:*)",
-      "Bash(dotnet remove package:*)"
+      "Bash(Select-Object FullName)",
+      "Bash(dotnet restore:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

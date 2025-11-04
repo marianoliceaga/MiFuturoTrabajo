@@ -15,8 +15,9 @@ namespace Letmework4U.Infrastructure.Entities
 
         /// <summary>
         /// Hashed password (using BCrypt or ASP.NET Core Identity hasher)
+        /// Nullable for OAuth-only users who don't have a password
         /// </summary>
-        public string PasswordHash { get; set; } = string.Empty;
+        public string? PasswordHash { get; set; }
 
         /// <summary>
         /// User's first name
@@ -97,5 +98,21 @@ namespace Letmework4U.Infrastructure.Entities
         /// Navigation property to Applicant
         /// </summary>
         public Applicant? Applicant { get; set; }
+
+        /// <summary>
+        /// OAuth provider used for authentication (null for email/password users)
+        /// Possible values: "Google", "Microsoft"
+        /// </summary>
+        public string? OAuthProvider { get; set; }
+
+        /// <summary>
+        /// User's unique ID from the OAuth provider
+        /// </summary>
+        public string? OAuthProviderId { get; set; }
+
+        /// <summary>
+        /// Profile picture URL from OAuth provider
+        /// </summary>
+        public string? ProfilePictureUrl { get; set; }
     }
 }

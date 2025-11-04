@@ -15,7 +15,7 @@ var environment = builder.HostEnvironment.Environment;
 Console.WriteLine($"Running in environment: {environment}");
 
 // Configure API Base URL
-var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7071/api/";
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7070/api/";
 Console.WriteLine($"API Base URL: {apiBaseUrl}");
 
 // Add Blazored services
@@ -34,7 +34,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 // Register Authentication HTTP Message Handler
-builder.Services.AddScoped<AuthenticationHttpMessageHandler>();
+builder.Services.AddTransient<AuthenticationHttpMessageHandler>();
 
 // Configure HttpClient with custom authentication handler
 builder.Services.AddHttpClient("Letmework4U.API", client =>

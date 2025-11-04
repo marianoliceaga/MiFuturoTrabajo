@@ -89,4 +89,36 @@ namespace Letmework4U.Shared.Models
         public DateTime? LastLoginAt { get; set; }
         public string? ApplicantId { get; set; }
     }
+
+    /// <summary>
+    /// OAuth provider types
+    /// </summary>
+    public enum OAuthProvider
+    {
+        Google = 1,
+        Microsoft = 2
+    }
+
+    /// <summary>
+    /// Request DTO for OAuth login
+    /// </summary>
+    public class OAuthLoginRequest
+    {
+        public OAuthProvider Provider { get; set; }
+        public string IdToken { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Internal DTO for OAuth user information after validation
+    /// </summary>
+    public class OAuthUserInfo
+    {
+        public string Email { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string? ProfilePictureUrl { get; set; }
+        public string ProviderId { get; set; } = string.Empty; // User's ID from the OAuth provider
+        public OAuthProvider Provider { get; set; }
+        public bool EmailVerified { get; set; } = true; // OAuth providers verify emails
+    }
 }
