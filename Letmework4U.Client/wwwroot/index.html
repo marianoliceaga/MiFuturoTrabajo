@@ -65,6 +65,11 @@
             }
         };
 
+        // Set Google Callback Reference
+        window.setGoogleCallback = function(dotnetHelper) {
+            window.blazorGoogleCallback = dotnetHelper;
+        };
+
         // Google Login Callback Handler
         window.handleGoogleCredentialResponse = function(response) {
             if (window.blazorGoogleCallback) {
@@ -73,7 +78,6 @@
         };
     </script>
 
-    <script src="_content/Microsoft.Authentication.WebAssembly.Msal/AuthenticationService.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

@@ -2,10 +2,37 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Attach to .NET Functions",
+            "name": "Launch Blazor WebAssembly",
+            "type": "blazorwasm",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/Letmework4U.Client",
+            "url": "http://localhost:5001"
+        },
+        {
+            "name": "Launch API",
             "type": "coreclr",
-            "request": "attach",
-            "processId": "${command:azureFunctions.pickProcess}"
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/Letmework4U.Api/bin/Debug/net8.0/Letmework4U.Api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Letmework4U.Api",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Launch Blazor WebAssembly + API",
+            "configurations": [
+                "Launch API",
+                "Launch Blazor WebAssembly"
+            ],
+            "stopAll": true
         }
     ]
 }

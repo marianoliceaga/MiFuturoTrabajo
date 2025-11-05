@@ -130,7 +130,8 @@
         if (firstRender)
         {
             objRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("eval", "window.blazorGoogleCallback = arguments[0];", objRef);
+            // Set up the global callback for Google Sign-In
+            await JSRuntime.InvokeVoidAsync("setGoogleCallback", objRef);
         }
     }
 

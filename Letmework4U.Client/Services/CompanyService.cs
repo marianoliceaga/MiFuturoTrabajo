@@ -36,11 +36,24 @@ namespace Letmework4U.Client.Services
             return await response.Content.ReadFromJsonAsync<CompanyDto>();
         }
 
+        public async Task DeleteAsync(string id)
+        {
+            await _http.DeleteAsync($"Companies/{id}");
+        }
+
         public async Task<List<CompanyDto>> SearchAsync(string searchTerm)
         {
-            var all = await GetAllAsync();
-            return all.Where(c => c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-                     .ToList();
+            try
+            {
+                var all = await GetAllAsync();
+                return all.Where(c => c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                         .ToList();
+            }
+            catch (Exception)
+            {
+                // Return empty list on error to prevent UI crash
+                return new List<CompanyDto>();
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Letmework4U.Infrastructure;
 using Letmework4U.Api.Services;
+using Letmework4U.Client.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,15 +70,27 @@ builder.Services.AddSingleton<IEmailService>(provider =>
 // builder.Services.AddHostedService<InterviewReminderHostedService>();
 
 // Configure CORS for Blazor Client
-var blazorClientUrl = builder.Configuration["BlazorClient:Url"] ?? "https://localhost:5001";
+var blazorClientUrl = builder.Configuration["BlazorClient:Url"] ?? "https://localhost:5011";
 builder.Services.AddCors(options =>
 {
+    // Production policy - only allow specific origins
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        policy.WithOrigins(blazorClientUrl)
+        policy.WithOrigins(
+                "http://localhost:5001",
+                "https://localhost:5011",
+                blazorClientUrl)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
+    });
+
+    // Development policy - allow any origin (for Postman, Swagger, etc.)
+    options.AddPolicy("AllowDevelopment", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
@@ -88,6 +101,13 @@ builder.Services.AddControllers()
 // Add API Explorer for Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "https://localhost:5011";
+builder.Services.AddHttpClient("Letmework4U.Api", client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+}).AddHttpMessageHandler<AuthenticationHttpMessageHandler>();
 
 var app = builder.Build();
 
@@ -100,13 +120,37 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Enable CORS
-app.UseCors("AllowBlazorClient");
+// Enable CORS - use permissive policy in Development, restrictive in Production
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowDevelopment");
+}
+else
+{
+    app.UseCors("AllowBlazorClient");
+}
 
 // Enable authentication and authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Ensure Cosmos DB database is created (Development only)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        // This creates the database if it doesn't exist
+        await dbContext.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Cosmos DB database and containers ensured to exist.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error ensuring Cosmos DB database exists. Make sure the Cosmos DB Emulator is running.");
+    }
+}
 
 app.Run();

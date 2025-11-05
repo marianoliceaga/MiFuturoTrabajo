@@ -3,7 +3,8 @@
     "allow": [
       "Bash(Select-Object FullName)",
       "Bash(dotnet restore:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []

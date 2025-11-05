@@ -1,0 +1,411 @@
+@page "/recruiters"
+@using Letmework4U.Shared.Models
+@using Letmework4U.Client.Services
+@using Microsoft.JSInterop
+@inject IRecruiterService RecruiterService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="recruiters-container">
+    <div class="recruiters-header">
+        <h2>Recruiters</h2>
+        <button class="btn btn-primary" @onclick="ShowAddRecruiterModal">
+            <i class="bi bi-plus"></i> Add Recruiter
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">Loading recruiters...</div>
+    }
+    else if (recruiters.Any())
+    {
+        <div class="recruiters-grid">
+            @foreach (var recruiter in recruiters)
+            {
+                <div class="recruiter-card">
+                    <div class="recruiter-header">
+                        <div class="recruiter-name">
+                            <h5>@recruiter.Name @recruiter.Lastname</h5>
+                            @if (recruiter.IsFromConsultancy)
+                            {
+                                <span class="badge bg-info">Consultancy</span>
+                            }
+                        </div>
+                        <div class="recruiter-actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditRecruiterModal(recruiter)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRecruiter(recruiter.Id)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(recruiter.CompanyName))
+                    {
+                        <p class="company-name">
+                            <i class="bi bi-building"></i> @recruiter.CompanyName
+                        </p>
+                    }
+
+                    <div class="contact-info">
+                        @if (!string.IsNullOrEmpty(recruiter.ContactEmail))
+                        {
+                            <p>
+                                <i class="bi bi-envelope"></i>
+                                <a href="mailto:@recruiter.ContactEmail">@recruiter.ContactEmail</a>
+                            </p>
+                        }
+                        @if (!string.IsNullOrEmpty(recruiter.Cellphone))
+                        {
+                            <p>
+                                <i class="bi bi-phone"></i>
+                                <a href="tel:@recruiter.Cellphone">@recruiter.Cellphone</a>
+                            </p>
+                        }
+                        @if (!string.IsNullOrEmpty(recruiter.Landline))
+                        {
+                            <p>
+                                <i class="bi bi-telephone"></i>
+                                <a href="tel:@recruiter.Landline">@recruiter.Landline</a>
+                            </p>
+                        }
+                        @if (!string.IsNullOrEmpty(recruiter.LinkedInUrl))
+                        {
+                            <p>
+                                <i class="bi bi-linkedin"></i>
+                                <a href="@recruiter.LinkedInUrl" target="_blank">LinkedIn Profile</a>
+                            </p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <h4>No Recruiters Yet</h4>
+            <p>Start by adding recruiters you've been in contact with.</p>
+            <button class="btn btn-primary" @onclick="ShowAddRecruiterModal">
+                <i class="bi bi-plus"></i> Add Your First Recruiter
+            </button>
+        </div>
+    }
+</div>
+
+@if (showRecruiterModal)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Recruiter" : "Add Recruiter")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseRecruiterModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" class="form-control" @bind="currentRecruiter.Name" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" @bind="currentRecruiter.Lastname" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="currentRecruiter.ContactEmail" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cellphone</label>
+                            <input type="tel" class="form-control" @bind="currentRecruiter.Cellphone" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Landline</label>
+                            <input type="tel" class="form-control" @bind="currentRecruiter.Landline" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">LinkedIn URL</label>
+                            <input type="url" class="form-control" @bind="currentRecruiter.LinkedInUrl" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Company Name</label>
+                            <input type="text" class="form-control" @bind="currentRecruiter.CompanyName" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="isConsultancy" @bind="currentRecruiter.IsFromConsultancy" />
+                                <label class="form-check-label" for="isConsultancy">
+                                    From Consultancy
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRecruiterModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveRecruiter" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        @(isEditMode ? "Update" : "Add") Recruiter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RecruiterDto> recruiters = new();
+    private bool isLoading = true;
+    private bool showRecruiterModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private RecruiterDto currentRecruiter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecruiters();
+    }
+
+    private async Task LoadRecruiters()
+    {
+        isLoading = true;
+        try
+        {
+            recruiters = await RecruiterService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading recruiters: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddRecruiterModal()
+    {
+        currentRecruiter = new RecruiterDto { Id = Guid.NewGuid().ToString() };
+        isEditMode = false;
+        showRecruiterModal = true;
+    }
+
+    private void ShowEditRecruiterModal(RecruiterDto recruiter)
+    {
+        currentRecruiter = new RecruiterDto
+        {
+            Id = recruiter.Id,
+            Name = recruiter.Name,
+            Lastname = recruiter.Lastname,
+            ContactEmail = recruiter.ContactEmail,
+            Cellphone = recruiter.Cellphone,
+            Landline = recruiter.Landline,
+            LinkedInUrl = recruiter.LinkedInUrl,
+            IsFromConsultancy = recruiter.IsFromConsultancy,
+            CompanyName = recruiter.CompanyName
+        };
+        isEditMode = true;
+        showRecruiterModal = true;
+    }
+
+    private void CloseRecruiterModal()
+    {
+        showRecruiterModal = false;
+        currentRecruiter = new();
+    }
+
+    private async Task SaveRecruiter()
+    {
+        if (string.IsNullOrWhiteSpace(currentRecruiter.Name) || string.IsNullOrWhiteSpace(currentRecruiter.Lastname))
+        {
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            if (isEditMode)
+            {
+                var updated = await RecruiterService.UpdateAsync(currentRecruiter.Id, currentRecruiter);
+                var index = recruiters.FindIndex(r => r.Id == currentRecruiter.Id);
+                if (index >= 0)
+                {
+                    recruiters[index] = updated;
+                }
+            }
+            else
+            {
+                var created = await RecruiterService.CreateAsync(currentRecruiter);
+                recruiters.Add(created);
+            }
+            CloseRecruiterModal();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving recruiter: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRecruiter(string id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this recruiter?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await RecruiterService.DeleteAsync(id);
+            recruiters.RemoveAll(r => r.Id == id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting recruiter: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .recruiters-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .recruiters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .recruiters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .recruiter-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+
+    .recruiter-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .recruiter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 12px;
+    }
+
+    .recruiter-name {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .recruiter-name h5 {
+        margin: 0;
+        font-size: 18px;
+        color: #212529;
+    }
+
+    .recruiter-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .company-name {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 12px;
+    }
+
+    .contact-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 14px;
+    }
+
+    .contact-info p {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .contact-info a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+
+    .contact-info a:hover {
+        text-decoration: underline;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .empty-state h4 {
+        color: #495057;
+        margin-bottom: 12px;
+    }
+
+    .empty-state p {
+        color: #6c757d;
+        margin-bottom: 24px;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+</style>

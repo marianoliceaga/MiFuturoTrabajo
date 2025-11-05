@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Letmework4U.Client\Letmework4U.Client.csproj" />
     <ProjectReference Include="..\Letmework4U.Infrastructure\Letmework4U.Infrastructure.csproj" />
     <ProjectReference Include="..\Letmework4U.Shared\Letmework4U.Shared.csproj" />
   </ItemGroup>

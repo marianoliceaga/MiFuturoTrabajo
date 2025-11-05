@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "Letmework4U.Functions": {
-      "commandName": "Project",
-      "commandLineArgs": "--port 7194",
-      "launchBrowser": false
-    }
-  }
-}

@@ -1,0 +1,398 @@
+@page "/cv-versions"
+@using Letmework4U.Shared.Models
+@using Letmework4U.Client.Services
+@using Microsoft.JSInterop
+@inject ICVVersionService CVVersionService
+@inject IJSRuntime JSRuntime
+
+<div class="cv-container">
+    <div class="cv-header">
+        <h2>My CV Versions</h2>
+        <button class="btn btn-primary" @onclick="ShowAddCVModal">
+            <i class="bi bi-plus"></i> Add CV Version
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">Loading CV versions...</div>
+    }
+    else if (cvVersions.Any())
+    {
+        <div class="cv-list">
+            @foreach (var cv in cvVersions)
+            {
+                <div class="cv-card @(cv.IsDefault ? "default-cv" : "")">
+                    <div class="cv-main">
+                        <div class="cv-info">
+                            <div class="cv-title">
+                                <h5>@cv.Name</h5>
+                                @if (cv.IsDefault)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-star-fill"></i> Default
+                                    </span>
+                                }
+                            </div>
+                            <p class="cv-date">
+                                <i class="bi bi-calendar"></i> Uploaded: @cv.UploadedDate.ToString("MMM dd, yyyy")
+                            </p>
+                            <p class="cv-url">
+                                <i class="bi bi-link-45deg"></i>
+                                <a href="@cv.FileUrl" target="_blank">@cv.FileUrl</a>
+                            </p>
+                        </div>
+                        <div class="cv-actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadCV(cv.FileUrl)" title="Download">
+                                <i class="bi bi-download"></i>
+                            </button>
+                            @if (!cv.IsDefault)
+                            {
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => SetAsDefault(cv.Id)" title="Set as Default">
+                                    <i class="bi bi-star"></i>
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditCVModal(cv)" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCV(cv.Id)" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-file-earmark-text"></i>
+            <h4>No CV Versions</h4>
+            <p>Upload your first CV to get started with job applications.</p>
+            <button class="btn btn-primary" @onclick="ShowAddCVModal">
+                <i class="bi bi-plus"></i> Upload Your First CV
+            </button>
+        </div>
+    }
+</div>
+
+@if (showCVModal)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit CV Version" : "Add CV Version")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCVModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">CV Name *</label>
+                        <input type="text" class="form-control" @bind="currentCV.Name" placeholder="e.g., Software Developer CV - 2025" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File URL *</label>
+                        <input type="url" class="form-control" @bind="currentCV.FileUrl" placeholder="https://..." />
+                        <small class="form-text text-muted">Enter the URL where your CV is stored (e.g., OneDrive, Google Drive, Dropbox)</small>
+                    </div>
+                    @if (!isEditMode)
+                    {
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="setAsDefault" @bind="currentCV.IsDefault" />
+                                <label class="form-check-label" for="setAsDefault">
+                                    Set as default CV
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseCVModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveCV" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        @(isEditMode ? "Update" : "Add") CV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CVVersionDto> cvVersions = new();
+    private bool isLoading = true;
+    private bool showCVModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private CVVersionDto currentCV = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCVVersions();
+    }
+
+    private async Task LoadCVVersions()
+    {
+        isLoading = true;
+        try
+        {
+            cvVersions = await CVVersionService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading CV versions: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddCVModal()
+    {
+        currentCV = new CVVersionDto
+        {
+            Id = Guid.NewGuid().ToString(),
+            UploadedDate = DateTime.UtcNow,
+            IsDefault = !cvVersions.Any() // First CV is default
+        };
+        isEditMode = false;
+        showCVModal = true;
+    }
+
+    private void ShowEditCVModal(CVVersionDto cv)
+    {
+        currentCV = new CVVersionDto
+        {
+            Id = cv.Id,
+            Name = cv.Name,
+            FileUrl = cv.FileUrl,
+            UploadedDate = cv.UploadedDate,
+            IsDefault = cv.IsDefault
+        };
+        isEditMode = true;
+        showCVModal = true;
+    }
+
+    private void CloseCVModal()
+    {
+        showCVModal = false;
+        currentCV = new();
+    }
+
+    private async Task SaveCV()
+    {
+        if (string.IsNullOrWhiteSpace(currentCV.Name) || string.IsNullOrWhiteSpace(currentCV.FileUrl))
+        {
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            if (isEditMode)
+            {
+                var updated = await CVVersionService.UpdateAsync(currentCV.Id, currentCV);
+                var index = cvVersions.FindIndex(cv => cv.Id == currentCV.Id);
+                if (index >= 0)
+                {
+                    cvVersions[index] = updated;
+                }
+            }
+            else
+            {
+                var created = await CVVersionService.CreateAsync(currentCV);
+                cvVersions.Insert(0, created); // Add to top
+            }
+            CloseCVModal();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving CV: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SetAsDefault(string id)
+    {
+        try
+        {
+            var updated = await CVVersionService.SetDefaultAsync(id);
+
+            // Update local list
+            foreach (var cv in cvVersions)
+            {
+                cv.IsDefault = cv.Id == id;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error setting default CV: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteCV(string id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this CV version?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await CVVersionService.DeleteAsync(id);
+            cvVersions.RemoveAll(cv => cv.Id == id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting CV: {ex.Message}");
+        }
+    }
+
+    private void DownloadCV(string fileUrl)
+    {
+        // Open in new tab for download
+        JSRuntime.InvokeVoidAsync("open", fileUrl, "_blank");
+    }
+}
+
+<style>
+    .cv-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .cv-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .cv-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .cv-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .cv-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .cv-card.default-cv {
+        border-color: #198754;
+        background: linear-gradient(to right, #f8fffe 0%, white 100%);
+    }
+
+    .cv-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .cv-info {
+        flex: 1;
+    }
+
+    .cv-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .cv-title h5 {
+        margin: 0;
+        font-size: 18px;
+        color: #212529;
+    }
+
+    .cv-date,
+    .cv-url {
+        margin: 4px 0;
+        font-size: 14px;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .cv-url a {
+        color: #0d6efd;
+        text-decoration: none;
+        word-break: break-all;
+    }
+
+    .cv-url a:hover {
+        text-decoration: underline;
+    }
+
+    .cv-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-left: 20px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .empty-state h4 {
+        color: #495057;
+        margin-bottom: 12px;
+    }
+
+    .empty-state p {
+        color: #6c757d;
+        margin-bottom: 24px;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+</style>

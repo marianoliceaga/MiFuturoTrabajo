@@ -51,6 +51,7 @@ namespace Letmework4U.Client.Services
         Task<CompanyDto> GetByIdAsync(string id);
         Task<CompanyDto> CreateAsync(CompanyDto company);
         Task<CompanyDto> UpdateAsync(string id, CompanyDto company);
+        Task DeleteAsync(string id);
         Task<List<CompanyDto>> SearchAsync(string searchTerm);
     }
 
@@ -60,6 +61,16 @@ namespace Letmework4U.Client.Services
         Task<RecruiterDto> GetByIdAsync(string id);
         Task<RecruiterDto> CreateAsync(RecruiterDto recruiter);
         Task<RecruiterDto> UpdateAsync(string id, RecruiterDto recruiter);
+        Task DeleteAsync(string id);
+    }
+
+    public interface ICVVersionService
+    {
+        Task<List<CVVersionDto>> GetAllAsync();
+        Task<CVVersionDto> GetByIdAsync(string id);
+        Task<CVVersionDto> CreateAsync(CVVersionDto cvVersion);
+        Task<CVVersionDto> UpdateAsync(string id, CVVersionDto cvVersion);
+        Task<CVVersionDto> SetDefaultAsync(string id);
         Task DeleteAsync(string id);
     }
 
