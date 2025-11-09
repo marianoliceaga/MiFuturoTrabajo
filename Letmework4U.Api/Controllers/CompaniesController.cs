@@ -12,12 +12,12 @@ namespace Letmework4U.Api.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CompanyController : ControllerBase
+    public class CompaniesController : ControllerBase
     {
-        private readonly ILogger<CompanyController> _logger;
+        private readonly ILogger<CompaniesController> _logger;
         private readonly ApplicationDbContext _context;
 
-        public CompanyController(ILogger<CompanyController> logger, ApplicationDbContext context)
+        public CompaniesController(ILogger<CompaniesController> logger, ApplicationDbContext context)
         {
             _logger = logger;
             _context = context;

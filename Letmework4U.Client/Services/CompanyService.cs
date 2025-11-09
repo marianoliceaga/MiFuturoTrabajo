@@ -14,31 +14,31 @@ namespace Letmework4U.Client.Services
 
         public async Task<List<CompanyDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<CompanyDto>>("Companies") ?? new List<CompanyDto>();
+            return await _http.GetFromJsonAsync<List<CompanyDto>>("companies") ?? new List<CompanyDto>();
         }
 
         public async Task<CompanyDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<CompanyDto>($"Companies/CompanyGetById/{id}");
+            return await _http.GetFromJsonAsync<CompanyDto>($"companies/CompanyGetById/{id}");
         }
 
         public async Task<CompanyDto> CreateAsync(CompanyDto company)
         {
-            var response = await _http.PostAsJsonAsync("Companies/CompanyAdd", company);
+            var response = await _http.PostAsJsonAsync("companies/CompanyAdd", company);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<CompanyDto>();
         }
 
         public async Task<CompanyDto> UpdateAsync(string id, CompanyDto company)
         {
-            var response = await _http.PatchAsJsonAsync($"Companies/{id}", company);
+            var response = await _http.PatchAsJsonAsync($"companies/{id}", company);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<CompanyDto>();
         }
 
         public async Task DeleteAsync(string id)
         {
-            await _http.DeleteAsync($"Companies/{id}");
+            await _http.DeleteAsync($"companies/{id}");
         }
 
         public async Task<List<CompanyDto>> SearchAsync(string searchTerm)

@@ -16,7 +16,7 @@ namespace Letmework4U.Client.Services
         {
             try
             {
-                var result = await _http.GetFromJsonAsync<List<JobApplicationDto>>("JobApplications");
+                var result = await _http.GetFromJsonAsync<List<JobApplicationDto>>("jobapplication");
                 return result ?? new List<JobApplicationDto>();
             }
             catch (Exception ex)
@@ -28,26 +28,26 @@ namespace Letmework4U.Client.Services
 
         public async Task<JobApplicationDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<JobApplicationDto>($"JobApplications/JobApplicationGetById/{id}");
+            return await _http.GetFromJsonAsync<JobApplicationDto>($"jobapplication/JobApplicationGetById/{id}");
         }
 
         public async Task<JobApplicationDto> CreateAsync(JobApplicationDto application)
         {
-            var response = await _http.PostAsJsonAsync("JobApplications/JobApplicationAdd", application);
+            var response = await _http.PostAsJsonAsync("jobapplication/JobApplicationAdd", application);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<JobApplicationDto>();
         }
 
         public async Task<JobApplicationDto> UpdateAsync(string id, JobApplicationDto application)
         {
-            var response = await _http.PatchAsJsonAsync($"JobApplications/{id}", application);
+            var response = await _http.PatchAsJsonAsync($"jobapplication/{id}", application);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<JobApplicationDto>();
         }
 
         public async Task DeleteAsync(string id)
         {
-            var response = await _http.DeleteAsync($"JobApplications/JobApplicationDeleteById/{id}");
+            var response = await _http.DeleteAsync($"jobapplication/JobApplicationDeleteById/{id}");
             response.EnsureSuccessStatusCode();
         }
 

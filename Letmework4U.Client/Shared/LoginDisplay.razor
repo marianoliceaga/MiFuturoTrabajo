@@ -10,7 +10,7 @@
             <div class="user-details">
                 <i class="bi bi-person-circle" style="font-size: 24px;"></i>
                 <div class="user-text">
-                    <strong>@GetUserName(context)</strong>
+                    <!--<strong>@GetUserName(context)</strong>-->
                     <small>@GetUserEmail(context)</small>
                 </div>
             </div>
@@ -32,8 +32,8 @@
         var claims = context.User.Claims.ToList();
 
         // Try to get name from claims
-        var givenName = claims.FirstOrDefault(c => c.Type == "given_name" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value;
-        var familyName = claims.FirstOrDefault(c => c.Type == "family_name" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname")?.Value;
+        var givenName = claims.FirstOrDefault(c => c.Type == "Name")?.Value;
+        var familyName = claims.FirstOrDefault(c => c.Type == "Lastname")?.Value;
 
         if (!string.IsNullOrEmpty(givenName) && !string.IsNullOrEmpty(familyName))
         {

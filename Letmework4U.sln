@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Letmework4U.Client", "Letmework4U.Client\Letmework4U.Client.csproj", "{9B763CD8-4DB2-455B-9CE0-8C1EB27EE3E3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{26BA5999-5E6E-4E14-8550-B1983A8B70D4} = {26BA5999-5E6E-4E14-8550-B1983A8B70D4}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Letmework4U.Shared", "Letmework4U.Shared\Letmework4U.Shared.csproj", "{21E40952-E812-4D07-91A9-20E830FA15E1}"
 EndProject
@@ -72,5 +75,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {575D6039-7A5D-4A86-A66C-5A663BEE58F6}
 	EndGlobalSection
 EndGlobal

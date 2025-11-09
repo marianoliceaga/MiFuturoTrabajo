@@ -15,14 +15,13 @@ namespace Letmework4U.Client.Services
 
         public async Task<ApplicantDto> GetCurrentApplicantAsync()
         {
-            // In a real app, get this from authentication
-            var id = "current-applicant-id";
-            return await _http.GetFromJsonAsync<ApplicantDto>($"Applicants/ApplicationGetById/{id}");
+            // Get current applicant using the /current endpoint from API
+            return await _http.GetFromJsonAsync<ApplicantDto>("applicant/current");
         }
 
         public async Task<ApplicantDto> UpdateProfileAsync(ApplicantDto applicant)
         {
-            var response = await _http.PatchAsJsonAsync($"Applicants/{applicant.Id}", applicant);
+            var response = await _http.PatchAsJsonAsync($"applicant/{applicant.Id}", applicant);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<ApplicantDto>();
         }
@@ -34,21 +33,21 @@ namespace Letmework4U.Client.Services
             var streamContent = new StreamContent(fileStream);
             content.Add(streamContent, "file", name);
 
-            var response = await _http.PostAsync("Applicants/UploadCV", content);
+            var response = await _http.PostAsync("applicant/UploadCV", content);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<CVVersionDto>();
         }
 
         public async Task<JobReferenceDto> AddReferenceAsync(JobReferenceDto reference)
         {
-            var response = await _http.PostAsJsonAsync("Applicants/AddReference", reference);
+            var response = await _http.PostAsJsonAsync("applicant/AddReference", reference);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<JobReferenceDto>();
         }
 
         public async Task DeleteReferenceAsync(string referenceId)
         {
-            var response = await _http.DeleteAsync($"Applicants/DeleteReference/{referenceId}");
+            var response = await _http.DeleteAsync($"applicant/DeleteReference/{referenceId}");
             response.EnsureSuccessStatusCode();
         }
     }

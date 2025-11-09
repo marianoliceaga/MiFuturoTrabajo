@@ -1,28 +1,32 @@
 ﻿// AuthenticationHttpMessageHandler.cs
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Blazored.LocalStorage;
 
 namespace Letmework4U.Client.Services
 {
     public class AuthenticationHttpMessageHandler : DelegatingHandler
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        // Inject IHttpClientFactory, NOT HttpClient
-        public AuthenticationHttpMessageHandler(IHttpClientFactory httpClientFactory)
+        private readonly ILocalStorageService _localStorage;
+
+        public AuthenticationHttpMessageHandler(ILocalStorageService localStorage)
         {
-            _httpClientFactory = httpClientFactory;
+            _localStorage = localStorage;
         }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            // Example: Get a token
-            // ❗ Use the "TokenClient", NOT the client being built.
-            var tokenClient = _httpClientFactory.CreateClient("TokenClient");
+            // Get the access token from local storage (key must match CustomAuthStateProvider)
+            var token = await _localStorage.GetItemAsync<string>("authToken");
 
-            // var token = await tokenClient.GetStringAsync("my-token-endpoint");
-            // request.Headers.Authorization = new ("Bearer", token);
+            // If token exists, add it to the Authorization header
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
 
             // Continue the request pipeline
             return await base.SendAsync(request, cancellationToken);

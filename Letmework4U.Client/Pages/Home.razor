@@ -1,0 +1,23 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            // Redirect authenticated users to the board
+            Navigation.NavigateTo("/board", forceLoad: true);
+        }
+        else
+        {
+            // Redirect unauthenticated users to login
+            Navigation.NavigateTo("/login");
+        }
+    }
+}

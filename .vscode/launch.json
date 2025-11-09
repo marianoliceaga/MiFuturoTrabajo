@@ -6,7 +6,7 @@
             "type": "blazorwasm",
             "request": "launch",
             "cwd": "${workspaceFolder}/Letmework4U.Client",
-            "url": "http://localhost:5001"
+            "url": "https://localhost:5011"
         },
         {
             "name": "Launch API",
@@ -22,7 +22,8 @@
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
-            }
+            },
+            "justMyCode": true
         }
     ],
     "compounds": [

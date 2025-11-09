@@ -14,7 +14,7 @@ namespace Letmework4U.Client.Services
 
         public async Task<List<ApplicantTaskDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<ApplicantTaskDto>>("ApplicantTasks") ?? new List<ApplicantTaskDto>();
+            return await _http.GetFromJsonAsync<List<ApplicantTaskDto>>("applicanttask") ?? new List<ApplicantTaskDto>();
         }
 
         public async Task<List<ApplicantTaskDto>> GetByApplicantAsync(string applicantId)
@@ -25,26 +25,26 @@ namespace Letmework4U.Client.Services
 
         public async Task<ApplicantTaskDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<ApplicantTaskDto>($"ApplicantTasks/ApplicantTaskGetById/{id}");
+            return await _http.GetFromJsonAsync<ApplicantTaskDto>($"applicanttask/ApplicantTaskGetById/{id}");
         }
 
         public async Task<ApplicantTaskDto> CreateAsync(ApplicantTaskDto task)
         {
-            var response = await _http.PostAsJsonAsync("ApplicantTasks/ApplicantTaskAdd", task);
+            var response = await _http.PostAsJsonAsync("applicanttask/ApplicantTaskAdd", task);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<ApplicantTaskDto>();
         }
 
         public async Task<ApplicantTaskDto> UpdateAsync(string id, ApplicantTaskDto task)
         {
-            var response = await _http.PatchAsJsonAsync($"ApplicantTasks/{id}", task);
+            var response = await _http.PatchAsJsonAsync($"applicanttask/{id}", task);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<ApplicantTaskDto>();
         }
 
         public async Task DeleteAsync(string id)
         {
-            await _http.DeleteAsync($"ApplicantTasks/ApplicantTaskDeleteById/{id}");
+            await _http.DeleteAsync($"applicanttask/ApplicantTaskDeleteById/{id}");
         }
 
         public async Task<ApplicantTaskDto> ToggleCompleteAsync(string id)

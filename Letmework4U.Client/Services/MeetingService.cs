@@ -14,7 +14,7 @@ namespace Letmework4U.Client.Services
 
         public async Task<List<MeetingDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<MeetingDto>>("Meetings") ?? new List<MeetingDto>();
+            return await _http.GetFromJsonAsync<List<MeetingDto>>("meeting") ?? new List<MeetingDto>();
         }
 
         public async Task<List<MeetingDto>> GetByApplicantAsync(string applicantId)
@@ -25,26 +25,26 @@ namespace Letmework4U.Client.Services
 
         public async Task<MeetingDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<MeetingDto>($"Meetings/MeetingGetById/{id}");
+            return await _http.GetFromJsonAsync<MeetingDto>($"meeting/MeetingGetById/{id}");
         }
 
         public async Task<MeetingDto> CreateAsync(MeetingDto meeting)
         {
-            var response = await _http.PostAsJsonAsync("Meetings/MeetingAdd", meeting);
+            var response = await _http.PostAsJsonAsync("meeting/MeetingAdd", meeting);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<MeetingDto>();
         }
 
         public async Task<MeetingDto> UpdateAsync(string id, MeetingDto meeting)
         {
-            var response = await _http.PatchAsJsonAsync($"Meetings/{id}", meeting);
+            var response = await _http.PatchAsJsonAsync($"meeting/{id}", meeting);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<MeetingDto>();
         }
 
         public async Task DeleteAsync(string id)
         {
-            await _http.DeleteAsync($"Meetings/MeetingDeleteById/{id}");
+            await _http.DeleteAsync($"meeting/MeetingDeleteById/{id}");
         }
 
         public async Task<List<MeetingDto>> GetUpcomingAsync()

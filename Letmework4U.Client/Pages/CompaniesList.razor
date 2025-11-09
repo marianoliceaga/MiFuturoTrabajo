@@ -1,7 +1,9 @@
 @page "/companies"
 @using Letmework4U.Shared.Models
 @using Letmework4U.Client.Services
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
+@attribute [Authorize]
 @inject ICompanyService CompanyService
 @inject IJSRuntime JSRuntime
 

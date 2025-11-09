@@ -1,6 +1,8 @@
 @page "/meetings"
 @using Letmework4U.Shared.Models
 @using Letmework4U.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 @inject IMeetingService MeetingService
 @inject IJobApplicationService JobApplicationService
 @inject NavigationManager NavigationManager
