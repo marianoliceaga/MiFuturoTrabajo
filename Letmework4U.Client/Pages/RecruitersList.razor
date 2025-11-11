@@ -181,6 +181,12 @@
         await LoadRecruiters();
     }
 
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Force re-render when modal visibility changes
+        base.OnAfterRender(firstRender);
+    }
+
     private async Task LoadRecruiters()
     {
         isLoading = true;
@@ -200,9 +206,21 @@
 
     private void ShowAddRecruiterModal()
     {
-        currentRecruiter = new RecruiterDto { Id = Guid.NewGuid().ToString() };
+        currentRecruiter = new RecruiterDto
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "",
+            Lastname = "",
+            ContactEmail = "",
+            Cellphone = "",
+            Landline = "",
+            LinkedInUrl = "",
+            CompanyName = "",
+            IsFromConsultancy = false
+        };
         isEditMode = false;
         showRecruiterModal = true;
+        StateHasChanged(); // Force UI update
     }
 
     private void ShowEditRecruiterModal(RecruiterDto recruiter)
@@ -210,23 +228,36 @@
         currentRecruiter = new RecruiterDto
         {
             Id = recruiter.Id,
-            Name = recruiter.Name,
-            Lastname = recruiter.Lastname,
-            ContactEmail = recruiter.ContactEmail,
-            Cellphone = recruiter.Cellphone,
-            Landline = recruiter.Landline,
-            LinkedInUrl = recruiter.LinkedInUrl,
+            Name = recruiter.Name ?? "",
+            Lastname = recruiter.Lastname ?? "",
+            ContactEmail = recruiter.ContactEmail ?? "",
+            Cellphone = recruiter.Cellphone ?? "",
+            Landline = recruiter.Landline ?? "",
+            LinkedInUrl = recruiter.LinkedInUrl ?? "",
             IsFromConsultancy = recruiter.IsFromConsultancy,
-            CompanyName = recruiter.CompanyName
+            CompanyName = recruiter.CompanyName ?? ""
         };
         isEditMode = true;
         showRecruiterModal = true;
+        StateHasChanged(); // Force UI update
     }
 
     private void CloseRecruiterModal()
     {
         showRecruiterModal = false;
-        currentRecruiter = new();
+        currentRecruiter = new RecruiterDto
+        {
+            Id = "",
+            Name = "",
+            Lastname = "",
+            ContactEmail = "",
+            Cellphone = "",
+            Landline = "",
+            LinkedInUrl = "",
+            CompanyName = "",
+            IsFromConsultancy = false
+        };
+        StateHasChanged(); // Force UI update
     }
 
     private async Task SaveRecruiter()
@@ -237,6 +268,8 @@
         }
 
         isSaving = true;
+        StateHasChanged(); // Show saving state
+
         try
         {
             if (isEditMode)
@@ -254,6 +287,7 @@
                 recruiters.Add(created);
             }
             CloseRecruiterModal();
+            StateHasChanged(); // Update UI after save
         }
         catch (Exception ex)
         {
@@ -262,6 +296,7 @@
         finally
         {
             isSaving = false;
+            StateHasChanged(); // Ensure UI updates
         }
     }
 

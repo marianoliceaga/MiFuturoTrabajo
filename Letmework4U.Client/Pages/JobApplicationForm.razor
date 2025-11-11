@@ -2,6 +2,7 @@
 @page "/applications/{Id}"
 @using Letmework4U.Shared.Models
 @using Letmework4U.Client.Services
+@using Letmework4U.Client.Components
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inject IJobApplicationService JobApplicationService
@@ -34,9 +35,9 @@
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Company *</label>
                     <div class="input-group">
-                        <InputText class="form-control" @bind-Value="companySearch" 
+                        <InputText class="form-control" @bind-Value="companySearch"
                                    @oninput="SearchCompanies" placeholder="Search or create company" />
-                        <button class="btn btn-outline-secondary" type="button" @onclick="CreateNewCompany">
+                        <button class="btn btn-outline-secondary" type="button" @onclick="OpenCompanyModal" title="Create or manage company">
                             <i class="bi bi-plus"></i>
                         </button>
                     </div>
@@ -46,10 +47,26 @@
                             @foreach (var company in companySuggestions)
                             {
                                 <li @onclick="() => SelectCompany(company)">
-                                    @company.Name
+                                    <div class="suggestion-content">
+                                        <span class="suggestion-name">@company.Name</span>
+                                        <button class="btn btn-sm btn-link suggestion-edit" type="button"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => EditCompanyFromSuggestion(company)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </div>
                                 </li>
                             }
                         </ul>
+                    }
+                    @if (!string.IsNullOrEmpty(application.Company?.Name))
+                    {
+                        <div class="selected-company">
+                            <i class="bi bi-building"></i> @application.Company.Name
+                            <button class="btn btn-sm btn-link" type="button" @onclick="() => EditSelectedCompany()">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
                     }
                 </div>
             </div>
@@ -72,7 +89,7 @@
                     <InputSelect class="form-select" @bind-Value="application.Source">
                         @foreach (JobSource source in Enum.GetValues(typeof(JobSource)))
                         {
-                            <option value="@source">@source</option>
+                            <option value="@source">@SplitCaps(source.ToString())</option>
                         }
                     </InputSelect>
                 </div>
@@ -186,7 +203,7 @@
                 <InputSelect class="form-select" @bind-Value="application.Status">
                     @foreach (JobApplicationStatus status in Enum.GetValues(typeof(JobApplicationStatus)))
                     {
-                        <option value="@status">@status</option>
+                        <option value="@status">@SplitCaps(status.ToString())</option>
                     }
                 </InputSelect>
             </div>
@@ -218,6 +235,12 @@
     </EditForm>
 </div>
 
+<CompanyModal IsVisible="showCompanyModal"
+              Company="editingCompany"
+              InitialName="@companySearch"
+              OnCompanySaved="HandleCompanySaved"
+              OnCancel="CloseCompanyModal" />
+
 @code {
     [Parameter]
     public string Id { get; set; }
@@ -229,6 +252,8 @@
     private string companySearch = "";
     private string labelsString = "";
     private bool isSaving = false;
+    private bool showCompanyModal = false;
+    private CompanyDto editingCompany = null;
     private bool IsNew => string.IsNullOrEmpty(Id);
 
     protected override async Task OnInitializedAsync()
@@ -283,10 +308,42 @@
         companySuggestions.Clear();
     }
 
-    private void CreateNewCompany()
+    private void OpenCompanyModal()
     {
-        application.Company = new CompanyDto { Name = companySearch };
+        editingCompany = null; // Create new company
+        showCompanyModal = true;
+    }
+
+    private void EditCompanyFromSuggestion(CompanyDto company)
+    {
+        editingCompany = company;
+        showCompanyModal = true;
+    }
+
+    private void EditSelectedCompany()
+    {
+        editingCompany = application.Company;
+        showCompanyModal = true;
+    }
+
+    private void CloseCompanyModal()
+    {
+        showCompanyModal = false;
+        editingCompany = null;
+    }
+
+    private async Task HandleCompanySaved(CompanyDto savedCompany)
+    {
+        // Update the application with the saved company
+        application.Company = savedCompany;
+        companySearch = savedCompany.Name;
         companySuggestions.Clear();
+
+        // Refresh suggestions to show the updated/new company
+        if (companySearch.Length >= 2)
+        {
+            companySuggestions = await CompanyService.SearchAsync(companySearch);
+        }
     }
 
     private void AddNewRecruiter()
@@ -311,6 +368,15 @@
     private void RemoveInterviewStep(InterviewStepDto step)
     {
         application.InterviewSteps.Remove(step);
+    }
+
+    // Insert spaces before capital letters for nicer display of enum names
+    private string SplitCaps(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return input;
+
+        return System.Text.RegularExpressions.Regex.Replace(input, "([a-z])([A-Z])", "$1 $2");
     }
 
     private async Task HandleSubmit()
@@ -404,6 +470,52 @@
 
     .suggestions-list li:hover {
         background: #f8f9fa;
+    }
+
+    .suggestion-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .suggestion-name {
+        flex: 1;
+    }
+
+    .suggestion-edit {
+        padding: 0 5px;
+        color: #6c757d;
+    }
+
+    .suggestion-edit:hover {
+        color: #0d6efd;
+    }
+
+    .selected-company {
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+
+    .selected-company i {
+        color: #0d6efd;
+    }
+
+    .selected-company .btn-link {
+        margin-left: auto;
+        padding: 0 5px;
+        color: #6c757d;
+    }
+
+    .selected-company .btn-link:hover {
+        color: #0d6efd;
     }
 
     .interview-steps {

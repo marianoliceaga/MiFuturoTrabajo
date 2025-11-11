@@ -11,12 +11,12 @@ namespace Letmework4U.Api.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class RecruiterController : ControllerBase
+    public class RecruitersController : ControllerBase
     {
-        private readonly ILogger<RecruiterController> _logger;
+        private readonly ILogger<RecruitersController> _logger;
         private readonly ApplicationDbContext _context;
 
-        public RecruiterController(ILogger<RecruiterController> logger, ApplicationDbContext context)
+        public RecruitersController(ILogger<RecruitersController> logger, ApplicationDbContext context)
         {
             _logger = logger;
             _context = context;
