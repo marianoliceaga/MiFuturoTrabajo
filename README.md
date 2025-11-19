@@ -1,129 +1,195 @@
 # Letmework4U - Job Application Tracker
 
-A comprehensive job application tracking system built with Blazor WebAssembly and Azure Functions, featuring Microsoft Entra External ID authentication and Azure Cosmos DB storage.
+A comprehensive job application tracking system built with Blazor WebAssembly and ASP.NET Core Web API, featuring custom JWT authentication with OAuth support (Google, Microsoft) and Azure Cosmos DB storage.
 
 ## Project Structure
 
 ```
 Letmework4U/
 ├── Letmework4U.Client/              # Blazor WebAssembly Frontend
-├── Letmework4U.Functions/           # Azure Functions Backend API
-├── Letmework4U.Infrastructure/      # EF Core & Data Access
-├── Letmework4U.Shared/             # DTOs & Models
-├── Letmework4U.Core/               # Business Logic (future use)
-├── IMPLEMENTATION_GUIDE.md         # Detailed implementation guide
-└── README.md                       # This file
+├── Letmework4U.Api/                 # ASP.NET Core Web API Backend
+├── Letmework4U.Infrastructure/      # EF Core & Data Access Layer
+├── Letmework4U.Shared/              # DTOs, Models & Enums
+├── Letmework4U.Tests.Unit/          # Unit Tests (xUnit)
+├── Letmework4U.Tests.Integration/   # Integration Tests (xUnit)
+└── README.md                        # This file
 ```
 
 ## Features
 
 ### Frontend (Blazor WebAssembly)
-- ✅ Job Application Management (Kanban Board & List View)
+- ✅ Job Application Management (Kanban Board & List View with drag-and-drop)
 - ✅ Company Management
 - ✅ Recruiter Contacts
-- ✅ Interview Scheduling
+- ✅ Interview Scheduling (Meetings)
 - ✅ Task Management
-- ✅ Profile & CV Management
-- ✅ Microsoft Entra External ID Authentication (MSAL)
+- ✅ Profile & CV Management (Multiple CV versions with upload)
+- ✅ Job References Management
+- ✅ Authentication (Email/Password + Google OAuth + Microsoft OAuth)
+- ✅ User Logout with Token Revocation
 
-### Backend (Azure Functions)
-- ✅ Complete CRUD APIs for all entities
-- ✅ JWT Token Authentication
-- ✅ User Isolation (multi-tenant ready)
-- ✅ Email Reminders (Interviews & Tasks)
+### Backend (ASP.NET Core Web API)
+- ✅ Complete CRUD APIs for all entities (8 controllers)
+- ✅ Custom JWT Token Authentication
+- ✅ OAuth Integration (Google & Microsoft)
+- ✅ Password Reset & Recovery
+- ✅ Email Verification (skeleton implemented)
+- ✅ Account Lockout (5 failed attempts)
+- ✅ Token Refresh Mechanism
+- ✅ User Data Isolation (multi-tenant ready)
 - ✅ EF Core with Cosmos DB
+- ✅ Swagger/OpenAPI Documentation
+
+### Testing
+- ✅ Comprehensive Unit Tests
+  - Service layer tests (JWT, Password Hashing, Mapping)
+  - Controller tests (AuthController with mocked dependencies)
+- ✅ Comprehensive Integration Tests
+  - End-to-end authentication flow tests
+  - Full CRUD operations for all entities
+  - Kanban board functionality tests
+  - WebApplicationFactory-based testing
 
 ### Security
-- ✅ Microsoft Entra External ID Integration
-- ✅ OAuth 2.0 / OpenID Connect
-- ✅ JWT Token Validation
-- ✅ Automatic Token Refresh
+- ✅ Custom JWT Authentication
+- ✅ BCrypt Password Hashing
+- ✅ OAuth 2.0 / OpenID Connect (Google, Microsoft)
+- ✅ JWT Token Validation & Refresh
+- ✅ Token Revocation on Logout
+- ✅ Account Lockout Protection
 - ✅ User Data Isolation
 
 ## Technology Stack
 
 - **.NET 8**
 - **Blazor WebAssembly**
-- **Azure Functions (Isolated Worker Model)**
+- **ASP.NET Core Web API** (NOT Azure Functions)
 - **Entity Framework Core**
-- **Azure Cosmos DB**
-- **Microsoft Entra External ID**
-- **Azure Communication Services** (Email)
-- **Microsoft Authentication Library (MSAL)**
+- **Azure Cosmos DB** (or Cosmos DB Emulator for local development)
+- **Custom JWT Authentication** (NOT Microsoft Entra)
+- **Google.Apis.Auth** (Google OAuth)
+- **Microsoft.Identity.Client** (Microsoft OAuth)
+- **BCrypt.Net-Next** (Password Hashing)
+- **xUnit** (Testing Framework)
+- **Moq** (Mocking Framework)
+
+## Database Entities
+
+The application manages 12 entities:
+
+1. **User** - Authentication and user accounts
+2. **Applicant** - User profile information
+3. **Company** - Companies where jobs are applied
+4. **Recruiter** - Recruiter contacts
+5. **JobApplication** - Job applications with status tracking
+6. **Meeting** - Interviews and meetings
+7. **ApplicantTask** - Tasks and follow-ups
+8. **CVVersion** - Multiple CV versions per applicant
+9. **JobReference** - Past job references
+10. **InterviewStep** - Interview process stages
+11. **JobApplicationRecruiter** - Many-to-many relationship
+12. **MeetingRecruiter** - Many-to-many relationship
 
 ## Getting Started
 
 ### Prerequisites
 
 - .NET 8 SDK
-- Azure Subscription
 - Visual Studio 2022 or VS Code
-- Azure Functions Core Tools
+- Azure Cosmos DB Emulator (for local development) OR Azure Cosmos DB account
 - Node.js (for Blazor dev server)
-
-### Azure Resources Required
-
-1. **Microsoft Entra External ID Tenant** - Authentication
-2. **Azure Cosmos DB** - Database
-3. **Azure Communication Services** - Email notifications
-4. **Azure Blob Storage** - CV file storage (optional)
 
 ### Configuration
 
-#### 1. Azure Functions (Backend)
- 
-Update `Letmework4U.Functions/local.settings.json`:
+#### 1. API Backend
+
+Update `Letmework4U.Api/appsettings.Development.json`:
 
 ```json
 {
-  "IsEncrypted": false,
-  "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-    "CosmosDb__ConnectionString": "<your-cosmos-connection-string>",
-    "CosmosDb__DatabaseName": "Letmework4U",
-    "MicrosoftEntraExternalId__Instance": "https://<your-tenant>.ciamlogin.com",
-    "MicrosoftEntraExternalId__Domain": "<your-tenant>.onmicrosoft.com",
-    "MicrosoftEntraExternalId__ClientId": "<your-api-client-id>",
-    "MicrosoftEntraExternalId__SignUpSignInPolicyId": "susi",
-    "AzureCommunicationServices__ConnectionString": "<your-acs-connection-string>",
-    "AzureCommunicationServices__SenderAddress": "DoNotReply@<your-domain>.com"
-  }
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "CosmosDb": {
+    "ConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
+    "DatabaseName": "Letmework4U"
+  },
+  "Jwt": {
+    "SecretKey": "YourVeryLongSecretKeyHere-MinimumOf32Characters!",
+    "Issuer": "Letmework4U",
+    "Audience": "Letmework4U.Client",
+    "AccessTokenExpiryMinutes": 60,
+    "RefreshTokenExpiryDays": 7
+  },
+  "OAuth": {
+    "Google": {
+      "ClientId": "your-google-client-id.apps.googleusercontent.com"
+    },
+    "Microsoft": {
+      "ClientId": "your-microsoft-client-id"
+    }
+  },
+  "AzureCommunicationServices": {
+    "ConnectionString": "endpoint=https://your-acs.communication.azure.com/;accesskey=your-key",
+    "SenderAddress": "DoNotReply@your-domain.com"
+  },
+  "AllowedHosts": "*"
 }
 ```
 
-#### 2. Blazor Client (Frontend)
+#### 2. Blazor Client
 
 Update `Letmework4U.Client/wwwroot/appsettings.json`:
 
 ```json
 {
-  "MicrosoftEntraExternalId": {
-    "Authority": "https://<your-tenant>.ciamlogin.com/<your-tenant>.onmicrosoft.com/susi",
-    "ClientId": "<your-blazor-client-id>",
-    "ValidateAuthority": false
-  },
-  "ApiBaseUrl": "http://localhost:7071/api/"
+  "ApiBaseUrl": "https://localhost:5011/api/"
 }
 ```
 
 ### Running Locally
 
-#### 1. Start Azure Functions
+#### 1. Start Cosmos DB Emulator
+Download and run the [Azure Cosmos DB Emulator](https://aka.ms/cosmosdb-emulator)
+
+#### 2. Start API Backend
 ```bash
-cd Letmework4U.Functions
-func start
+cd Letmework4U.Api
+dotnet run
 ```
 
-The API will be available at `http://localhost:7071`
+The API will be available at `https://localhost:5011`
+Swagger UI: `https://localhost:5011/swagger`
 
-#### 2. Start Blazor Client
+#### 3. Start Blazor Client
 ```bash
 cd Letmework4U.Client
 dotnet run
 ```
 
 The app will be available at `https://localhost:5001`
+
+### Running Tests
+
+#### Unit Tests
+```bash
+cd Letmework4U.Tests.Unit
+dotnet test
+```
+
+#### Integration Tests
+```bash
+cd Letmework4U.Tests.Integration
+dotnet test
+```
+
+#### All Tests
+```bash
+dotnet test
+```
 
 ### Building for Production
 
@@ -133,54 +199,89 @@ dotnet build -c Release
 
 ## API Endpoints
 
-### Authentication
-All endpoints require JWT authentication via Microsoft Entra External ID (except health checks).
+All endpoints require JWT Bearer token authentication (except auth endpoints).
 
-### Companies
-- `GET /api/Companies` - Get all companies
-- `GET /api/Companies/CompanyGetById/{id}` - Get company by ID
-- `POST /api/Companies/CompanyAdd` - Create company
-- `PATCH /api/Companies/{id}` - Update company
-- `DELETE /api/Companies/{id}` - Delete company
+### Authentication (`/api/auth`)
+- `POST /api/auth/register` - Register new user (Email/Password)
+- `POST /api/auth/login` - Login (Email/Password)
+- `POST /api/auth/logout` - Logout and revoke refresh token (NEW!)
+- `POST /api/auth/oauth-login` - OAuth login (Google/Microsoft)
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/change-password` - Change password
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password with token
+- `POST /api/auth/send-verification` - Send email verification
+- `POST /api/auth/verify-email` - Verify email with token
 
-### Recruiters
-- `GET /api/Recruiters` - Get all recruiters
-- `GET /api/Recruiters/RecruiterGetById/{id}` - Get recruiter by ID
-- `POST /api/Recruiters/RecruiterAdd` - Create recruiter
-- `PATCH /api/Recruiters/{id}` - Update recruiter
-- `DELETE /api/Recruiters/RecruiterDeleteById/{id}` - Delete recruiter
+### Companies (`/api/companies`)
+- `GET /api/companies` - Get all companies
+- `GET /api/companies/{id}` - Get company by ID
+- `POST /api/companies` - Create company
+- `PUT /api/companies/{id}` - Update company
+- `DELETE /api/companies/{id}` - Delete company
 
-### Job Applications
-- `GET /api/JobApplications` - Get all job applications
-- `GET /api/JobApplications/JobApplicationGetById/{id}` - Get application by ID
-- `GET /api/JobApplications/board` - Get board view (grouped by status)
-- `POST /api/JobApplications/JobApplicationAdd` - Create application
-- `PATCH /api/JobApplications/{id}` - Update application
-- `PATCH /api/JobApplications/{id}/status` - Update application status
-- `DELETE /api/JobApplications/JobApplicationDeleteById/{id}` - Delete application
+### Recruiters (`/api/recruiters`)
+- `GET /api/recruiters` - Get all recruiters
+- `GET /api/recruiters/{id}` - Get recruiter by ID
+- `POST /api/recruiters` - Create recruiter
+- `PUT /api/recruiters/{id}` - Update recruiter
+- `DELETE /api/recruiters/{id}` - Delete recruiter
 
-### Meetings
-- `GET /api/Meetings` - Get all meetings
-- `GET /api/Meetings/MeetingGetById/{id}` - Get meeting by ID
-- `POST /api/Meetings/MeetingAdd` - Create meeting
-- `PATCH /api/Meetings/{id}` - Update meeting
-- `DELETE /api/Meetings/MeetingDeleteById/{id}` - Delete meeting
+### Job Applications (`/api/jobapplications`)
+- `GET /api/jobapplications` - Get all job applications
+- `GET /api/jobapplications/{id}` - Get application by ID
+- `GET /api/jobapplications/board` - Get Kanban board view
+- `POST /api/jobapplications` - Create application
+- `PUT /api/jobapplications/{id}` - Update application
+- `PUT /api/jobapplications/{id}/status` - Update application status (for Kanban)
+- `DELETE /api/jobapplications/{id}` - Delete application
 
-### Applicant Tasks
-- `GET /api/ApplicantTasks` - Get all tasks
-- `GET /api/ApplicantTasks/ApplicantTaskGetById/{id}` - Get task by ID
-- `POST /api/ApplicantTasks/ApplicantTaskAdd` - Create task
-- `PATCH /api/ApplicantTasks/{id}` - Update task
-- `DELETE /api/ApplicantTasks/ApplicantTaskDeleteById/{id}` - Delete task
+### Meetings (`/api/meetings`)
+- `GET /api/meetings` - Get all meetings
+- `GET /api/meetings/{id}` - Get meeting by ID
+- `POST /api/meetings` - Create meeting
+- `PUT /api/meetings/{id}` - Update meeting
+- `DELETE /api/meetings/{id}` - Delete meeting
 
-### Timer Functions (Automated)
-- **Interview Reminder** - Runs every hour, sends email reminders
-- **Task Reminder** - Runs daily at 8 AM UTC, sends task due reminders
+### Applicant Tasks (`/api/applicanttasks`)
+- `GET /api/applicanttasks` - Get all tasks
+- `GET /api/applicanttasks/{id}` - Get task by ID
+- `POST /api/applicanttasks` - Create task
+- `PUT /api/applicanttasks/{id}` - Update task
+- `DELETE /api/applicanttasks/{id}` - Delete task
 
-## Database Schema
+### CV Versions (`/api/cvversions`)
+- `GET /api/cvversions` - Get all CV versions
+- `GET /api/cvversions/{id}` - Get CV version by ID
+- `POST /api/cvversions` - Create CV version
+- `PUT /api/cvversions/{id}` - Update CV version
+- `PUT /api/cvversions/{id}/default` - Set as default CV
+- `DELETE /api/cvversions/{id}` - Delete CV version
+
+### Applicant (`/api/applicant`)
+- `GET /api/applicant` - Get applicant profile
+- `POST /api/applicant` - Create/Update applicant profile
+- `POST /api/applicant/cv` - Upload CV (Note: Currently accepts URL string)
+- `POST /api/applicant/reference` - Add job reference
+- `DELETE /api/applicant/reference/{id}` - Delete job reference
+
+## Job Application Statuses (Kanban Columns)
+
+1. **NotApplied** - Job saved but not yet applied
+2. **Applied** - Application submitted
+3. **FirstInterview** - First round interview
+4. **Meetings** - Additional interview rounds
+5. **Rejected** - Application rejected
+6. **Offer** - Job offer received
+7. **Completed** - Process completed (accepted/declined)
+8. **NoResponse** - No response from company
+
+## Database Schema (Cosmos DB)
 
 The application uses Azure Cosmos DB with the following containers:
 
+- **Users** (Partition Key: id) - Authentication
 - **Applicants** (Partition Key: UserId)
 - **Companies** (Partition Key: UserId)
 - **Recruiters** (Partition Key: UserId)
@@ -193,12 +294,31 @@ The application uses Azure Cosmos DB with the following containers:
 - **JobApplicationRecruiters** (Partition Key: JobApplicationId)
 - **MeetingRecruiters** (Partition Key: MeetingId)
 
+## OAuth Setup
+
+For detailed OAuth setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md)
+
+### Quick OAuth Setup
+
+1. **Google OAuth:**
+   - Create project at [Google Cloud Console](https://console.cloud.google.com)
+   - Enable Google+ API
+   - Create OAuth 2.0 Client ID
+   - Add authorized redirect URIs
+   - Copy Client ID to appsettings.json
+
+2. **Microsoft OAuth:**
+   - Register app at [Azure Portal](https://portal.azure.com)
+   - Add redirect URIs
+   - Copy Application (client) ID to appsettings.json
+
 ## Deployment
 
-### Azure Functions
+### API Backend
+Deploy to Azure App Service:
 ```bash
-cd Letmework4U.Functions
-func azure functionapp publish <your-function-app-name>
+cd Letmework4U.Api
+dotnet publish -c Release
 ```
 
 ### Blazor WebAssembly
@@ -207,56 +327,70 @@ Deploy to Azure Static Web Apps or any static hosting:
 cd Letmework4U.Client
 dotnet publish -c Release
 ```
-
-Then deploy the `bin/Release/net8.0/publish/wwwroot` folder.
+Deploy the `bin/Release/net8.0/publish/wwwroot` folder.
 
 ## Development Notes
 
-### Architecture Changes
-This version has been completely refactored from the original:
-- ❌ Removed Repository Pattern
-- ✅ Direct EF Core usage in Azure Functions
-- ✅ JWT-based authentication replaces custom auth
-- ✅ Microsoft Entra External ID for enterprise-grade security
-- ✅ Cosmos DB for cloud-native scalability
+### Recent Updates (Current Version)
+- ✅ Added logout endpoint with token revocation
+- ✅ Created comprehensive unit test suite (3 test files, 50+ tests)
+- ✅ Created comprehensive integration test suite (3 test files, 30+ tests)
+- ✅ Added WebApplicationFactory for integration testing
+- ✅ All CRUD operations fully tested
+- ✅ Authentication flows fully tested
+- ✅ Kanban board functionality fully tested
 
-### Migration from Old Code
-The original `Letmework4U.Client/Services/` implementations are replaced by:
-- Direct HTTP calls to Azure Functions
-- MSAL-managed authentication
-- Automatic token attachment to requests
+### Architecture Highlights
+- **Clean Architecture**: Separation of concerns across layers
+- **Direct EF Core usage**: No repository pattern for simplicity
+- **JWT-based authentication**: Custom implementation with refresh tokens
+- **OAuth Integration**: Google and Microsoft sign-in
+- **User Isolation**: All data scoped to authenticated user
+- **Cosmos DB NoSQL**: Cloud-native scalability
+
+### Known Limitations
+- Email reminder services exist but are currently disabled (commented out in Program.cs)
+- CV file upload accepts URL strings only (no actual file storage implementation yet)
+- Email verification implemented as skeleton (emails not actually sent)
+
+## Testing Coverage
+
+### Unit Tests
+- **PasswordHasherTests**: BCrypt hashing and verification (7 tests)
+- **JwtServiceTests**: Token generation and validation (14 tests)
+- **MappingServiceTests**: DTO-Entity mappings (15 tests)
+- **AuthControllerTests**: Authentication endpoints (12 tests)
+
+### Integration Tests
+- **AuthenticationFlowTests**: Complete auth flows (12 tests)
+- **JobApplicationCrudTests**: All entity CRUD operations (8 tests)
+- **KanbanBoardTests**: Board view and status updates (12 tests)
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+3. Write tests for new features
+4. Ensure all tests pass: `dotnet test`
+5. Commit your changes
+6. Push to the branch
+7. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License.
-
-## Support
-
-For detailed implementation instructions, see [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)
+This project is licensed under the MIT License - see [LICENSE.txt](LICENSE.txt)
 
 ## Changelog
 
-### Version 2.0 (Current)
-- Complete rewrite to .NET 8
-- Azure Functions backend
-- Microsoft Entra External ID authentication
-- EF Core with Cosmos DB
-- Automated email reminders
-- Multi-tenant architecture
-
-### Version 1.0 (Legacy)
-- Blazor WebAssembly with repository pattern
-- In-memory authentication
-- No backend API
+### Current Version
+- ASP.NET Core Web API (NOT Azure Functions)
+- Custom JWT Authentication (NOT Microsoft Entra)
+- OAuth support (Google, Microsoft)
+- Comprehensive test suite
+- Token revocation on logout
+- Kanban board with drag-and-drop
+- Complete CRUD for all entities
 
 ---
 
-**Built with ❤️ using Blazor and Azure**
+**Built with ❤️ using Blazor WebAssembly and ASP.NET Core**

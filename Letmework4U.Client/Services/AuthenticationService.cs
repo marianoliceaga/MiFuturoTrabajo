@@ -100,7 +100,28 @@ namespace Letmework4U.Client.Services
 
         public async Task LogoutAsync()
         {
-            await _authStateProvider.MarkUserAsLoggedOut();
+            try
+            {
+                // Call backend logout endpoint to revoke refresh token
+                var token = await _authStateProvider.GetAccessTokenAsync();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization =
+                        new AuthenticationHeaderValue("Bearer", token);
+
+                    // Best effort - don't fail if backend call fails
+                    await _httpClient.PostAsync("auth/logout", null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Backend logout error: {ex.Message}");
+            }
+            finally
+            {
+                // Always clear local state regardless of backend call success
+                await _authStateProvider.MarkUserAsLoggedOut();
+            }
         }
 
         public async Task<AuthResponse?> RefreshTokenAsync()

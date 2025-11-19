@@ -627,6 +627,46 @@ namespace Letmework4U.Api.Controllers
         }
 
         /// <summary>
+        /// Logout - Revoke refresh token
+        /// POST /api/auth/logout
+        /// </summary>
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                var userId = Helpers.AuthHelper.GetUserIdFromClaims(User);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Invalid token" });
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                {
+                    return NotFound(new { error = "User not found" });
+                }
+
+                // Revoke refresh token
+                user.RefreshToken = null;
+                user.RefreshTokenExpiry = null;
+
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"User {user.Email} logged out successfully");
+
+                return Ok(new { message = "Logged out successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Logout failed");
+                return StatusCode(500, new { error = $"Logout failed: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
         /// OAuth login (Google/Microsoft)
         /// POST /api/auth/oauth-login
         /// </summary>
