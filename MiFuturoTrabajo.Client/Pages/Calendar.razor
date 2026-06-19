@@ -1,0 +1,260 @@
+@page "/calendar"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject ICalendarService CalendarService
+@using MiFuturoTrabajo.Shared.Models
+@using System.Globalization
+
+<PageTitle>Calendar</PageTitle>
+
+<div class="calendar-container">
+    <div class="calendar-header">
+        <h2 class="month-title">@CurrentMonth.ToString("MMMM yyyy")</h2>
+        <div class="calendar-controls">
+            <button class="btn btn-outline-secondary" @onclick="PrevMonth">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="GoToToday">Today</button>
+            <button class="btn btn-outline-secondary" @onclick="NextMonth">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="calendar-grid">
+            @foreach (var dayName in DayNames)
+            {
+                <div class="calendar-day-header">@dayName</div>
+            }
+
+            @foreach (var day in CalendarDays)
+            {
+                <div class="calendar-day @(day.IsCurrentMonth ? "" : "other-month") @(IsToday(day.Date) ? "today" : "")">
+                    <span class="day-number">@day.Date.Day</span>
+                    <div class="events-list">
+                        @foreach (var evt in day.Events)
+                        {
+                            <a href="@evt.Url" class="event-item badge @evt.ColorClass text-truncate" title="@evt.Title">
+                                @if (evt.Type == CalendarEventType.Task)
+                                {
+                                    <i class="bi bi-check-square me-1"></i>
+                                }
+                                else if (evt.Type == CalendarEventType.Meeting)
+                                {
+                                    <i class="bi bi-camera-video me-1"></i>
+                                }
+                                else if (evt.Type == CalendarEventType.InterviewStep)
+                                {
+                                    <i class="bi bi-people me-1"></i>
+                                }
+                                else if (evt.Type == CalendarEventType.ApplicationDeadline)
+                                {
+                                    <i class="bi bi-exclamation-circle me-1"></i>
+                                }
+                                @evt.Title
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime CurrentMonth { get; set; } = DateTime.Today;
+    private List<CalendarEvent> AllEvents { get; set; } = new();
+    private List<CalendarDay> CalendarDays { get; set; } = new();
+    private bool IsLoading { get; set; } = true;
+    private string[] DayNames { get; set; } = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames;
+
+    protected override async Task OnInitializedAsync()
+    {
+        CurrentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        IsLoading = true;
+        try
+        {
+            AllEvents = await CalendarService.GetEventsAsync();
+            BuildCalendar();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading calendar: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void BuildCalendar()
+    {
+        CalendarDays.Clear();
+
+        var firstDayOfMonth = CurrentMonth;
+        var lastDayOfMonth = CurrentMonth.AddMonths(1).AddDays(-1);
+
+        // Start from the beginning of the week (Sunday or Monday depending on culture, forcing Sunday here for simplicity)
+        var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+        var endDate = lastDayOfMonth.AddDays(6 - (int)lastDayOfMonth.DayOfWeek);
+
+        // Ensure we show at least 6 weeks for consistent height
+        if ((endDate - startDate).Days < 41)
+        {
+            endDate = endDate.AddDays(7);
+        }
+
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var eventsForDay = AllEvents
+            .Where(e => e.Start.Date == date.Date)
+            .OrderBy(e => e.Start)
+            .ToList();
+
+            CalendarDays.Add(new CalendarDay
+            {
+                Date = date,
+                IsCurrentMonth = date.Month == CurrentMonth.Month,
+                Events = eventsForDay
+            });
+        }
+    }
+
+    private void PrevMonth()
+    {
+        CurrentMonth = CurrentMonth.AddMonths(-1);
+        BuildCalendar();
+    }
+
+    private void NextMonth()
+    {
+        CurrentMonth = CurrentMonth.AddMonths(1);
+        BuildCalendar();
+    }
+
+    private void GoToToday()
+    {
+        CurrentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        BuildCalendar();
+    }
+
+    private bool IsToday(DateTime date)
+    {
+        return date.Date == DateTime.Today;
+    }
+
+    private class CalendarDay
+    {
+        public DateTime Date { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public List<CalendarEvent> Events { get; set; } = new();
+    }
+}
+
+<style>
+    .calendar-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .month-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0;
+        text-transform: capitalize;
+    }
+
+    .calendar-controls {
+        display: flex;
+        gap: 10px;
+    }
+
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #dee2e6;
+        /* Grid lines color */
+        border: 1px solid #dee2e6;
+        flex: 1;
+    }
+
+    .calendar-day-header {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: center;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .calendar-day {
+        background: white;
+        min-height: 100px;
+        padding: 8px;
+        position: relative;
+    }
+
+    .calendar-day.other-month {
+        background: #f8f9fa;
+        color: #adb5bd;
+    }
+
+    .calendar-day.today {
+        background: #ebebff;
+    }
+
+    .day-number {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .events-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .event-item {
+        font-size: 12px;
+        padding: 4px 6px;
+        text-decoration: none;
+        display: block;
+        cursor: pointer;
+        opacity: 0.9;
+        transition: opacity 0.2s;
+        text-align: left;
+    }
+
+    .event-item:hover {
+        opacity: 1;
+        color: white;
+    }
+</style>

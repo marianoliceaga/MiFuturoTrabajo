@@ -1,0 +1,137 @@
+@page "/register"
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<PageTitle>Register - MiFuturoTrabajo</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-center mb-4">Create Account</h2>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
+                        <DataAnnotationsValidator />
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="firstName" class="form-label">First Name</label>
+                                <InputText id="firstName" class="form-control" @bind-Value="registerRequest.FirstName" placeholder="John" />
+                                <ValidationMessage For="@(() => registerRequest.FirstName)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="lastName" class="form-label">Last Name</label>
+                                <InputText id="lastName" class="form-control" @bind-Value="registerRequest.LastName" placeholder="Doe" />
+                                <ValidationMessage For="@(() => registerRequest.LastName)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" type="email" class="form-control" @bind-Value="registerRequest.Email" placeholder="your@email.com" />
+                            <ValidationMessage For="@(() => registerRequest.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <InputText id="password" type="password" class="form-control" @bind-Value="registerRequest.Password" placeholder="At least 8 characters" />
+                            <ValidationMessage For="@(() => registerRequest.Password)" />
+                            <div class="form-text">Must be at least 8 characters long</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm Password</label>
+                            <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="registerRequest.ConfirmPassword" placeholder="Re-enter your password" />
+                            <ValidationMessage For="@(() => registerRequest.ConfirmPassword)" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Creating account...</span>
+                                }
+                                else
+                                {
+                                    <span>Create Account</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <hr class="my-4" />
+
+                    <div class="text-center">
+                        <p class="mb-0">
+                            Already have an account? <a href="/login" class="text-decoration-none fw-bold">Login</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleRegister()
+    {
+        errorMessage = string.Empty;
+        isLoading = true;
+
+        try
+        {
+            // Validate passwords match
+            if (registerRequest.Password != registerRequest.ConfirmPassword)
+            {
+                errorMessage = "Passwords do not match.";
+                isLoading = false;
+                return;
+            }
+
+            // Validate password length
+            if (registerRequest.Password.Length < 8)
+            {
+                errorMessage = "Password must be at least 8 characters long.";
+                isLoading = false;
+                return;
+            }
+
+            var result = await AuthService.RegisterAsync(registerRequest);
+
+            if (result != null)
+            {
+                ToastService.ShowSuccess("Registration successful! Welcome!");
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "Registration failed. Email may already be in use.";
+                ToastService.ShowError("Registration failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred during registration. Please try again.";
+            Console.WriteLine($"Registration error: {ex.Message}");
+            ToastService.ShowError("Registration error");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

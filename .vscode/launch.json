@@ -2,14 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Blazor WebAssembly",
-            "type": "chrome",
-            "request": "launch",
-            "url": "https://localhost:5011",
-            "webRoot": "${workspaceFolder}/Letmework4U.Client",
-            "inspectUri": "{wsProtocol}://{url.hostname}:{url.port}/_framework/debug/ws-proxy?browser={browserInspectUri}"
-        },
-        {
             "name": "Launch API",
             "type": "coreclr",
             "request": "launch",
@@ -26,12 +18,18 @@
                 "/Views": "${workspaceFolder}/Views"
             },
             "serverReadyAction": {
-                "action": "openExternally",
+                "action": "debugWithChrome",
                 "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
-                "uriFormat": "%s/swagger"
+                "webRoot": "${workspaceFolder}/Letmework4U.Client"
             },
             "console": "internalConsole",
             "justMyCode": true
+        },
+        {
+            "name": "Launch Blazor WebAssembly",
+            "type": "blazorwasm",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/Letmework4U.Client"
         }
     ],
     "compounds": [

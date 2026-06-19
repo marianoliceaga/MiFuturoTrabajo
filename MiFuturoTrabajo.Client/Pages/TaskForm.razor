@@ -1,0 +1,161 @@
+@page "/tasks/new"
+@page "/tasks/{Id}"
+@using MiFuturoTrabajo.Shared.Models
+@using MiFuturoTrabajo.Client.Services
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject IApplicantTaskService TaskService
+@inject IJobApplicationService JobApplicationService
+@inject IApplicantService ApplicantService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h3 class="card-title mb-0">@(IsNew ? "New Task" : "Edit Task")</h3>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@task" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label">Title</label>
+                            <InputText class="form-control" @bind-Value="task.Title" placeholder="e.g., Follow up with recruiter" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Type</label>
+                                <InputSelect class="form-select" @bind-Value="task.Type">
+                                    @foreach (TaskType type in Enum.GetValues(typeof(TaskType)))
+                                    {
+                                        <option value="@type">@SplitCaps(type.ToString())</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Deadline</label>
+                                <InputDate class="form-control" @bind-Value="task.Deadline" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Related Application (Optional)</label>
+                            <InputSelect class="form-select" @bind-Value="task.JobApplicationId">
+                                <option value="">-- None --</option>
+                                @foreach (var app in applications)
+                                {
+                                    <option value="@app.Id">@app.JobTitle - @(app.Company?.Name ?? "Unknown Company")</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <InputTextArea class="form-control" @bind-Value="task.Note" rows="4" />
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span>Saving...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-save"></i>
+                                    <span>Save</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    private ApplicantTaskDto task = new();
+    private List<JobApplicationDto> applications = new();
+    private bool IsNew => string.IsNullOrEmpty(Id);
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var appsTask = JobApplicationService.GetAllAsync();
+            
+            if (!IsNew)
+            {
+                var taskTask = TaskService.GetByIdAsync(Id);
+                await Task.WhenAll(appsTask, taskTask);
+                task = taskTask.Result;
+                applications = appsTask.Result;
+            }
+            else
+            {
+                applications = await appsTask;
+                // Set defaults
+                var applicant = await ApplicantService.GetCurrentApplicantAsync();
+                task.ApplicantId = applicant?.Id;
+                task.Deadline = DateTime.Today;
+                task.StartDate = DateTime.Today;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSaving = true;
+        try
+        {
+            // Ensure title defaults to Type if empty
+            if (string.IsNullOrWhiteSpace(task.Title))
+            {
+                task.Title = SplitCaps(task.Type.ToString());
+            }
+
+            if (IsNew)
+            {
+                await TaskService.CreateAsync(task);
+            }
+            else
+            {
+                await TaskService.UpdateAsync(Id, task);
+            }
+            NavigationManager.NavigateTo("/tasks");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving task: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/tasks");
+    }
+
+    private string SplitCaps(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        return System.Text.RegularExpressions.Regex.Replace(input, "([a-z])([A-Z])", "$1 $2");
+    }
+}

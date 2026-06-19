@@ -2,7 +2,7 @@
 
 ## Overview
 
-Letmework4U.Api implements a hybrid authentication system that combines:
+MiFuturoTrabajo.Api implements a hybrid authentication system that combines:
 - **External OAuth Providers** (Google, Microsoft) for user login
 - **Internal JWT Tokens** for API authentication
 
@@ -81,7 +81,7 @@ Add the following OAuth configuration section:
 2. Navigate to **Microsoft Entra ID** (formerly Azure Active Directory)
 3. Go to **App registrations** > **New registration**
 4. Configure:
-   - Name: "Letmework4U Client"
+   - Name: "MiFuturoTrabajo Client"
    - Supported account types: **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant) and personal Microsoft accounts**
    - Redirect URI: **Single-page application (SPA)** - `https://localhost:5001/authentication/login-callback`
 5. After registration, copy the **Application (client) ID**
@@ -294,7 +294,7 @@ The system supports users with multiple authentication methods:
 1. Configure OAuth providers as described above
 2. Add `https://localhost:5001` to authorized origins/redirect URIs
 3. Update `appsettings.json` with Client IDs
-4. Run the API: `dotnet run --project Letmework4U.Api`
+4. Run the API: `dotnet run --project MiFuturoTrabajo.Api`
 5. Test OAuth login from Blazor client
 
 ### Testing with Postman

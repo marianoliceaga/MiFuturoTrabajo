@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="8.0.10" />
+    <PackageReference Include="Azure.Communication.Email" Version="1.1.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.65.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MiFuturoTrabajo.Client\MiFuturoTrabajo.Client.csproj" />
+    <ProjectReference Include="..\MiFuturoTrabajo.Infrastructure\MiFuturoTrabajo.Infrastructure.csproj" />
+    <ProjectReference Include="..\MiFuturoTrabajo.Shared\MiFuturoTrabajo.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,907 @@
+@page "/meetings"
+@using MiFuturoTrabajo.Shared.Models
+@using MiFuturoTrabajo.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IMeetingService MeetingService
+@inject IJobApplicationService JobApplicationService
+@inject NavigationManager NavigationManager
+
+<div class="meetings-container">
+    <div class="page-header">
+        <div class="header-left">
+            <h2><i class="bi bi-camera-video"></i> Meetings</h2>
+            <p class="text-muted">Your interview schedule</p>
+        </div>
+        <div class="header-actions">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control" placeholder="Search meetings..." 
+                       @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+            </div>
+            <div class="filter-group">
+                <select class="form-select" @bind="timeFilter" @bind:after="FilterMeetings">
+                    <option value="">All Meetings</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="past">Past</option>
+                    <option value="today">Today</option>
+                    <option value="thisWeek">This Week</option>
+                </select>
+                <select class="form-select" @bind="typeFilter" @bind:after="FilterMeetings">
+                    <option value="">All Types</option>
+                    <option value="online">Online</option>
+                    <option value="phone">Phone Call</option>
+                    <option value="inPerson">In Person</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" @onclick="CreateNew">
+                <i class="bi bi-plus-lg"></i> New Meeting
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading meetings...</p>
+        </div>
+    }
+    else
+    {
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-icon bg-primary"><i class="bi bi-calendar-event"></i></div>
+                <div class="stat-content">
+                    <h3>@meetings.Count</h3>
+                    <p>Total Meetings</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-info"><i class="bi bi-clock-history"></i></div>
+                <div class="stat-content">
+                    <h3>@meetings.Count(m => m.StartDateTime > DateTime.Now)</h3>
+                    <p>Upcoming</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-warning"><i class="bi bi-calendar-check"></i></div>
+                <div class="stat-content">
+                    <h3>@meetings.Count(m => m.StartDateTime.Date == DateTime.Today)</h3>
+                    <p>Today</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-success"><i class="bi bi-check-circle"></i></div>
+                <div class="stat-content">
+                    <h3>@meetings.Count(m => m.StartDateTime < DateTime.Now)</h3>
+                    <p>Completed</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="view-controls">
+            <div class="view-toggle">
+                <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "list"'>
+                    <i class="bi bi-list-ul"></i> List
+                </button>
+                <button class="btn btn-sm @(viewMode == "timeline" ? "btn-primary" : "btn-outline-secondary")"
+                        @onclick='() => viewMode = "timeline"'>
+                    <i class="bi bi-clock-history"></i> Timeline
+                </button>
+            </div>
+            <div class="sort-controls">
+                <select class="form-select form-select-sm" @bind="sortBy" @bind:after="SortMeetings">
+                    <option value="startDate">Start Date</option>
+                    <option value="title">Title</option>
+                    <option value="company">Company</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleSortOrder">
+                    <i class="bi bi-sort-@(sortAscending ? "down" : "up")"></i>
+                </button>
+            </div>
+            <span class="results-count">Showing @filteredMeetings.Count of @meetings.Count</span>
+        </div>
+
+        @if (!filteredMeetings.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <h4>No meetings found</h4>
+                <p>@(string.IsNullOrEmpty(searchTerm) ? "Schedule your first interview meeting" : "Try adjusting your search or filters")</p>
+                @if (string.IsNullOrEmpty(searchTerm))
+                {
+                    <button class="btn btn-primary" @onclick="CreateNew">
+                        <i class="bi bi-plus-lg"></i> Schedule First Meeting
+                    </button>
+                }
+            </div>
+        }
+        else if (viewMode == "list")
+        {
+            <div class="meetings-list">
+                @foreach (var meeting in filteredMeetings)
+                {
+                    var isPast = meeting.StartDateTime < DateTime.Now;
+                    var isToday = meeting.StartDateTime.Date == DateTime.Today;
+                    var isUpcoming = meeting.StartDateTime > DateTime.Now && !isToday;
+
+                    <div class="meeting-card @(isPast ? "past" : isToday ? "today" : "upcoming")" 
+                         @onclick="() => ViewDetails(meeting.Id)">
+                        <div class="meeting-date">
+                            <div class="date-box">
+                                <span class="month">@meeting.StartDateTime.ToString("MMM")</span>
+                                <span class="day">@meeting.StartDateTime.Day</span>
+                                <span class="year">@meeting.StartDateTime.Year</span>
+                            </div>
+                            <div class="time-info">
+                                <div class="time">
+                                    <i class="bi bi-clock"></i>
+                                    @meeting.StartDateTime.ToString("hh:mm tt")
+                                </div>
+                                <div class="duration">
+                                    @if (meeting.EndDateTime != default)
+                                    {
+                                        var duration = meeting.EndDateTime - meeting.StartDateTime;
+                                        <span>@duration.TotalMinutes min</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="meeting-content">
+                            <div class="meeting-header">
+                                <div class="meeting-title">
+                                    <h5>@meeting.Title</h5>
+                                    @if (isToday)
+                                    {
+                                        <span class="badge bg-warning">Today</span>
+                                    }
+                                    else if (isUpcoming)
+                                    {
+                                        var hoursUntil = (meeting.StartDateTime - DateTime.Now).TotalHours;
+                                        if (hoursUntil < 24)
+                                        {
+                                            <span class="badge bg-danger">In @((int)hoursUntil)h</span>
+                                        }
+                                    }
+                                    @if (meeting.IsPhonecall)
+                                    {
+                                        <span class="badge bg-info"><i class="bi bi-telephone"></i> Phone</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(meeting.OnlineMeetingURL))
+                                    {
+                                        <span class="badge bg-primary"><i class="bi bi-camera-video"></i> Online</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(meeting.PhysicalLocation))
+                                    {
+                                        <span class="badge bg-secondary"><i class="bi bi-geo-alt"></i> In Person</span>
+                                    }
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(meeting.Description))
+                            {
+                                <p class="meeting-description">@meeting.Description</p>
+                            }
+
+                            <div class="meeting-details">
+                                @if (!string.IsNullOrEmpty(meeting.JobApplicationId) && jobApplications.TryGetValue(meeting.JobApplicationId, out var app))
+                                {
+                                    <div class="detail-item">
+                                        <i class="bi bi-briefcase"></i>
+                                        <span>@app.Company?.Name - @app.JobTitle</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(meeting.OnlineMeetingURL))
+                                {
+                                    <div class="detail-item">
+                                        <i class="bi bi-link-45deg"></i>
+                                        <a href="@meeting.OnlineMeetingURL" target="_blank" @onclick:stopPropagation="true">
+                                            Join Online Meeting
+                                        </a>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(meeting.MeetingAccessCode))
+                                {
+                                    <div class="detail-item">
+                                        <i class="bi bi-key"></i>
+                                        <span>Code: @meeting.MeetingAccessCode</span>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(meeting.PhysicalLocation))
+                                {
+                                    <div class="detail-item">
+                                        <i class="bi bi-geo-alt"></i>
+                                        <span>@meeting.PhysicalLocation</span>
+                                    </div>
+                                }
+
+                                @if (meeting.Recruiters.Any())
+                                {
+                                    <div class="detail-item">
+                                        <i class="bi bi-people"></i>
+                                        <span>@string.Join(", ", meeting.Recruiters.Select(r => $"{r.Name} {r.Lastname}"))</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(meeting.Outcome) && isPast)
+                            {
+                                <div class="meeting-outcome">
+                                    <strong>Outcome:</strong> @meeting.Outcome
+                                </div>
+                            }
+
+                            @if (meeting.FollowUpMeetings.Any())
+                            {
+                                <div class="follow-ups">
+                                    <i class="bi bi-arrow-right-circle"></i>
+                                    <span>@meeting.FollowUpMeetings.Count follow-up meeting(s)</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="meeting-actions" @onclick:stopPropagation="true">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditMeeting(meeting.Id)" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            @if (!isPast && !string.IsNullOrEmpty(meeting.OnlineMeetingURL))
+                            {
+                                <a href="@meeting.OnlineMeetingURL" target="_blank" class="btn btn-sm btn-success" title="Join">
+                                    <i class="bi bi-camera-video"></i>
+                                </a>
+                            }
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteMeeting(meeting.Id)" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="meetings-timeline">
+                @{
+                    var groupedByDate = filteredMeetings.GroupBy(m => m.StartDateTime.Date).OrderBy(g => g.Key);
+                }
+                @foreach (var dateGroup in groupedByDate)
+                {
+                    <div class="timeline-date-group">
+                        <div class="date-header">
+                            <h4>@dateGroup.Key.ToString("dddd, MMMM dd, yyyy")</h4>
+                            @if (dateGroup.Key == DateTime.Today)
+                            {
+                                <span class="badge bg-warning">Today</span>
+                            }
+                            else if (dateGroup.Key == DateTime.Today.AddDays(1))
+                            {
+                                <span class="badge bg-info">Tomorrow</span>
+                            }
+                        </div>
+                        
+                        <div class="timeline-items">
+                            @foreach (var meeting in dateGroup.OrderBy(m => m.StartDateTime))
+                            {
+                                <div class="timeline-item" @onclick="() => ViewDetails(meeting.Id)">
+                                    <div class="timeline-marker"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-time">
+                                            @meeting.StartDateTime.ToString("hh:mm tt")
+                                            @if (meeting.EndDateTime != default)
+                                            {
+                                                <span> - @meeting.EndDateTime.ToString("hh:mm tt")</span>
+                                            }
+                                        </div>
+                                        <div class="timeline-details">
+                                            <h6>@meeting.Title</h6>
+                                            @if (!string.IsNullOrEmpty(meeting.JobApplicationId) && jobApplications.TryGetValue(meeting.JobApplicationId, out var app))
+                                            {
+                                                <p class="company-info">
+                                                    <i class="bi bi-briefcase"></i>
+                                                    @app.Company?.Name - @app.JobTitle
+                                                </p>
+                                            }
+                                            <div class="meeting-tags">
+                                                @if (meeting.IsPhonecall)
+                                                {
+                                                    <span class="badge bg-info"><i class="bi bi-telephone"></i> Phone</span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(meeting.OnlineMeetingURL))
+                                                {
+                                                    <span class="badge bg-primary"><i class="bi bi-camera-video"></i> Online</span>
+                                                }
+                                                @if (meeting.Recruiters.Any())
+                                                {
+                                                    <span class="badge bg-secondary">
+                                                        <i class="bi bi-people"></i> @meeting.Recruiters.Count recruiter(s)
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<MeetingDto> meetings = new();
+    private List<MeetingDto> filteredMeetings = new();
+    private Dictionary<string, JobApplicationDto> jobApplications = new();
+    private bool isLoading = true;
+    private string searchTerm = "";
+    private string timeFilter = "";
+    private string typeFilter = "";
+    private string sortBy = "startDate";
+    private bool sortAscending = true;
+    private string viewMode = "list";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMeetings();
+    }
+
+    private async Task LoadMeetings()
+    {
+        isLoading = true;
+        try
+        {
+            meetings = await MeetingService.GetAllAsync();
+            var applications = await JobApplicationService.GetAllAsync();
+            jobApplications = applications.ToDictionary(a => a.Id, a => a);
+            FilterMeetings();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meetings: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterMeetings()
+    {
+        filteredMeetings = meetings.AsEnumerable().ToList();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            filteredMeetings = filteredMeetings.Where(m =>
+                (m.Title?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (m.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (m.PhysicalLocation?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            ).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(timeFilter))
+        {
+            var now = DateTime.Now;
+            filteredMeetings = timeFilter switch
+            {
+                "upcoming" => filteredMeetings.Where(m => m.StartDateTime > now).ToList(),
+                "past" => filteredMeetings.Where(m => m.StartDateTime < now).ToList(),
+                "today" => filteredMeetings.Where(m => m.StartDateTime.Date == DateTime.Today).ToList(),
+                "thisWeek" => filteredMeetings.Where(m => 
+                    m.StartDateTime >= now.Date && 
+                    m.StartDateTime < now.Date.AddDays(7)).ToList(),
+                _ => filteredMeetings.ToList()
+            };
+        }
+
+        if (!string.IsNullOrEmpty(typeFilter))
+        {
+            filteredMeetings = typeFilter switch
+            {
+                "online" => filteredMeetings.Where(m => !string.IsNullOrEmpty(m.OnlineMeetingURL)).ToList(),
+                "phone" => filteredMeetings.Where(m => m.IsPhonecall).ToList(),
+                "inPerson" => filteredMeetings.Where(m => !string.IsNullOrEmpty(m.PhysicalLocation)).ToList(),
+                _ => filteredMeetings.ToList()
+            };
+        }
+
+        SortMeetings();
+    }
+
+    private void SortMeetings()
+    {
+        filteredMeetings = sortBy switch
+        {
+            "title" => sortAscending
+                ? filteredMeetings.OrderBy(m => m.Title).ToList()
+                : filteredMeetings.OrderByDescending(m => m.Title).ToList(),
+            "company" => sortAscending
+                ? filteredMeetings.OrderBy(m => GetCompanyName(m)).ToList()
+                : filteredMeetings.OrderByDescending(m => GetCompanyName(m)).ToList(),
+            _ => sortAscending
+                ? filteredMeetings.OrderBy(m => m.StartDateTime).ToList()
+                : filteredMeetings.OrderByDescending(m => m.StartDateTime).ToList()
+        };
+    }
+
+    private string GetCompanyName(MeetingDto meeting)
+    {
+        if (!string.IsNullOrEmpty(meeting.JobApplicationId) && 
+            jobApplications.TryGetValue(meeting.JobApplicationId, out var app))
+        {
+            return app.Company?.Name ?? "";
+        }
+        return "";
+    }
+
+    private void ToggleSortOrder()
+    {
+        sortAscending = !sortAscending;
+        SortMeetings();
+    }
+
+    private void HandleSearch()
+    {
+        FilterMeetings();
+    }
+
+    private void ViewDetails(string id)
+    {
+        NavigationManager.NavigateTo($"/meetings/{id}");
+    }
+
+    private void EditMeeting(string id)
+    {
+        NavigationManager.NavigateTo($"/meetings/{id}");
+    }
+
+    private async Task DeleteMeeting(string id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this meeting?"))
+        {
+            try
+            {
+                await MeetingService.DeleteAsync(id);
+                await LoadMeetings();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting meeting: {ex.Message}");
+            }
+        }
+    }
+
+    private void CreateNew()
+    {
+        NavigationManager.NavigateTo("/meetings/new");
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; }
+}
+
+<style>
+    .meetings-container {
+        padding: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .header-left h2 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .search-box {
+        position: relative;
+        width: 300px;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+
+    .search-box input {
+        padding-left: 36px;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .stats-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+    }
+
+    .stat-content h3 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .stat-content p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 14px;
+    }
+
+    .view-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 16px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 4px;
+    }
+
+    .sort-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .meetings-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .meeting-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        gap: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .meeting-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .meeting-card.past {
+        opacity: 0.8;
+        border-left-color: #6c757d;
+    }
+
+    .meeting-card.today {
+        border-left-color: #ffc107;
+        background: #fffbf0;
+    }
+
+    .meeting-card.upcoming {
+        border-left-color: #0d6efd;
+    }
+
+    .meeting-date {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .date-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 8px;
+        min-width: 80px;
+    }
+
+    .date-box .month {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .date-box .day {
+        font-size: 28px;
+        font-weight: 700;
+        color: #212529;
+        line-height: 1;
+    }
+
+    .date-box .year {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .time-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 14px;
+    }
+
+    .time-info .time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+    }
+
+    .time-info .duration {
+        color: #6c757d;
+        font-size: 12px;
+    }
+
+    .meeting-content {
+        flex: 1;
+    }
+
+    .meeting-header {
+        margin-bottom: 12px;
+    }
+
+    .meeting-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .meeting-title h5 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .meeting-description {
+        color: #6c757d;
+        margin: 8px 0;
+        font-size: 14px;
+    }
+
+    .meeting-details {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .detail-item i {
+        color: #6c757d;
+        width: 16px;
+    }
+
+    .detail-item a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+
+    .detail-item a:hover {
+        text-decoration: underline;
+    }
+
+    .meeting-outcome {
+        margin-top: 12px;
+        padding: 12px;
+        background: #d1e7dd;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .follow-ups {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        padding: 8px 12px;
+        background: #cfe2ff;
+        border-radius: 6px;
+        font-size: 13px;
+    }
+
+    .meeting-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .meetings-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+    }
+
+    .timeline-date-group {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .date-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .date-header h4 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .timeline-items {
+        position: relative;
+        padding-left: 32px;
+    }
+
+    .timeline-items::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding: 16px 0;
+        cursor: pointer;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -28px;
+        top: 20px;
+        width: 16px;
+        height: 16px;
+        background: #0d6efd;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 2px #0d6efd;
+    }
+
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 16px;
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+
+    .timeline-item:hover .timeline-content {
+        background: #e9ecef;
+    }
+
+    .timeline-time {
+        font-weight: 600;
+        color: #0d6efd;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .timeline-details h6 {
+        margin: 0 0 8px 0;
+        font-size: 16px;
+    }
+
+    .timeline-details .company-info {
+        margin: 8px 0;
+        font-size: 14px;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .meeting-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+
+    .meeting-tags .badge {
+        font-size: 11px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 16px;
+    }
+
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    @@media (max-width: 768px) {
+        .meeting-card {
+            flex-direction: column;
+        }
+
+        .meeting-actions {
+            flex-direction: row;
+            justify-content: flex-end;
+        }
+    }
+</style>

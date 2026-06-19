@@ -1,17 +1,17 @@
-# Letmework4U - Job Application Tracker
+# MiFuturoTrabajo - Job Application Tracker
 
 A comprehensive job application tracking system built with Blazor WebAssembly and ASP.NET Core Web API, featuring custom JWT authentication with OAuth support (Google, Microsoft) and Azure Cosmos DB storage.
 
 ## Project Structure
 
 ```
-Letmework4U/
-├── Letmework4U.Client/              # Blazor WebAssembly Frontend
-├── Letmework4U.Api/                 # ASP.NET Core Web API Backend
-├── Letmework4U.Infrastructure/      # EF Core & Data Access Layer
-├── Letmework4U.Shared/              # DTOs, Models & Enums
-├── Letmework4U.Tests.Unit/          # Unit Tests (xUnit)
-├── Letmework4U.Tests.Integration/   # Integration Tests (xUnit)
+MiFuturoTrabajo/
+├── MiFuturoTrabajo.Client/              # Blazor WebAssembly Frontend
+├── MiFuturoTrabajo.Api/                 # ASP.NET Core Web API Backend
+├── MiFuturoTrabajo.Infrastructure/      # EF Core & Data Access Layer
+├── MiFuturoTrabajo.Shared/              # DTOs, Models & Enums
+├── MiFuturoTrabajo.Tests.Unit/          # Unit Tests (xUnit)
+├── MiFuturoTrabajo.Tests.Integration/   # Integration Tests (xUnit)
 └── README.md                        # This file
 ```
 
@@ -103,7 +103,7 @@ The application manages 12 entities:
 
 #### 1. API Backend
 
-Update `Letmework4U.Api/appsettings.Development.json`:
+Update `MiFuturoTrabajo.Api/appsettings.Development.json`:
 
 ```json
 {
@@ -115,12 +115,12 @@ Update `Letmework4U.Api/appsettings.Development.json`:
   },
   "CosmosDb": {
     "ConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
-    "DatabaseName": "Letmework4U"
+    "DatabaseName": "MiFuturoTrabajo"
   },
   "Jwt": {
     "SecretKey": "YourVeryLongSecretKeyHere-MinimumOf32Characters!",
-    "Issuer": "Letmework4U",
-    "Audience": "Letmework4U.Client",
+    "Issuer": "MiFuturoTrabajo",
+    "Audience": "MiFuturoTrabajo.Client",
     "AccessTokenExpiryMinutes": 60,
     "RefreshTokenExpiryDays": 7
   },
@@ -142,7 +142,7 @@ Update `Letmework4U.Api/appsettings.Development.json`:
 
 #### 2. Blazor Client
 
-Update `Letmework4U.Client/wwwroot/appsettings.json`:
+Update `MiFuturoTrabajo.Client/wwwroot/appsettings.json`:
 
 ```json
 {
@@ -157,7 +157,7 @@ Download and run the [Azure Cosmos DB Emulator](https://aka.ms/cosmosdb-emulator
 
 #### 2. Start API Backend
 ```bash
-cd Letmework4U.Api
+cd MiFuturoTrabajo.Api
 dotnet run
 ```
 
@@ -166,7 +166,7 @@ Swagger UI: `https://localhost:5011/swagger`
 
 #### 3. Start Blazor Client
 ```bash
-cd Letmework4U.Client
+cd MiFuturoTrabajo.Client
 dotnet run
 ```
 
@@ -176,13 +176,13 @@ The app will be available at `https://localhost:5001`
 
 #### Unit Tests
 ```bash
-cd Letmework4U.Tests.Unit
+cd MiFuturoTrabajo.Tests.Unit
 dotnet test
 ```
 
 #### Integration Tests
 ```bash
-cd Letmework4U.Tests.Integration
+cd MiFuturoTrabajo.Tests.Integration
 dotnet test
 ```
 
@@ -317,14 +317,14 @@ For detailed OAuth setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md)
 ### API Backend
 Deploy to Azure App Service:
 ```bash
-cd Letmework4U.Api
+cd MiFuturoTrabajo.Api
 dotnet publish -c Release
 ```
 
 ### Blazor WebAssembly
 Deploy to Azure Static Web Apps or any static hosting:
 ```bash
-cd Letmework4U.Client
+cd MiFuturoTrabajo.Client
 dotnet publish -c Release
 ```
 Deploy the `bin/Release/net8.0/publish/wwwroot` folder.
