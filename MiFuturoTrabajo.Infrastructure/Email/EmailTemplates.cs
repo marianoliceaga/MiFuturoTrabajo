@@ -87,6 +87,21 @@ namespace MiFuturoTrabajo.Infrastructure.Email
         }
 
         /// <summary>
+        /// Sent when a social identity is attached to an existing account. If
+        /// the person did not do it, this is the only signal they get - so it
+        /// is worth sending even though the link required a verified address.
+        /// </summary>
+        public static EmailMessageContent ProviderLinked(string firstName, string provider) =>
+            new($"{provider} sign-in was added to your account",
+                Wrap(
+                    "A new sign-in method was added",
+                    $@"
+                    <p>Hi {E(firstName)},</p>
+                    <p>You can now sign in to {E(BrandName)} with <strong>{E(provider)}</strong>.
+                       Your password still works.</p>
+                    <p class=""muted"">If you did not do this, reset your password straight away.</p>"));
+
+        /// <summary>
         /// Every stored time is UTC and the recipient time zone is unknown, so
         /// the offset is stated rather than silently implied.
         /// </summary>

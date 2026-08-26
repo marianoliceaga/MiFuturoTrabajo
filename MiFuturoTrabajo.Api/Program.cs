@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MiFuturoTrabajo.Infrastructure;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using MiFuturoTrabajo.Api.Services;
 using MiFuturoTrabajo.Infrastructure.Email;
 
@@ -69,6 +71,23 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register application services
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+// Entra's signing keys, fetched once and refreshed on their own schedule
+// rather than per sign-in. A short HTTP timeout matters here: if Microsoft is
+// unreachable the validator refuses the token, and it should do so promptly
+// instead of holding the request open.
+builder.Services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(_ =>
+{
+    var tenantId = builder.Configuration["OAuth:Microsoft:TenantId"] ?? "common";
+
+    return new ConfigurationManager<OpenIdConnectConfiguration>(
+        $"https://login.microsoftonline.com/{tenantId}/v2.0/.well-known/openid-configuration",
+        new OpenIdConnectConfigurationRetriever(),
+        new HttpDocumentRetriever(new HttpClient { Timeout = TimeSpan.FromSeconds(10) })
+        {
+            RequireHttps = true
+        });
+});
+
 builder.Services.AddScoped<IOAuthService, OAuthService>();
 // One BlobServiceClient for the process: it is thread-safe, holds the
 // connection pool, and re-creating it per request throws that pool away.

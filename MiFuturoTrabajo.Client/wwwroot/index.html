@@ -36,6 +36,39 @@
 
     <!-- OAuth Helper Scripts -->
     <script>
+        // ── OAuth configuration ─────────────────────────────────────────────────
+        //
+        // Client IDs used to be literals in this file - and GOOGLE_CLIENT_ID was
+        // referenced twice while never being assigned anywhere, so Google
+        // initialisation threw a ReferenceError and sign-in could not work at
+        // all. They now come from wwwroot/appsettings.json, the same file the
+        // Blazor app reads, so localhost and the deployed site can differ
+        // without editing markup.
+        //
+        // These identifiers are public by design: a client ID is not a secret,
+        // it is half of a pair whose other half never leaves Google or Entra.
+        // What actually protects the account is the redirect-URI allowlist in
+        // the provider console, plus the signature check on the API side.
+        window.oauthConfigReady = (async function () {
+            try {
+                const response = await fetch('appsettings.json', { cache: 'no-cache' });
+                const settings = response.ok ? await response.json() : {};
+                const oauth = settings.OAuth || {};
+
+                window.oauthConfig = {
+                    googleClientId: (oauth.Google || {}).ClientId || '',
+                    microsoftClientId: (oauth.Microsoft || {}).ClientId || '',
+                    microsoftAuthority: (oauth.Microsoft || {}).Authority
+                        || 'https://login.microsoftonline.com/common'
+                };
+            } catch (e) {
+                console.error('Could not read OAuth configuration', e);
+                window.oauthConfig = { googleClientId: '', microsoftClientId: '', microsoftAuthority: '' };
+            }
+
+            return window.oauthConfig;
+        })();
+
         // Set Google Callback Reference
         window.setGoogleCallback = function(dotnetHelper) {
             window.blazorGoogleCallback = dotnetHelper;
@@ -48,11 +81,19 @@
             }
         };
 
-        // Initialize Google Identity Services once the library is ready
-        function initGoogleSignIn() {
+        // Initialize Google Identity Services once the library and the
+        // configuration are both ready.
+        async function initGoogleSignIn() {
+            const config = await window.oauthConfigReady;
+
+            if (!config.googleClientId) {
+                console.warn('Google sign-in is not configured (OAuth:Google:ClientId is empty)');
+                return;
+            }
+
             if (window.google && window.google.accounts && window.google.accounts.id) {
                 google.accounts.id.initialize({
-                    client_id: GOOGLE_CLIENT_ID,
+                    client_id: config.googleClientId,
                     callback: window.handleGoogleCredentialResponse,
                     auto_select: false,
                     cancel_on_tap_outside: true
@@ -79,15 +120,22 @@
          *      official Google Sign-In button and programmatically click it, which
          *      opens a reliable popup window.
          */
-        window.signInWithGoogle = function () {
+        window.signInWithGoogle = async function () {
             if (!window.google || !window.google.accounts || !window.google.accounts.id) {
                 console.error('Google Sign-In library not loaded yet');
                 return;
             }
 
+            const config = await window.oauthConfigReady;
+
+            if (!config.googleClientId) {
+                console.error('Google sign-in is not configured (OAuth:Google:ClientId is empty)');
+                return;
+            }
+
             // Re-initialize to make sure callback is fresh
             google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
+                client_id: config.googleClientId,
                 callback: window.handleGoogleCredentialResponse,
                 auto_select: false,
                 cancel_on_tap_outside: true
@@ -167,21 +215,46 @@
         window.showGoogleOneTap = window.signInWithGoogle;
 
         // ── Microsoft MSAL ──────────────────────────────────────────────────────
-        const msalConfig = {
-            auth: {
-                clientId: '017e3aea-92a7-4724-94ed-fae35fba5131',
-                authority: 'https://login.microsoftonline.com/common',
-                redirectUri: window.location.origin + '/login-callback'
+        // MSAL is configured from the same appsettings.json, so the deployed
+        // origin and localhost differ by configuration rather than by an edit
+        // to this file. Both must be registered as redirect URIs in the Entra
+        // app registration - that allowlist, not the client ID, is what stops
+        // another site from using this registration.
+        const msalReady = window.oauthConfigReady.then(function (config) {
+            const msalConfig = {
+                auth: {
+                    clientId: config.microsoftClientId,
+                    authority: config.microsoftAuthority,
+                    redirectUri: window.location.origin + '/login-callback'
+                }
+            };
+
+            if (!msalConfig.auth.clientId) {
+                console.warn('Microsoft sign-in is not configured (OAuth:Microsoft:ClientId is empty)');
+                return null;
             }
-        };
 
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
+            return new msal.PublicClientApplication(msalConfig);
+        });
 
-        msalInstance.initialize().then(function () {
-            console.log('MSAL initialized');
+        // Initialisation is a promise now rather than a top-level const, so
+        // callers await it instead of assuming a ready instance is in scope.
+        const msalInitialized = msalReady.then(function (instance) {
+            if (!instance) { return null; }
+
+            return instance.initialize().then(function () {
+                console.log('MSAL initialized');
+                return instance;
+            });
         });
 
         window.loginWithMicrosoft = async function () {
+            const msalInstance = await msalInitialized;
+
+            if (!msalInstance) {
+                throw new Error('Microsoft sign-in is not configured.');
+            }
+
             try {
                 const loginResponse = await msalInstance.loginPopup({
                     scopes: ['openid', 'profile', 'email', 'User.Read']

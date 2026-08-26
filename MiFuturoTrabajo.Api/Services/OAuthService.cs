@@ -1,5 +1,9 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Google.Apis.Auth;
-using Microsoft.Identity.Client;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using MiFuturoTrabajo.Shared.Models;
 
 namespace MiFuturoTrabajo.Api.Services
@@ -11,19 +15,45 @@ namespace MiFuturoTrabajo.Api.Services
         Task<OAuthUserInfo?> ValidateOAuthTokenAsync(OAuthProvider provider, string idToken);
     }
 
+    /// <summary>
+    /// Turns a provider's ID token into a user identity, or into nothing.
+    ///
+    /// This is the whole security boundary of social sign-in. The endpoint that
+    /// calls it is <c>[AllowAnonymous]</c> and issues a session for whatever
+    /// address the token names, so everything except the provider's signature
+    /// is attacker-controlled. If that signature is not checked against the
+    /// provider's published keys, the token is just a wish.
+    ///
+    /// The previous Microsoft implementation called
+    /// <c>JwtSecurityTokenHandler.ReadJwtToken</c> - which decodes and verifies
+    /// nothing - and then inspected <c>aud</c>, <c>iss</c> and <c>exp</c> from
+    /// the decoded claims. All three were forgeable, so anyone could sign in as
+    /// any address without a password, without mailbox access, and without ever
+    /// contacting Microsoft.
+    /// </summary>
     public class OAuthService : IOAuthService
     {
         private readonly IConfiguration _configuration;
+        private readonly IConfigurationManager<OpenIdConnectConfiguration> _microsoftMetadata;
         private readonly ILogger<OAuthService> _logger;
 
-        public OAuthService(IConfiguration configuration, ILogger<OAuthService> logger)
+        public OAuthService(
+            IConfiguration configuration,
+            IConfigurationManager<OpenIdConnectConfiguration> microsoftMetadata,
+            ILogger<OAuthService> logger)
         {
             _configuration = configuration;
+            _microsoftMetadata = microsoftMetadata;
             _logger = logger;
         }
 
         public async Task<OAuthUserInfo?> ValidateOAuthTokenAsync(OAuthProvider provider, string idToken)
         {
+            if (string.IsNullOrWhiteSpace(idToken))
+            {
+                return null;
+            }
+
             return provider switch
             {
                 OAuthProvider.Google => await ValidateGoogleTokenAsync(idToken),
@@ -32,47 +62,56 @@ namespace MiFuturoTrabajo.Api.Services
             };
         }
 
+        // ------------------------------------------------------------------
+        // Google
+        // ------------------------------------------------------------------
+
         public async Task<OAuthUserInfo?> ValidateGoogleTokenAsync(string idToken)
         {
+            var googleClientId = _configuration["OAuth:Google:ClientId"];
+
+            if (string.IsNullOrEmpty(googleClientId))
+            {
+                _logger.LogWarning("Google OAuth ClientId not configured; refusing Google sign-in");
+                return null;
+            }
+
             try
             {
-                var googleClientId = _configuration["OAuth:Google:ClientId"];
+                // Google's library fetches Google's keys and verifies the
+                // signature, the audience, the issuer and the lifetime. This
+                // path was always sound; it is asserted in tests so a future
+                // refactor cannot quietly turn it into a decode.
+                var payload = await GoogleJsonWebSignature.ValidateAsync(
+                    idToken,
+                    new GoogleJsonWebSignature.ValidationSettings
+                    {
+                        Audience = new[] { googleClientId }
+                    });
 
-                if (string.IsNullOrEmpty(googleClientId))
+                if (payload == null || string.IsNullOrWhiteSpace(payload.Email))
                 {
-                    _logger.LogWarning("Google OAuth ClientId not configured");
+                    _logger.LogWarning("Google token carried no email");
                     return null;
                 }
 
-                // Validate the token with Google
-                var validationSettings = new GoogleJsonWebSignature.ValidationSettings
-                {
-                    Audience = new[] { googleClientId }
-                };
-
-                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, validationSettings);
-
-                if (payload == null)
-                {
-                    _logger.LogWarning("Google token validation returned null payload");
-                    return null;
-                }
-
-                // Extract user information
                 return new OAuthUserInfo
                 {
                     Email = payload.Email,
                     FirstName = payload.GivenName ?? string.Empty,
                     LastName = payload.FamilyName ?? string.Empty,
                     ProfilePictureUrl = payload.Picture,
-                    ProviderId = payload.Subject, // Google's unique user ID
+                    ProviderId = payload.Subject,
                     Provider = OAuthProvider.Google,
+
+                    // Reported, not assumed. The caller decides what an
+                    // unverified address is allowed to do.
                     EmailVerified = payload.EmailVerified
                 };
             }
             catch (InvalidJwtException ex)
             {
-                _logger.LogError(ex, "Invalid Google JWT token");
+                _logger.LogWarning(ex, "Google token failed validation");
                 return null;
             }
             catch (Exception ex)
@@ -82,100 +121,183 @@ namespace MiFuturoTrabajo.Api.Services
             }
         }
 
+        // ------------------------------------------------------------------
+        // Microsoft
+        // ------------------------------------------------------------------
+
         public async Task<OAuthUserInfo?> ValidateMicrosoftTokenAsync(string idToken)
         {
+            var clientId = _configuration["OAuth:Microsoft:ClientId"];
+            var tenantId = _configuration["OAuth:Microsoft:TenantId"] ?? "common";
+
+            if (string.IsNullOrEmpty(clientId))
+            {
+                _logger.LogWarning("Microsoft OAuth ClientId not configured; refusing Microsoft sign-in");
+                return null;
+            }
+
+            OpenIdConnectConfiguration metadata;
+
             try
             {
-                var microsoftClientId = _configuration["OAuth:Microsoft:ClientId"];
-                var microsoftTenantId = _configuration["OAuth:Microsoft:TenantId"] ?? "common";
-
-                if (string.IsNullOrEmpty(microsoftClientId))
-                {
-                    _logger.LogWarning("Microsoft OAuth ClientId not configured");
-                    return null;
-                }
-
-                // For token validation, we need to verify the token signature and claims
-                // Microsoft tokens can be validated using the Microsoft Identity library
-
-                // Create a confidential client application (not used for validation, but for token info)
-                var authority = $"https://login.microsoftonline.com/{microsoftTenantId}";
-
-                // Parse the JWT token manually to extract claims
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(idToken);
-
-                // Validate basic token structure
-                if (jwtToken == null)
-                {
-                    _logger.LogWarning("Failed to parse Microsoft JWT token");
-                    return null;
-                }
-
-                // Verify audience claim
-                var audienceClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "aud")?.Value;
-                if (audienceClaim != microsoftClientId)
-                {
-                    _logger.LogWarning($"Microsoft token audience mismatch. Expected: {microsoftClientId}, Got: {audienceClaim}");
-                    return null;
-                }
-
-                // Verify issuer
-                var issuerClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "iss")?.Value;
-                if (!issuerClaim?.Contains("https://login.microsoftonline.com/") == true)
-                {
-                    _logger.LogWarning($"Microsoft token issuer invalid: {issuerClaim}");
-                    return null;
-                }
-
-                // Check expiration
-                var expClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
-                if (long.TryParse(expClaim, out var exp))
-                {
-                    var expirationTime = DateTimeOffset.FromUnixTimeSeconds(exp);
-                    if (expirationTime < DateTimeOffset.UtcNow)
-                    {
-                        _logger.LogWarning("Microsoft token has expired");
-                        return null;
-                    }
-                }
-
-                // Extract user information from claims
-                var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username")?.Value;
-                var firstName = jwtToken.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value;
-                var lastName = jwtToken.Claims.FirstOrDefault(c => c.Type == "family_name")?.Value;
-                var name = jwtToken.Claims.FirstOrDefault(c => c.Type == "name")?.Value;
-                var oid = jwtToken.Claims.FirstOrDefault(c => c.Type == "oid" || c.Type == "sub")?.Value;
-
-                if (string.IsNullOrEmpty(email))
-                {
-                    _logger.LogWarning("Microsoft token missing email claim");
-                    return null;
-                }
-
-                // If first/last name not available, try to split the full name
-                if (string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(name))
-                {
-                    var nameParts = name.Split(' ', 2);
-                    firstName = nameParts[0];
-                    lastName = nameParts.Length > 1 ? nameParts[1] : string.Empty;
-                }
-
-                return new OAuthUserInfo
-                {
-                    Email = email,
-                    FirstName = firstName ?? string.Empty,
-                    LastName = lastName ?? string.Empty,
-                    ProviderId = oid ?? email, // Use OID (object identifier) or email as fallback
-                    Provider = OAuthProvider.Microsoft,
-                    EmailVerified = true // Microsoft verifies emails during account creation
-                };
+                // Signing keys come from Entra's published JWKS, refreshed on
+                // its own schedule by the ConfigurationManager. If they cannot
+                // be fetched we refuse: failing closed is the only safe
+                // direction for an authentication check.
+                metadata = await _microsoftMetadata.GetConfigurationAsync(CancellationToken.None);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating Microsoft token");
+                _logger.LogError(ex, "Could not fetch Microsoft OpenID metadata; refusing the sign-in");
                 return null;
             }
+
+            var parameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = metadata.SigningKeys,
+
+                ValidateAudience = true,
+                ValidAudience = clientId,
+
+                ValidateIssuer = true,
+                IssuerValidator = (issuer, _, _) => ValidateMicrosoftIssuer(issuer, tenantId),
+
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(2),
+
+                RequireSignedTokens = true,
+                RequireExpirationTime = true
+            };
+
+            ClaimsPrincipal principal;
+
+            try
+            {
+                principal = new JwtSecurityTokenHandler().ValidateToken(idToken, parameters, out _);
+            }
+            catch (SecurityTokenException ex)
+            {
+                _logger.LogWarning(ex, "Microsoft token failed validation");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Microsoft token could not be read");
+                return null;
+            }
+
+            var email = principal.FindFirst("email")?.Value
+                        ?? principal.FindFirst("preferred_username")?.Value;
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                _logger.LogWarning("Microsoft token carried no email claim");
+                return null;
+            }
+
+            var firstName = principal.FindFirst("given_name")?.Value;
+            var lastName = principal.FindFirst("family_name")?.Value;
+            var fullName = principal.FindFirst("name")?.Value;
+
+            if (string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(fullName))
+            {
+                var parts = fullName.Split(' ', 2);
+                firstName = parts[0];
+                lastName = parts.Length > 1 ? parts[1] : string.Empty;
+            }
+
+            var subject = principal.FindFirst("oid")?.Value
+                          ?? principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                // Without a stable provider-side identifier there is nothing to
+                // key a linked account on but the email, which is exactly what
+                // must not be trusted on its own.
+                _logger.LogWarning("Microsoft token carried no oid or sub claim");
+                return null;
+            }
+
+            return new OAuthUserInfo
+            {
+                Email = email,
+                FirstName = firstName ?? string.Empty,
+                LastName = lastName ?? string.Empty,
+                ProviderId = subject,
+                Provider = OAuthProvider.Microsoft,
+                EmailVerified = IsMicrosoftEmailVerified(principal, tenantId)
+            };
+        }
+
+        /// <summary>
+        /// Entra does not promise that the <c>email</c> claim is verified. In a
+        /// multi-tenant app anyone can stand up a tenant, set a user's mail
+        /// attribute to someone else's address, and sign in - the "nOAuth"
+        /// pattern. The signal that it <em>is</em> verified is
+        /// <c>xms_edov</c> (email domain owner verified), which a tenant must
+        /// opt into emitting.
+        ///
+        /// So: trust the claim only when the app is pinned to a single tenant,
+        /// or when the token says so explicitly. Otherwise the address is
+        /// treated as unverified and the caller refuses to link it onto an
+        /// account that already exists.
+        /// </summary>
+        private static bool IsMicrosoftEmailVerified(ClaimsPrincipal principal, string tenantId)
+        {
+            var edov = principal.FindFirst("xms_edov")?.Value;
+
+            if (bool.TryParse(edov, out var verified)) return verified;
+            if (edov == "1") return true;
+
+            return !IsMultiTenant(tenantId);
+        }
+
+        private static bool IsMultiTenant(string tenantId) =>
+            tenantId.Equals("common", StringComparison.OrdinalIgnoreCase) ||
+            tenantId.Equals("organizations", StringComparison.OrdinalIgnoreCase) ||
+            tenantId.Equals("consumers", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// A real issuer check, replacing a substring test that
+        /// <c>https://evil.example.com/?next=https://login.microsoftonline.com/</c>
+        /// satisfied - and that a token with no issuer at all slipped past,
+        /// because <c>!issuer?.Contains(x) == true</c> evaluates to false when
+        /// issuer is null.
+        /// </summary>
+        internal static string ValidateMicrosoftIssuer(string? issuer, string tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(issuer) ||
+                !Uri.TryCreate(issuer, UriKind.Absolute, out var uri))
+            {
+                throw new SecurityTokenInvalidIssuerException($"Issuer is missing or not a URI: '{issuer}'.");
+            }
+
+            var hostIsEntra =
+                uri.Scheme == Uri.UriSchemeHttps &&
+                (uri.Host.Equals("login.microsoftonline.com", StringComparison.OrdinalIgnoreCase) ||
+                 uri.Host.Equals("sts.windows.net", StringComparison.OrdinalIgnoreCase));
+
+            if (!hostIsEntra)
+            {
+                throw new SecurityTokenInvalidIssuerException($"Issuer host is not Microsoft: '{issuer}'.");
+            }
+
+            var segments = uri.AbsolutePath.Trim('/').Split('/');
+
+            if (segments.Length == 0 || !Guid.TryParse(segments[0], out _))
+            {
+                throw new SecurityTokenInvalidIssuerException(
+                    $"Issuer path does not start with a tenant id: '{issuer}'.");
+            }
+
+            if (!IsMultiTenant(tenantId) && !segments[0].Equals(tenantId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new SecurityTokenInvalidIssuerException(
+                    $"Token came from tenant '{segments[0]}' but this app accepts only '{tenantId}'.");
+            }
+
+            return issuer;
         }
     }
 }

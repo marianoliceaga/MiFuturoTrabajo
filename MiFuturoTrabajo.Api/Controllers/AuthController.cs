@@ -443,6 +443,30 @@ namespace MiFuturoTrabajo.Api.Controllers
         /// two different partitions - that is, two different accounts for one
         /// person, with no unique index to catch it.
         /// </summary>
+        /// <summary>
+        /// Every user needs an applicant record - registration creates one, and
+        /// an account created through OAuth was silently getting none, so the
+        /// first page load after a social sign-in had nothing to read.
+        /// </summary>
+        private async Task CreateApplicantForAsync(User user)
+        {
+            var applicant = new Applicant
+            {
+                UserId = user.Id,
+                Name = user.FirstName,
+                Lastname = user.LastName,
+                ContactEmail = user.Email,
+                CreatedOnDate = DateTime.UtcNow
+            };
+
+            _context.Applicants.Add(applicant);
+            await _context.SaveChangesAsync();
+
+            user.ApplicantId = applicant.Id;
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+        }
+
         private static string NormalizeEmail(string? email) =>
             (email ?? string.Empty).Trim().ToLowerInvariant();
 
@@ -821,6 +845,8 @@ namespace MiFuturoTrabajo.Api.Controllers
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.Email == oauthEmail);
 
+                var provider = oauthUserInfo.Provider.ToString();
+
                 if (user == null)
                 {
                     // Create new user from OAuth info
@@ -831,7 +857,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                         FirstName = oauthUserInfo.FirstName,
                         LastName = oauthUserInfo.LastName,
                         EmailConfirmed = oauthUserInfo.EmailVerified,
-                        OAuthProvider = oauthUserInfo.Provider.ToString(),
+                        OAuthProvider = provider,
                         OAuthProviderId = oauthUserInfo.ProviderId,
                         ProfilePictureUrl = oauthUserInfo.ProfilePictureUrl,
                         PasswordHash = null, // OAuth users don't have passwords initially
@@ -842,16 +868,64 @@ namespace MiFuturoTrabajo.Api.Controllers
                     _context.Users.Add(user);
                     await _context.SaveChangesAsync();
 
-                    _logger.LogInformation($"Created new OAuth user: {user.Email} via {oauthUserInfo.Provider}");
+                    await CreateApplicantForAsync(user);
+
+                    _logger.LogInformation("Created new OAuth user {Email} via {Provider}", user.Email, provider);
                 }
                 else
                 {
-                    // Update existing user with OAuth info if not already set
-                    if (string.IsNullOrEmpty(user.OAuthProvider))
+                    var alreadyLinked =
+                        string.Equals(user.OAuthProvider, provider, StringComparison.OrdinalIgnoreCase) &&
+                        user.OAuthProviderId == oauthUserInfo.ProviderId;
+
+                    if (!alreadyLinked)
                     {
-                        user.OAuthProvider = oauthUserInfo.Provider.ToString();
+                        // Linking a provider identity onto an account that
+                        // already exists hands over that account. The only thing
+                        // connecting them is the email address, so the provider
+                        // has to have actually verified it.
+                        //
+                        // Entra does not promise that for multi-tenant apps:
+                        // anyone can create a tenant and set a user's mail
+                        // attribute to someone else's address. Refusing here is
+                        // what stops that from being an account takeover.
+                        if (!oauthUserInfo.EmailVerified)
+                        {
+                            _logger.LogWarning(
+                                "Refused to link {Provider} identity to existing account {Email}: " +
+                                "the provider did not verify the address",
+                                provider, user.Email);
+
+                            return Unauthorized(new
+                            {
+                                error = "This email already has an account, and your provider has not " +
+                                        "verified that the address belongs to you. Sign in with your " +
+                                        "password instead."
+                            });
+                        }
+
+                        if (!string.IsNullOrEmpty(user.OAuthProvider))
+                        {
+                            _logger.LogInformation(
+                                "Account {Email} moving from {Old} to {New}", user.Email, user.OAuthProvider, provider);
+                        }
+
+                        user.OAuthProvider = provider;
                         user.OAuthProviderId = oauthUserInfo.ProviderId;
-                        user.ProfilePictureUrl = oauthUserInfo.ProfilePictureUrl;
+
+                        if (!string.IsNullOrEmpty(oauthUserInfo.ProfilePictureUrl))
+                        {
+                            user.ProfilePictureUrl = oauthUserInfo.ProfilePictureUrl;
+                        }
+
+                        // Signing in through a provider that verified the address
+                        // proves the same thing the verification email proves.
+                        user.EmailConfirmed = true;
+
+                        await TrySendAsync(
+                            user.Email,
+                            EmailTemplates.ProviderLinked(user.FirstName, provider),
+                            "provider linked");
                     }
 
                     // Check if account is locked

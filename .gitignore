@@ -368,3 +368,8 @@ appsettings.json
 # Committed once, it is in history forever. local.settings.json.example is the
 # tracked template.
 local.settings.json
+
+# ...except the Blazor client's, which is a *shipped asset*, not a secret store.
+# The published WASM fetches it at runtime for ApiBaseUrl and the public OAuth
+# client IDs; without it the deployed site calls https://localhost:7071.
+!MiFuturoTrabajo.Client/wwwroot/appsettings.json
