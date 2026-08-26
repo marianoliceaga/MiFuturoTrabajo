@@ -89,6 +89,25 @@ The restored tests then caught two real bugs, both fixed: **soft-delete was inco
 
 ---
 
+### ✅ Phase 2 complete — [docs/phase2-results.md](docs/phase2-results.md)
+
+| | Before | After |
+|---|---|---|
+| Containers | 12 | **7** |
+| Cross-container `.Include()` | 20 | **0** |
+| Runs on real Cosmos | **No** | **Yes** |
+| Tests | 84 / 84 | **84 / 84** |
+
+Aggregates are embedded, so the board renders from **one single-partition query**. DTOs are unchanged, so the Blazor client needed **no modifications**. Verified against a real Cosmos account — a 9-step model spike, then the API itself exercised over HTTP.
+
+**The partition-key call, measured rather than assumed.** `WithPartitionKey` is Cosmos-only and broke all 16 CRUD tests on InMemory. With sensitive-data logging on, `.Where(x => x.PartitionKeyProp == v)` targets the *same single partition* as `WithPartitionKey(v)`, while a non-key filter logs a null partition. All 24 calls became equality filters: production keeps single-partition reads, tests stay portable.
+
+**F3 and F4 resolved early.** The reminder rewrite dropped the three-level includes (F4) and finally honours `ReminderSent` (F3) — previously up to 24 duplicate emails per task. Selection logic sits in a static `SelectDue` so the Phase 5 port to Functions carries it across unchanged.
+
+Also: `Persistence:Provider` replaces the `localhost:8081` sniff that hid the whole problem; the false unique index on `User.Email` is gone; `NotesJson`/`LabelsJson` are native JSON arrays.
+
+---
+
 ## Current state — what I verified in the code
 
 These are findings from reading the source, not speculation. They define the work.
