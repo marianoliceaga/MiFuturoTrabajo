@@ -152,6 +152,30 @@ Also: verification tokens expire, registration actually sends one, reset clears 
 
 **One thing deliberately not fixed:** a timing oracle on `/forgot-password` — a known address does database and mail work, an unknown one returns immediately. Closing it means moving the send off the request path, which is Phase 5 work. Noted rather than half-solved.
 
+---
+
+### ✅ Phase 5 complete — [docs/phase5-results.md](docs/phase5-results.md)
+
+| | Before | After |
+|---|---|---|
+| Runtime | `BackgroundService` inside the API | **Azure Functions timer triggers** |
+| Survives an idle App Service | **No** | Yes |
+| Schedules | hardcoded `TimeSpan` | app settings, tunable without redeploy |
+| Reminder titles in HTML | **unencoded** | encoded |
+| Reminder tests | **none** | 20 |
+| Tests | 147 / 147 | **166 / 166** |
+
+**The move was necessary, not cosmetic.** App Service Free has no Always On: the site unloads when idle and a `Task.Delay` polling loop simply stops — silently, with no error and no missed-run signal. On the tier this project deploys to, the reminders would have looked implemented and sent nothing.
+
+**Email moved out of the API.** `IEmailService` and `EmailTemplates` lived in the web project, which a Functions app cannot sensibly reference — the same mistake Phase 1 removed when it broke Api→Client. Both now sit in `Infrastructure/Email/`, shared by both hosts.
+
+**A stored-XSS bug the move exposed.** Both hosted services interpolated task and meeting titles into HTML raw. Same defect class as the auth mail fixed in Phase 4, in code written at the same time. Routing reminders through `EmailTemplates` closes it.
+
+**The tests Phase 2 promised.** Phase 2 extracted `SelectDue` "so the Phase 5 port can unit-test it" and never wrote them. 20 tests now, including the roadmap's own exit criterion as an assertion.
+
+Verified on the **real `func` host reading real Cosmos**: both timers fired, selected exactly the right rows out of a seeded set covering every branch, and the next tick twenty seconds later reported *"No reminders due"* — which is the behaviour that was broken before Phase 2 fixed `ReminderSent`.
+
+
 
 
 ## Current state — what I verified in the code
@@ -335,7 +359,10 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 
 ---
 
-## Phase 5 — Reminders as Azure Functions
+## ✅ Phase 5 — Reminders as Azure Functions — **DONE**
+
+*Delivered on `claude/phase-5-functions-reminders`. Full record: [docs/phase5-results.md](docs/phase5-results.md).
+The plan below is kept as written for comparison; deviations are noted inline.*
 
 **Objective:** Write the two reminder services that `Program.cs` has been advertising, on infrastructure that costs nothing.
 
@@ -355,6 +382,15 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 - **README correction:** the current README asserts "ASP.NET Core Web API (NOT Azure Functions)". That was a statement about the API's hosting model and remains true; the reminders are a separate scheduled workload. Reword rather than delete, and say why.
 
 **Exit criteria:** A meeting created 70 minutes out with `SendReminderEmail = true` produces exactly one email at the 60-minute mark.
+
+**Deviations from the plan, and why:**
+- Step 1 assumed the services still had to be *written*. Phase 2 had already rewritten them as hosted services with a portable `SelectDue`, so this was a **port**, not a first implementation.
+- Step 5's "delete the misleading commented-out lines" no longer applied — Phase 2 had made those registrations real. They are now deleted for the opposite reason: the work moved out of the API.
+- `IEmailService` and `EmailTemplates` had to move from `Api` to `Infrastructure` first; the plan did not anticipate that a Functions project cannot reference the web project.
+- The Functions app deliberately has **no** InMemory provider option, unlike the API: a reminder host reading a throwaway empty database mails nobody, which looks identical to working.
+- Two items the plan did not list: **unencoded reminder titles** (stored XSS, same class as Phase 4) and **`local.settings.json` not being gitignored** — fixed before one was created.
+
+**Exit criteria met**, asserted as a unit test and confirmed on the real `func` host against real Cosmos.
 
 ---
 
