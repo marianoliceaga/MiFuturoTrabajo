@@ -127,6 +127,32 @@ Also: `Persistence:Provider` replaces the `localhost:8081` sniff that hid the wh
 
 Verified over HTTP against **real Azurite and real Cosmos** — 26 checks including the byte-for-byte round trip, `Content-Disposition`, the 403 without a SAS, and the 404 after delete. Two checks failed first time: my verification script compared header names case-sensitively; the code was correct.
 
+---
+
+### ✅ Phase 4 complete — [docs/phase4-results.md](docs/phase4-results.md)
+
+**The hard gate on deployment. Finding 01 — anonymous account takeover — is closed.**
+
+| | Before | After |
+|---|---|---|
+| Token in the HTTP response | **yes, in Development** | **never, in any environment** |
+| Tokens at rest | plaintext | **SHA-256 hash** |
+| Token entropy | `Guid.NewGuid()` — 122 bits | **256 bits from a CSPRNG** |
+| Verification token expiry | **never expired** | 24 hours |
+| Auth lookups on Cosmos | **cross-partition scans** | single-partition reads |
+| Tests | 114 / 114 | **147 / 147** |
+
+**Gating the leak on the environment was not enough.** The working tree returned the token only when `_env.IsDevelopment()` — a security control resting on an environment variable being right on every host, forever, when it only has to be wrong once. The escape hatch is gone. The developer's real need is met elsewhere: `NoOpEmailService` writes the link to the **server log**, where whoever sent the request cannot read it.
+
+**Hashing forced a query redesign, and it was overdue.** Looking a user up by token was already a cross-partition scan — as was `.Where(u => u.Email.ToLower() == x.ToLower())`, on **login**. Every email-borne link now carries `email` beside `token`, making redemption a single-partition read. Measured with sensitive-data logging: the new form targets one partition, both old forms fan out.
+
+**A duplicate-account bug found on the way.** OAuth stored the provider's email verbatim. Email is the partition key and Cosmos enforces no unique index, so `User@x.com` and `user@x.com` were two accounts for one person. All email handling now goes through one normalizer.
+
+Also: verification tokens expire, registration actually sends one, reset clears the refresh token and confirms the address, `VerifyEmail` no longer 500s on a malformed body, auth 500s stop echoing `ex.Message`, email bodies HTML-encode user input, and **Production refuses to start without a mail provider**.
+
+**One thing deliberately not fixed:** a timing oracle on `/forgot-password` — a known address does database and mail work, an unknown one returns immediately. Closing it means moving the send off the request path, which is Phase 5 work. Noted rather than half-solved.
+
+
 
 ## Current state — what I verified in the code
 
@@ -275,7 +301,10 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 
 ---
 
-## Phase 4 — Transactional email and auth hardening
+## ✅ Phase 4 — Transactional email and auth hardening — **DONE**
+
+*Delivered on `claude/phase-4-email-auth`. Full record: [docs/phase4-results.md](docs/phase4-results.md).
+The plan below is kept as written for comparison; deviations are noted inline.*
 
 **Objective:** Send real email, and close the account-takeover hole before anything is public. **This phase is a hard gate on Phase 6 deployment.**
 
@@ -295,6 +324,14 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 - Add a `NoOpEmailService` selected by configuration for local dev and tests.
 
 **Exit criteria:** Full password-reset round-trip through a real inbox. No token appears in any HTTP response. Verified by an integration test asserting the response body contains no token field.
+
+**Deviations from the plan, and why:**
+- Step 8's recommendation (allow unverified login, show a banner) was **already the behaviour** — login never checked `EmailConfirmed` and the flag already reaches the client. Left alone.
+- Managed identity for ACS was **not** implemented. `EmailClient` is constructed from a connection string; the identity-based path belongs with the Phase 7 provisioning that creates the resource. Production now fails fast if the setting is missing, which is the half that could be done without the resource existing.
+- The round-trip was verified through the **server log**, not a real inbox — ACS does not exist yet. Phase 7 provisions it and does the inbox test.
+- Two items the plan did not list were fixed because they were in the blast radius: **email normalization** (a duplicate-account bug via OAuth) and the **cross-partition login query**.
+
+**Exit criteria met**, except the real-inbox leg, which is blocked on Phase 7 provisioning.
 
 ---
 
