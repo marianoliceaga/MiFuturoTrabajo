@@ -25,8 +25,21 @@ param location string = resourceGroup().location
 @allowed(['westeurope', 'eastus2', 'centralus', 'westus2', 'eastasia'])
 param staticWebAppLocation string = 'westeurope'
 
-@description('Set false if this subscription has already used its one free-tier Cosmos account.')
-param cosmosFreeTier bool = true
+@description('''
+How Cosmos is billed.
+
+  free         1000 RU/s and 25 GB, $0 - but ONE account per subscription,
+               and the slot does not release the moment you delete the
+               account holding it. Azure can take hours.
+  serverless   pay per request. Cents per month at demo volume, and no
+               subscription-wide limit to collide with.
+  provisioned  fixed RU/s, roughly $24/month at the 400 RU/s minimum.
+
+This cannot be changed on an existing account - switching means creating a
+new one and moving the data.
+''')
+@allowed(['free', 'serverless', 'provisioned'])
+param cosmosBilling string = 'free'
 
 @description('F1 is free but has no Always On and a 60 CPU-minute daily quota. B1 removes both for about USD 13/month.')
 @allowed(['F1', 'B1'])
@@ -38,14 +51,24 @@ param emailDomain string = ''
 @description('Who gets the cost alert. Empty falls back to whoever holds Owner on the subscription.')
 param budgetContactEmails array = []
 
+@description('''
+Resource group for the Function App. It has to be a different one: Azure will
+not create a Linux Consumption plan in a group that already holds a Linux
+Free/Basic plan, and the API runs on Linux F1. Create it before deploying.
+''')
+param functionsResourceGroupName string
+
 var cosmosAccountName = '${appName}-cosmos-${uniqueString(resourceGroup().id)}'
 var storageAccountName = take('${replace(appName, '-', '')}st${uniqueString(resourceGroup().id)}', 24)
 var appServicePlanName = '${appName}-plan'
 var apiName = '${appName}-api'
 var functionsName = '${appName}-func'
 var staticWebAppName = '${appName}-web'
-var communicationName = '${appName}-comms'
-var emailServiceName = '${appName}-email'
+// Communication Services names are reserved globally, and a reservation
+// outlives a failed deployment - so these carry the group's unique suffix
+// rather than being a bare, guessable string.
+var communicationName = '${appName}-comms-${uniqueString(resourceGroup().id)}'
+var emailServiceName = '${appName}-email-${uniqueString(resourceGroup().id)}'
 var logAnalyticsName = '${appName}-logs'
 var appInsightsName = '${appName}-insights'
 var databaseName = 'MiFuturoTrabajo'
@@ -84,7 +107,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
   kind: 'GlobalDocumentDB'
   properties: {
     databaseAccountOfferType: 'Standard'
-    enableFreeTier: cosmosFreeTier
+    enableFreeTier: cosmosBilling == 'free'
     consistencyPolicy: {
       // Session is the default and the right one here: every read is a user
       // reading their own writes.
@@ -97,7 +120,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
         isZoneRedundant: false
       }
     ]
-    capabilities: []
+    capabilities: cosmosBilling == 'serverless' ? [ { name: 'EnableServerless' } ] : []
     backupPolicy: {
       type: 'Periodic'
       periodicModeProperties: {
@@ -114,11 +137,11 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
   name: databaseName
   properties: {
     resource: { id: databaseName }
-    options: {
-      // Database-level shared throughput, so all seven containers share the
-      // free 1000 RU/s instead of each demanding its own 400.
-      throughput: 1000
-    }
+    // A serverless account rejects a throughput setting outright: capacity is
+    // per request, not reserved. Otherwise database-level shared throughput, so
+    // all seven containers share one allocation rather than each demanding its
+    // own 400 RU/s.
+    options: cosmosBilling == 'serverless' ? {} : { throughput: 1000 }
   }
 }
 
@@ -269,53 +292,19 @@ resource api 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-resource functions 'Microsoft.Web/sites@2023-12-01' = {
-  name: functionsName
-  location: location
-  kind: 'functionapp,linux'
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    // Its own Consumption plan: 1M executions and 400,000 GB-s free per month,
-    // and independent of the API's F1 quota.
-    serverFarmId: functionsPlan.id
-    httpsOnly: true
-    siteConfig: {
-      linuxFxVersion: 'DOTNET-ISOLATED|8.0'
-      ftpsState: 'Disabled'
-      minTlsVersion: '1.2'
-      appSettings: [
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
-
-        { name: 'CosmosDb__ConnectionString', value: cosmos.listConnectionStrings().connectionStrings[0].connectionString }
-        { name: 'CosmosDb__DatabaseName', value: databaseName }
-
-        { name: 'AzureCommunicationServices__ConnectionString', value: communication.listKeys().primaryConnectionString }
-        { name: 'AzureCommunicationServices__SenderAddress', value: senderAddress }
-
-        // In settings rather than in the attribute, so cadence changes - or
-        // pausing a job - do not need a redeploy.
-        { name: 'TaskReminderSchedule', value: '0 0 8 * * *' }
-        { name: 'InterviewReminderSchedule', value: '0 */15 * * * *' }
-      ]
-    }
-  }
-}
-
-resource functionsPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
-  name: '${functionsName}-plan'
-  location: location
-  sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
-  }
-  kind: 'functionapp'
-  properties: {
-    reserved: true
+// Deployed into its own resource group - see infra/functions.bicep for why.
+module functionsApp 'functions.bicep' = {
+  name: 'functions'
+  scope: resourceGroup(functionsResourceGroupName)
+  params: {
+    location: location
+    functionsName: functionsName
+    appInsightsConnectionString: appInsights.properties.ConnectionString
+    storageConnectionString: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+    cosmosConnectionString: cosmos.listConnectionStrings().connectionStrings[0].connectionString
+    databaseName: databaseName
+    senderAddress: senderAddress
+    communicationConnectionString: communication.listKeys().primaryConnectionString
   }
 }
 
@@ -392,10 +381,10 @@ resource budget 'Microsoft.Consumption/budgets@2023-05-01' = {
 
 output apiUrl string = 'https://${api.properties.defaultHostName}'
 output clientUrl string = 'https://${staticWebApp.properties.defaultHostname}'
-output functionsName string = functions.name
+output functionsAppName string = functionsApp.outputs.name
 output apiAppName string = api.name
 output staticWebAppName string = staticWebApp.name
 output cosmosAccountName string = cosmos.name
 output storageAccountName string = storage.name
 output apiPrincipalId string = api.identity.principalId
-output functionsPrincipalId string = functions.identity.principalId
+output functionsPrincipalId string = functionsApp.outputs.principalId
