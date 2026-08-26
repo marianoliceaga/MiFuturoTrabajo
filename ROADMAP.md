@@ -175,6 +175,33 @@ Also: verification tokens expire, registration actually sends one, reset clears 
 
 Verified on the **real `func` host reading real Cosmos**: both timers fired, selected exactly the right rows out of a seeded set covering every branch, and the next tick twenty seconds later reported *"No reminders due"* — which is the behaviour that was broken before Phase 2 fixed `ReminderSent`.
 
+---
+
+### ⚠ Phase 6 — OAuth — [docs/phase6-results.md](docs/phase6-results.md)
+
+**Code complete. Two provider-console steps are blocked on you and on Phase 7.**
+
+Phase 6 asked me to *verify* OAuth end to end. Verifying it meant finding that **Microsoft sign-in accepted forged tokens** — a full authentication bypass, worse than finding 01.
+
+| | Before | After |
+|---|---|---|
+| Microsoft token signature | **never checked** | verified against Entra's JWKS |
+| Issuer check | substring match, null passed | scheme + host + tenant-id parse |
+| Unverified address can claim an existing account | **yes** | no |
+| Google sign-in in a browser | **`ReferenceError`** | config-driven |
+| Tests | 166 / 166 | **192 / 192** |
+
+**The bypass.** `ValidateMicrosoftTokenAsync` called `ReadJwtToken`, which *decodes and verifies nothing*, then inspected `aud`/`iss`/`exp` from those attacker-written claims. Generate a key, mint a JWT naming any address, post it. Written as a test first: `Expected: Unauthorized, Actual: OK` — a session for an account that had a password.
+
+**nOAuth.** Your registration is `AzureADandPersonalMicrosoftAccount`, so any tenant can sign in, and Entra does not promise `email` is verified. An unverified address may now create a *new* account but is refused when one already exists.
+
+**Google sign-in could never have worked.** `GOOGLE_CLIENT_ID` was referenced twice and assigned nowhere — initialisation threw `ReferenceError`. Both providers' IDs now come from `appsettings.json`.
+
+**Also:** OAuth sign-up created a `User` but no `Applicant`, so the first page load after a social sign-up had nothing behind it.
+
+**Blocked — needs you.** Your Entra redirect URIs are registered under `web`, but MSAL.js v2 requires the **SPA** platform (`AADSTS9002326`), the one SPA entry has the wrong path, and the production URI points at a Static Web App that no longer exists. Changing an app registration is a change to your account configuration, so I did not do it unilaterally — and the correct hostname is not knowable until Phase 7. Google's console I cannot reach at all.
+
+
 
 
 
@@ -394,7 +421,10 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 
 ---
 
-## Phase 6 — OAuth verified end-to-end
+## ⚠ Phase 6 — OAuth verified end-to-end — **CODE DONE, CONSOLE STEPS BLOCKED**
+
+*Delivered on `claude/phase-6-oauth`. Full record: [docs/phase6-results.md](docs/phase6-results.md).
+The plan below is kept as written for comparison; deviations are noted inline.*
 
 **Objective:** Prove Google and Microsoft sign-in work in the deployed environment, not just in theory.
 
@@ -410,6 +440,14 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 - Both external scripts load from CDNs in `index.html`; confirm they are permitted by whatever CSP the Static Web App serves.
 
 **Exit criteria:** All six matrix cases pass against the deployed site.
+
+**What actually happened:**
+- Step 3 ("confirm audience and issuer are actually checked, not merely decoded") had the worst possible answer: **merely decoded**. Microsoft tokens were never signature-verified, so anyone could sign in as anyone. Proven with a forged token, then fixed, then re-proven.
+- Step 2 uncovered that `GOOGLE_CLIENT_ID` was referenced but never assigned — Google sign-in threw `ReferenceError` and had never worked in a browser.
+- Step 4 (account linking) is done, plus a defence the plan did not anticipate: a provider-verified address is now **required** before linking onto an existing account, which is what closes nOAuth.
+- Steps 1 and 5 are **blocked**. Registering apps needs your Google and Entra consoles, and the production hostname does not exist until Phase 7. Every matrix case is covered by an integration test in the meantime — which is not the same thing, and is not claimed to be.
+
+**Exit criteria not met**: there is no deployed site to run the matrix against.
 
 ---
 
