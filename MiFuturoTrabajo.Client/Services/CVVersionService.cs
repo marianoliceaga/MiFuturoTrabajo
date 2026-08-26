@@ -47,5 +47,20 @@ namespace MiFuturoTrabajo.Client.Services
         {
             await _http.DeleteAsync($"cvversion/{id}");
         }
+
+        public async Task<CVVersionDto> UploadAsync(string name, string fileName, string contentType, Stream fileStream)
+        {
+            using var content = CvUploadContent.Build(name, fileName, contentType, fileStream);
+
+            var response = await _http.PostAsync("cvversion/upload", content);
+            await CvUploadContent.ThrowIfRejectedAsync(response);
+
+            return await response.Content.ReadFromJsonAsync<CVVersionDto>();
+        }
+
+        public async Task<CVDownloadLinkDto> GetDownloadLinkAsync(string id)
+        {
+            return await _http.GetFromJsonAsync<CVDownloadLinkDto>($"cvversion/{id}/download");
+        }
     }
 }

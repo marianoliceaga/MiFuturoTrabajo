@@ -26,16 +26,19 @@ namespace MiFuturoTrabajo.Client.Services
             return await response.Content.ReadFromJsonAsync<ApplicantDto>();
         }
 
-        public async Task<CVVersionDto> UploadCVAsync(string name, Stream fileStream)
+        public async Task<CVVersionDto> UploadCVAsync(string name, string fileName, string contentType, Stream fileStream)
         {
-            // Implementation for file upload
-            var content = new MultipartFormDataContent();
-            var streamContent = new StreamContent(fileStream);
-            content.Add(streamContent, "file", name);
+            using var content = CvUploadContent.Build(name, fileName, contentType, fileStream);
 
             var response = await _http.PostAsync("applicant/UploadCV", content);
-            response.EnsureSuccessStatusCode();
+            await CvUploadContent.ThrowIfRejectedAsync(response);
+
             return await response.Content.ReadFromJsonAsync<CVVersionDto>();
+        }
+
+        public async Task<CVDownloadLinkDto> GetCVDownloadLinkAsync(string cvId)
+        {
+            return await _http.GetFromJsonAsync<CVDownloadLinkDto>($"applicant/CV/{cvId}/download");
         }
 
         public async Task<JobReferenceDto> AddReferenceAsync(JobReferenceDto reference)

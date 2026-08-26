@@ -318,11 +318,19 @@
         isUploading = true;
         try
         {
-            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            var cv = await ApplicantService.UploadCVAsync(newCVName, stream);
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: MaxUploadBytes);
+            var cv = await ApplicantService.UploadCVAsync(
+                newCVName, selectedFile.Name, selectedFile.ContentType, stream);
             applicant.CVVersions.Add(cv);
             showCVUploadModal = false;
             ToastService.ShowSuccess("CV uploaded successfully.");
+        }
+        catch (HttpRequestException ex)
+        {
+            // Server-side validation reads the file's bytes, so its message
+            // says something the user can act on.
+            Console.WriteLine($"Error uploading CV: {ex.Message}");
+            ToastService.ShowError(ex.Message);
         }
         catch (Exception ex)
         {
@@ -335,11 +343,28 @@
         }
     }
 
+    /// <summary>Matches the server limit so oversized files fail fast, in the browser.</summary>
+    private const long MaxUploadBytes = 5 * 1024 * 1024;
+
     private async Task DownloadCV(CVVersionDto cv)
     {
-        if (!string.IsNullOrEmpty(cv.FileUrl))
+        if (!cv.HasFile)
         {
-            await JSRuntime.InvokeVoidAsync("open", cv.FileUrl, "_blank");
+            ToastService.ShowError("This CV version has no file attached.");
+            return;
+        }
+
+        try
+        {
+            // The stored document is private; this asks the API for a link that
+            // works for a few minutes and then stops working.
+            var link = await ApplicantService.GetCVDownloadLinkAsync(cv.Id);
+            await JSRuntime.InvokeVoidAsync("open", link.Url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading CV: {ex.Message}");
+            ToastService.ShowError("Could not open that CV.");
         }
     }
 

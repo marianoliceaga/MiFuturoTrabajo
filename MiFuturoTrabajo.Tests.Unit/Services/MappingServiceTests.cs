@@ -83,9 +83,12 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = "Software Engineer CV",
-                FileUrl = "https://storage.example.com/cv.pdf",
                 UploadedDate = DateTime.UtcNow,
-                IsDefault = true
+                IsDefault = true,
+                BlobPath = "user-123/cv-abc.pdf",
+                FileName = "cv.pdf",
+                ContentType = "application/pdf",
+                SizeBytes = 128_000
             };
 
             // Act
@@ -94,9 +97,56 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             // Assert
             Assert.Equal(entity.Id, dto.Id);
             Assert.Equal(entity.Name, dto.Name);
-            Assert.Equal(entity.FileUrl, dto.FileUrl);
             Assert.Equal(entity.UploadedDate, dto.UploadedDate);
             Assert.Equal(entity.IsDefault, dto.IsDefault);
+            Assert.Equal(entity.FileName, dto.FileName);
+            Assert.Equal(entity.SizeBytes, dto.SizeBytes);
+            Assert.True(dto.HasFile);
+        }
+
+        /// <summary>
+        /// The storage key is the one field that must never travel outward. If
+        /// it did, a client would hold a durable pointer into the container and
+        /// the expiring-link design would be decorative.
+        /// </summary>
+        [Fact]
+        public void CVVersion_ToDto_ShouldNotExposeBlobPath()
+        {
+            var entity = new CVVersion
+            {
+                Name = "CV",
+                BlobPath = "user-123/cv-abc.pdf",
+                FileName = "cv.pdf"
+            };
+
+            var serialised = System.Text.Json.JsonSerializer.Serialize(entity.ToDto());
+
+            Assert.DoesNotContain("user-123/cv-abc.pdf", serialised);
+            Assert.DoesNotContain("blobPath", serialised, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// A request body must not be able to set where a CV points. Anything
+        /// storage-related on the way in is ignored by construction.
+        /// </summary>
+        [Fact]
+        public void CVVersion_ToEntity_ShouldNotAcceptStorageFieldsFromTheWire()
+        {
+            var dto = new CVVersionDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "CV",
+                FileName = "someone-elses.pdf",
+                SizeBytes = 999_999,
+                HasFile = true
+            };
+
+            var entity = dto.ToEntity();
+
+            Assert.Equal(string.Empty, entity.BlobPath);
+            Assert.Equal(string.Empty, entity.FileName);
+            Assert.Equal(string.Empty, entity.ContentType);
+            Assert.Equal(0, entity.SizeBytes);
         }
 
         [Fact]

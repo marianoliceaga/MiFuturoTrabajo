@@ -67,18 +67,28 @@ namespace MiFuturoTrabajo.Api.Services
         {
             Id = entity.Id,
             Name = entity.Name,
-            FileUrl = entity.FileUrl,
             UploadedDate = entity.UploadedDate,
-            IsDefault = entity.IsDefault
+            IsDefault = entity.IsDefault,
+            VersionNotes = entity.VersionNotes,
+            FileName = entity.FileName,
+            SizeBytes = entity.SizeBytes,
+            HasFile = !string.IsNullOrEmpty(entity.BlobPath)
         };
 
+        /// <summary>
+        /// Note what is absent: BlobPath, FileName, ContentType and SizeBytes are
+        /// never taken from the wire. They describe a blob this API put in
+        /// storage, so only the upload endpoint may set them. Accepting them
+        /// from a request body would let a caller point their own CV row at
+        /// somebody else's document.
+        /// </summary>
         public static CVVersion ToEntity(this CVVersionDto dto) => new()
         {
             Id = NewIdIfBlank(dto.Id),
             Name = OrEmpty(dto.Name),
-            FileUrl = OrEmpty(dto.FileUrl),
             UploadedDate = dto.UploadedDate == default ? DateTime.UtcNow : dto.UploadedDate,
-            IsDefault = dto.IsDefault
+            IsDefault = dto.IsDefault,
+            VersionNotes = OrEmpty(dto.VersionNotes)
         };
 
         // ------------------------------------------------------------------

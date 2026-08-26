@@ -21,11 +21,16 @@ namespace MiFuturoTrabajo.Api.Controllers
     {
         private readonly ILogger<CVVersionController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly ICvDocumentService _cvDocuments;
 
-        public CVVersionController(ILogger<CVVersionController> logger, ApplicationDbContext context)
+        public CVVersionController(
+            ILogger<CVVersionController> logger,
+            ApplicationDbContext context,
+            ICvDocumentService cvDocuments)
         {
             _logger = logger;
             _context = context;
+            _cvDocuments = cvDocuments;
         }
 
         /// <summary>Applicants are partitioned by UserId, so this is a single-partition read.</summary>
@@ -95,6 +100,11 @@ namespace MiFuturoTrabajo.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Records a CV version without a document. The file arrives separately
+        /// through <see cref="Upload"/>, because a storage key is something this
+        /// API assigns - never something a request body supplies.
+        /// </summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CVVersionDto cvVersionDto)
         {
@@ -172,8 +182,12 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound($"CV version with ID {id} not found");
                 }
 
-                cv.Name = cvVersionDto.Name;
-                cv.FileUrl = cvVersionDto.FileUrl;
+                // Only the descriptive fields are editable. BlobPath, FileName,
+                // ContentType and SizeBytes describe a blob this API stored, so
+                // letting a PATCH body set them would let any user repoint their
+                // own CV row at another user document.
+                cv.Name = cvVersionDto.Name ?? cv.Name;
+                cv.VersionNotes = cvVersionDto.VersionNotes ?? cv.VersionNotes;
 
                 await _context.SaveChangesAsync();
 
@@ -265,12 +279,102 @@ namespace MiFuturoTrabajo.Api.Controllers
 
                 await _context.SaveChangesAsync();
 
+                // Blob last: the record is already gone, so a storage hiccup
+                // leaves a logged orphan rather than a delete the user cannot
+                // complete.
+                await _cvDocuments.RemoveAsync(cv, HttpContext.RequestAborted);
+
                 return NoContent();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting CV version {Id}", id);
                 return StatusCode(500, "An error occurred while deleting the CV version");
+            }
+        }
+
+        /// <summary>
+        /// Uploads a document and records it as a new CV version. Mirrors
+        /// POST /api/applicant/UploadCV so both CV surfaces share one code path.
+        /// </summary>
+        [HttpPost("upload")]
+        [RequestSizeLimit(CvFileValidator.MaxSizeBytes + 32 * 1024)]
+        public async Task<IActionResult> Upload([FromForm] IFormFile file, [FromForm] string? name = null)
+        {
+            var userId = AuthHelper.GetUserIdFromClaims(User);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Unauthorized");
+            }
+
+            try
+            {
+                var applicant = await LoadApplicantAsync(userId);
+                if (applicant == null)
+                {
+                    return NotFound("Applicant not found");
+                }
+
+                var (cv, error) = await _cvDocuments.StoreAsync(userId, file, name, HttpContext.RequestAborted);
+                if (cv == null)
+                {
+                    return BadRequest(error);
+                }
+
+                cv.IsDefault = applicant.CVVersions.Count == 0;
+
+                applicant.CVVersions.Add(cv);
+                await _context.SaveChangesAsync();
+
+                return StatusCode(201, cv.ToDto());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading CV version");
+                return StatusCode(500, "An error occurred while uploading the CV");
+            }
+        }
+
+        /// <summary>
+        /// Returns a link that is valid for a few minutes. The lookup happens
+        /// inside the applicant belonging to the caller, so one account token
+        /// can never mint a link to a different account document.
+        /// </summary>
+        [HttpGet("{id}/download")]
+        public async Task<IActionResult> Download(string id)
+        {
+            var userId = AuthHelper.GetUserIdFromClaims(User);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Unauthorized");
+            }
+
+            try
+            {
+                var applicant = await LoadApplicantAsync(userId);
+                if (applicant == null)
+                {
+                    return NotFound("Applicant not found");
+                }
+
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == id);
+                if (cv == null)
+                {
+                    return NotFound($"CV version with ID {id} not found");
+                }
+
+                var link = await _cvDocuments.CreateDownloadLinkAsync(cv, HttpContext.RequestAborted);
+                if (link == null)
+                {
+                    return NotFound("This CV version has no file attached.");
+                }
+
+                return Ok(link);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating download link for CV version {Id}", id);
+                return StatusCode(500, "An error occurred while preparing the download");
             }
         }
     }

@@ -17,7 +17,8 @@ namespace MiFuturoTrabajo.Client.Services
     {
         Task<ApplicantDto> GetCurrentApplicantAsync();
         Task<ApplicantDto> UpdateProfileAsync(ApplicantDto applicant);
-        Task<CVVersionDto> UploadCVAsync(string name, Stream fileStream);
+        Task<CVVersionDto> UploadCVAsync(string name, string fileName, string contentType, Stream fileStream);
+        Task<CVDownloadLinkDto> GetCVDownloadLinkAsync(string cvId);
         Task<JobReferenceDto> AddReferenceAsync(JobReferenceDto reference);
         Task DeleteReferenceAsync(string referenceId);
     }
@@ -72,6 +73,14 @@ namespace MiFuturoTrabajo.Client.Services
         Task<CVVersionDto> UpdateAsync(string id, CVVersionDto cvVersion);
         Task<CVVersionDto> SetDefaultAsync(string id);
         Task DeleteAsync(string id);
+        Task<CVVersionDto> UploadAsync(string name, string fileName, string contentType, Stream fileStream);
+
+        /// <summary>
+        /// Asks the API for a short-lived link to the stored document. The
+        /// client never holds a durable URL, so nothing useful leaks if one is
+        /// copied out of browser history.
+        /// </summary>
+        Task<CVDownloadLinkDto> GetDownloadLinkAsync(string id);
     }
 
     public interface IAuthService

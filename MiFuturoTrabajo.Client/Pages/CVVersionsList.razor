@@ -43,14 +43,26 @@
                                 <i class="bi bi-calendar"></i> Uploaded: @cv.UploadedDate.ToString("MMM dd, yyyy")
                             </p>
                             <p class="cv-url">
-                                <i class="bi bi-link-45deg"></i>
-                                <a href="@cv.FileUrl" target="_blank">@cv.FileUrl</a>
+                                @if (cv.HasFile)
+                                {
+                                    <i class="bi bi-paperclip"></i>
+                                    <span>@cv.FileName</span>
+                                    <span class="text-muted">(@FormatSize(cv.SizeBytes))</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-file-earmark"></i>
+                                    <span class="text-muted">No file attached</span>
+                                }
                             </p>
                         </div>
                         <div class="cv-actions">
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadCV(cv.FileUrl)" title="Download">
-                                <i class="bi bi-download"></i>
-                            </button>
+                            @if (cv.HasFile)
+                            {
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadCV(cv)" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                            }
                             @if (!cv.IsDefault)
                             {
                                 <button class="btn btn-sm btn-outline-success" @onclick="() => SetAsDefault(cv.Id)" title="Set as Default">
@@ -96,16 +108,14 @@
                         <label class="form-label">CV Name *</label>
                         <input type="text" class="form-control" @bind="currentCV.Name" placeholder="e.g., Software Developer CV - 2025" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Upload File (Optional)</label>
-                        <InputFile class="form-control" OnChange="HandleFileSelected" accept=".pdf,.doc,.docx" />
-                        <small class="form-text text-muted">Upload a CV file to be stored securely.</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Or File URL (Link)</label>
-                        <input type="url" class="form-control" @bind="currentCV.FileUrl" disabled="@(selectedFile != null)" placeholder="https://..." />
-                        <small class="form-text text-muted">Enter the URL where your CV is stored (if not uploading a file)</small>
-                    </div>
+                    @if (!isEditMode)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">CV File (Optional)</label>
+                            <InputFile class="form-control" OnChange="HandleFileSelected" accept=".pdf,.doc,.docx" />
+                            <small class="form-text text-muted">PDF, DOC or DOCX, up to 5 MB. Stored privately; downloads use expiring links.</small>
+                        </div>
+                    }
                     @if (!isEditMode)
                     {
                         <div class="mb-3">
@@ -183,9 +193,12 @@
         {
             Id = cv.Id,
             Name = cv.Name,
-            FileUrl = cv.FileUrl,
+            VersionNotes = cv.VersionNotes,
             UploadedDate = cv.UploadedDate,
-            IsDefault = cv.IsDefault
+            IsDefault = cv.IsDefault,
+            FileName = cv.FileName,
+            SizeBytes = cv.SizeBytes,
+            HasFile = cv.HasFile
         };
         isEditMode = true;
         showCVModal = true;
@@ -210,7 +223,7 @@
 
     private async Task SaveCV()
     {
-        if (string.IsNullOrWhiteSpace(currentCV.Name) || (string.IsNullOrWhiteSpace(currentCV.FileUrl) && selectedFile == null))
+        if (string.IsNullOrWhiteSpace(currentCV.Name))
         {
             return;
         }
@@ -232,16 +245,20 @@
                 CVVersionDto created;
                 if (selectedFile != null)
                 {
-                    // Upload file via ApplicantService
-                    using var stream = selectedFile.OpenReadStream(10 * 1024 * 1024); // 10MB limit
-                    created = await ApplicantService.UploadCVAsync(selectedFile.Name, stream);
-                    // The upload endpoint creates the CVVersion, but it might not have the correct Name/IsDefault
-                    // Update it if needed
-                    if (created.Name != currentCV.Name || currentCV.IsDefault)
+                    // The upload carries the display name, so the record arrives
+                    // correct in one round trip rather than being created and
+                    // then patched.
+                    using var stream = selectedFile.OpenReadStream(MaxUploadBytes);
+                    created = await CVVersionService.UploadAsync(
+                        currentCV.Name, selectedFile.Name, selectedFile.ContentType, stream);
+
+                    if (currentCV.IsDefault && !created.IsDefault)
                     {
-                        created.Name = currentCV.Name;
-                        if (currentCV.IsDefault) created.IsDefault = true;
-                        created = await CVVersionService.UpdateAsync(created.Id, created);
+                        created = await CVVersionService.SetDefaultAsync(created.Id);
+                        foreach (var other in cvVersions)
+                        {
+                            other.IsDefault = false;
+                        }
                     }
                 }
                 else
@@ -252,6 +269,13 @@
             }
             CloseCVModal();
             ToastService.ShowSuccess(isEditMode ? "CV updated successfully." : "CV added successfully.");
+        }
+        catch (HttpRequestException ex)
+        {
+            // The server rejects by inspecting the bytes, so its reason is the
+            // useful one - show it rather than a generic failure.
+            Console.WriteLine($"Error saving CV: {ex.Message}");
+            ToastService.ShowError(ex.Message);
         }
         catch (Exception ex)
         {
@@ -306,11 +330,30 @@
         }
     }
 
-    private void DownloadCV(string fileUrl)
+    /// <summary>
+    /// Matches the server limit, so an oversized file is refused here rather
+    /// than being streamed all the way up only to be rejected.
+    /// </summary>
+    private const long MaxUploadBytes = 5 * 1024 * 1024;
+
+    private async Task DownloadCV(CVVersionDto cv)
     {
-        // Open in new tab for download
-        JSRuntime.InvokeVoidAsync("open", fileUrl, "_blank");
+        try
+        {
+            var link = await CVVersionService.GetDownloadLinkAsync(cv.Id);
+            await JSRuntime.InvokeVoidAsync("open", link.Url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading CV: {ex.Message}");
+            ToastService.ShowError("Could not open that CV.");
+        }
     }
+
+    private static string FormatSize(long bytes) =>
+        bytes >= 1024 * 1024
+            ? $"{bytes / (double)(1024 * 1024):0.#} MB"
+            : $"{bytes / 1024d:0.#} KB";
 }
 
 <style>

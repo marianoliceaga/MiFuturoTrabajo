@@ -343,10 +343,12 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Create
+            // No file reference here on purpose: a CV version created through
+            // JSON is metadata only. The document arrives through the upload
+            // endpoint, which is the only thing that may assign a storage key.
             var cvDto = new CVVersionDto
             {
                 Name = "Software Engineer CV",
-                FileUrl = "https://storage.example.com/cv.pdf",
                 UploadedDate = DateTime.UtcNow,
                 IsDefault = true
             };

@@ -17,13 +17,13 @@ namespace MiFuturoTrabajo.Api.Controllers
     {
         private readonly ILogger<ApplicantController> _logger;
         private readonly ApplicationDbContext _context;
-        private readonly IBlobStorageService _blobStorageService;
+        private readonly ICvDocumentService _cvDocuments;
 
-        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context, IBlobStorageService blobStorageService)
+        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context, ICvDocumentService cvDocuments)
         {
             _logger = logger;
             _context = context;
-            _blobStorageService = blobStorageService;
+            _cvDocuments = cvDocuments;
         }
 
         [HttpGet("ApplicationGetById/{id}")]
@@ -152,14 +152,15 @@ namespace MiFuturoTrabajo.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Accepts the multipart upload the client already sends. The file is
+        /// validated by its bytes, stored under the caller own prefix, and only
+        /// its storage key is persisted - never a URL.
+        /// </summary>
         [HttpPost("UploadCV")]
-        public async Task<IActionResult> UploadCV([FromForm] IFormFile file)
+        [RequestSizeLimit(CvFileValidator.MaxSizeBytes + 32 * 1024)]
+        public async Task<IActionResult> UploadCV([FromForm] IFormFile file, [FromForm] string? name = null)
         {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file uploaded.");
-            }
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
@@ -174,19 +175,14 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
-                using var stream = file.OpenReadStream();
-                var fileUrl = await _blobStorageService.UploadFileAsync(stream, file.FileName, file.ContentType);
-
-                var cvVersion = new CVVersion
+                var (cvVersion, error) = await _cvDocuments.StoreAsync(userId, file, name, HttpContext.RequestAborted);
+                if (cvVersion == null)
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    Name = file.FileName,
-                    FileUrl = fileUrl,
-                    UploadedDate = DateTime.UtcNow,
-                    VersionNotes = "Uploaded via blob storage",
-                    // First CV uploaded becomes the default.
-                    IsDefault = applicant.CVVersions.Count == 0
-                };
+                    return BadRequest(error);
+                }
+
+                // First CV uploaded becomes the default.
+                cvVersion.IsDefault = applicant.CVVersions.Count == 0;
 
                 applicant.CVVersions.Add(cvVersion);
                 await _context.SaveChangesAsync();
@@ -197,6 +193,49 @@ namespace MiFuturoTrabajo.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to upload CV blob");
                 return StatusCode(500, "An error occurred while uploading CV.");
+            }
+        }
+
+        /// <summary>
+        /// Mints a short-lived link to the stored document. The CV is looked up
+        /// inside the applicant belonging to the caller, so a valid token for one
+        /// account cannot produce a link to a different account CV.
+        /// </summary>
+        [HttpGet("CV/{cvId}/download")]
+        public async Task<IActionResult> DownloadCV(string cvId)
+        {
+            var userId = AuthHelper.GetUserIdFromClaims(User);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Unauthorized");
+            }
+
+            try
+            {
+                var applicant = await _context.Applicants.FirstOrDefaultAsync(a => a.UserId == userId);
+                if (applicant == null)
+                {
+                    return NotFound("Applicant not found");
+                }
+
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == cvId);
+                if (cv == null)
+                {
+                    return NotFound($"CV with ID {cvId} not found");
+                }
+
+                var link = await _cvDocuments.CreateDownloadLinkAsync(cv, HttpContext.RequestAborted);
+                if (link == null)
+                {
+                    return NotFound("This CV version has no file attached.");
+                }
+
+                return Ok(link);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating download link for CV {CvId}", cvId);
+                return StatusCode(500, "An error occurred while preparing the download");
             }
         }
 
@@ -290,6 +329,11 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Blob last: if this fails the record is already gone and the
+                // user is unblocked, and the orphan is logged rather than
+                // surfaced to them as a failed delete.
+                await _cvDocuments.RemoveAsync(cv, HttpContext.RequestAborted);
 
                 return NoContent();
             }

@@ -69,7 +69,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IOAuthService, OAuthService>();
-builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+// One BlobServiceClient for the process: it is thread-safe, holds the
+// connection pool, and re-creating it per request throws that pool away.
+builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+builder.Services.AddScoped<ICvDocumentService, CvDocumentService>();
 
 // Register Email Service (gracefully degrades if ACS is not configured)
 builder.Services.AddSingleton<IEmailService>(provider =>

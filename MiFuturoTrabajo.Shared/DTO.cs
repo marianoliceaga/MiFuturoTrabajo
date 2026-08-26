@@ -56,9 +56,29 @@
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public string FileUrl { get; set; } = string.Empty;
         public DateTime UploadedDate { get; set; }
         public bool IsDefault { get; set; }
+        public string VersionNotes { get; set; } = string.Empty;
+
+        /// <summary>Original filename of the attached document, if any.</summary>
+        public string FileName { get; set; } = string.Empty;
+
+        public long SizeBytes { get; set; }
+
+        /// <summary>
+        /// Whether a document is attached. The blob path itself never crosses
+        /// the wire - downloads go through the download endpoint, which mints a
+        /// short-lived link after checking the CV belongs to the caller.
+        /// </summary>
+        public bool HasFile { get; set; }
+    }
+
+    /// <summary>Response of the CV download endpoint.</summary>
+    public class CVDownloadLinkDto
+    {
+        public string Url { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public DateTime ExpiresAtUtc { get; set; }
     }
 
     public class JobReferenceDto
