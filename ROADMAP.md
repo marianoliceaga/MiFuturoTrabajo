@@ -108,6 +108,26 @@ Also: `Persistence:Provider` replaces the `localhost:8081` sniff that hid the wh
 
 ---
 
+### ✅ Phase 3 complete — [docs/phase3-results.md](docs/phase3-results.md)
+
+| | Before | After |
+|---|---|---|
+| Upload validation | none | **file-signature sniffing** |
+| Persisted reference | a blob **URL** | a blob **path** |
+| Download | opened a URL into a private container — **403, always** | expiring SAS, minted per request |
+| Blob deleted with the record | **No** | Yes |
+| Client can set the file reference | **Yes** | No — structurally impossible |
+| Tests | 84 / 84 | **114 / 114** |
+
+**CV download could never have worked.** Uploads stored `blobClient.Uri` and the client opened it directly — against a container that Phase 0 made private. Upload succeeded, retrieval 403'd, and the two halves had never been exercised together. `FileUrl` became `BlobPath`: a path is meaningless without a credential, so a leaked row is not a leaked document and access is revoked by rotating a key rather than by migrating data.
+
+**An injection hole closed by construction.** `CVVersionController.Update` assigned `cv.FileUrl = dto.FileUrl` — any authenticated user could repoint their CV row at any URL. The DTO no longer carries a file reference at all, so the mapper cannot set one and the controller has nothing to assign.
+
+**Managed identity, with a working local path.** `AzureStorage:AccountUrl` selects `DefaultAzureCredential` and user-delegation SAS; `ConnectionString` selects shared key and service SAS for Azurite. `AccountUrl` wins when both are set, so a deployment cannot silently fall back to a leftover key. Phase 7 sets one setting and grants one role.
+
+Verified over HTTP against **real Azurite and real Cosmos** — 26 checks including the byte-for-byte round trip, `Content-Disposition`, the 403 without a SAS, and the 404 after delete. Two checks failed first time: my verification script compared header names case-sensitively; the code was correct.
+
+
 ## Current state — what I verified in the code
 
 These are findings from reading the source, not speculation. They define the work.
@@ -222,7 +242,10 @@ This is the single largest item in the roadmap. Deploying is not a configuration
 
 ---
 
-## Phase 3 — CV upload with real file storage
+## ✅ Phase 3 — CV upload with real file storage — **DONE**
+
+*Delivered on `claude/phase-3-cv-storage`. Full record: [docs/phase3-results.md](docs/phase3-results.md).
+The plan below is kept as written for comparison; deviations are noted inline.*
 
 **Objective:** Make the file picker in `MyProfile.razor` actually store and retrieve a document.
 
@@ -240,6 +263,15 @@ This is the single largest item in the roadmap. Deploying is not a configuration
 - Blazor WASM already streams correctly via `OpenReadStream(maxAllowedSize: 10MB)` ([`MyProfile.razor:313`](MiFuturoTrabajo.Client/Pages/MyProfile.razor#L313)) — align that limit with the server's 5 MB.
 
 **Exit criteria:** Upload a PDF, see it listed, download it, delete it, confirm the blob is gone.
+
+**Deviations from the plan, and why:**
+- The interface is `IBlobStorageService` (kept) rather than a new `IFileStorageService`, plus a thin `ICvDocumentService` holding the CV rules — two controllers expose CV versions, and duplicating validate-then-store across both is how surfaces drift apart.
+- Blob path is `{userId}/{cvId}{ext}`, without the `cvs/` prefix: the container is already `cv-uploads`, so the prefix said the same thing twice.
+- Both SAS flavours are implemented, not just user-delegation. User-delegation needs Entra, which the local Azurite path does not have; without the shared-key branch none of this would have been verifiable before Phase 7.
+- A per-user CV cap was **not** added — it belongs with the other quotas in Phase 7.
+- `CVVersionController.Update`'s file-reference assignment was removed as part of this phase; it was an injection hole the plan had not spotted.
+
+**Exit criteria met**, verified against real Azurite over HTTP rather than against the test double.
 
 ---
 
