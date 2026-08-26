@@ -28,7 +28,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new Applicant
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 UserId = userId,
                 Name = dto.Name ?? string.Empty,
                 Lastname = dto.Lastname ?? string.Empty,
@@ -57,7 +57,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new CVVersion
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 ApplicantId = applicantId,
                 Name = dto.Name ?? string.Empty,
                 FileUrl = dto.FileUrl ?? string.Empty,
@@ -86,7 +86,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new JobReference
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 ApplicantId = applicantId,
                 CompanyName = dto.CompanyName ?? string.Empty,
                 JobTitle = dto.JobTitle ?? string.Empty,
@@ -118,7 +118,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new Company
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 UserId = userId,
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,
@@ -151,7 +151,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new Recruiter
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 UserId = userId,
                 Name = dto.Name ?? string.Empty,
                 Lastname = dto.Lastname ?? string.Empty,
@@ -184,7 +184,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new InterviewStep
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 JobApplicationId = jobApplicationId,
                 StepName = dto.StepName ?? string.Empty,
                 StepOrder = dto.StepOrder,
@@ -217,7 +217,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new ApplicantTask
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 ApplicantId = applicantId,
                 JobApplicationId = dto.JobApplicationId ?? string.Empty,
                 Type = dto.Type,
@@ -258,7 +258,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new Meeting
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 ApplicantId = applicantId,
                 JobApplicationId = dto.JobApplicationId ?? string.Empty,
                 Title = dto.Title ?? string.Empty,
@@ -313,7 +313,7 @@ namespace MiFuturoTrabajo.Api.Services
         {
             return new JobApplication
             {
-                Id = dto.Id ?? Guid.NewGuid().ToString(),
+                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
                 ApplicantId = applicantId,
                 CompanyId = dto.Company?.Id ?? string.Empty,
                 JobTitle = dto.JobTitle ?? string.Empty,

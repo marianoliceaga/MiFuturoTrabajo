@@ -20,5 +20,6 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public ICollection<JobApplication> JobApplications { get; set; } = new List<JobApplication>();
         public ICollection<Meeting> Meetings { get; set; } = new List<Meeting>();
         public ICollection<ApplicantTask> Tasks { get; set; } = new List<ApplicantTask>();
+        public User? User { get; set; }
     }
 }

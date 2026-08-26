@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Shared.Models;
 using Xunit;
 
@@ -10,9 +13,25 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
     {
         private readonly HttpClient _client;
 
+        private readonly TestWebApplicationFactory _factory;
+
         public AuthenticationFlowTests(TestWebApplicationFactory factory)
         {
+            _factory = factory;
             _client = factory.CreateClient();
+        }
+
+        /// <summary>
+        /// Reads the reset token straight from the database. The API deliberately
+        /// does NOT return it - it is delivered by email - so the test has to look
+        /// where the real flow puts it.
+        /// </summary>
+        private async Task<string?> ReadResetTokenAsync(string email)
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower());
+            return user?.PasswordResetToken;
         }
 
         [Fact]
@@ -252,13 +271,14 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var forgotResponse = await _client.PostAsJsonAsync("/api/auth/forgot-password", forgotPasswordRequest);
             Assert.Equal(HttpStatusCode.OK, forgotResponse.StatusCode);
 
-            // Extract reset token from response (in production this would be sent via email)
+            // The response must NOT carry the token: /forgot-password is anonymous,
+            // so leaking it here is an account-takeover path for anyone who knows
+            // the email address. Regression guard for that vulnerability.
             var forgotResponseData = await forgotResponse.Content.ReadAsStringAsync();
-            Assert.Contains("resetToken", forgotResponseData);
+            Assert.DoesNotContain("resetToken", forgotResponseData);
 
-            // Parse the reset token (this is a hack for testing - in production it would come from email)
-            var forgotResponseObj = await forgotResponse.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-            var resetToken = forgotResponseObj?["resetToken"]?.ToString();
+            // Fetch it the way the mail would have delivered it.
+            var resetToken = await ReadResetTokenAsync(registerRequest.Email);
             Assert.NotNull(resetToken);
 
             // Step 2: Reset password with token

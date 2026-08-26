@@ -2,10 +2,13 @@
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Blazored.Toast.Services
 @attribute [Authorize]
 @inject IMeetingService MeetingService
 @inject IJobApplicationService JobApplicationService
 @inject NavigationManager NavigationManager
+@inject IToastService ToastService
 
 <div class="meetings-container">
     <div class="page-header">
@@ -366,6 +369,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading meetings: {ex.Message}");
+            ToastService.ShowError("Failed to load meetings.");
         }
         finally
         {
@@ -470,10 +474,12 @@
             {
                 await MeetingService.DeleteAsync(id);
                 await LoadMeetings();
+                ToastService.ShowSuccess("Meeting deleted successfully.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting meeting: {ex.Message}");
+                ToastService.ShowError("Failed to delete meeting.");
             }
         }
     }

@@ -14,31 +14,31 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<List<RecruiterDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<RecruiterDto>>("recruiter") ?? new List<RecruiterDto>();
+            return await _http.GetFromJsonAsync<List<RecruiterDto>>("recruiters") ?? new List<RecruiterDto>();
         }
 
         public async Task<RecruiterDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<RecruiterDto>($"recruiter/RecruiterGetById/{id}");
+            return await _http.GetFromJsonAsync<RecruiterDto>($"recruiters/RecruiterGetById/{id}");
         }
 
         public async Task<RecruiterDto> CreateAsync(RecruiterDto recruiter)
         {
-            var response = await _http.PostAsJsonAsync("recruiter/RecruiterAdd", recruiter);
+            var response = await _http.PostAsJsonAsync("recruiters/RecruiterAdd", recruiter);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<RecruiterDto>();
         }
 
         public async Task<RecruiterDto> UpdateAsync(string id, RecruiterDto recruiter)
         {
-            var response = await _http.PatchAsJsonAsync($"recruiter/{id}", recruiter);
+            var response = await _http.PatchAsJsonAsync($"recruiters/{id}", recruiter);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<RecruiterDto>();
         }
 
         public async Task DeleteAsync(string id)
         {
-            await _http.DeleteAsync($"recruiter/RecruiterDeleteById/{id}");
+            await _http.DeleteAsync($"recruiters/RecruiterDeleteById/{id}");
         }
     }
-}
+}

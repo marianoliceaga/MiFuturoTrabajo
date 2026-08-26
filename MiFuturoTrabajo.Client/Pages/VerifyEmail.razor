@@ -1,0 +1,81 @@
+@page "/verify-email"
+@using MiFuturoTrabajo.Client.Services
+@using Blazored.Toast.Services
+@inject IAuthenticationService AuthService
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+
+<PageTitle>Verify Email - MiFuturoTrabajo</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body text-center p-5">
+                    @if (isVerifying)
+                    {
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Verifying...</span>
+                        </div>
+                        <h4 class="mb-3">Verifying your email...</h4>
+                        <p class="text-muted">Please wait while we verify your email address.</p>
+                    }
+                    else if (isSuccess)
+                    {
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3 mb-3">Email Verified!</h4>
+                        <p class="text-muted">Your email address has been successfully verified.</p>
+                        <a href="/login" class="btn btn-primary mt-3 w-100">Proceed to Login</a>
+                    }
+                    else
+                    {
+                        <i class="bi bi-x-circle-fill text-danger" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3 mb-3">Verification Failed</h4>
+                        <p class="text-muted">@errorMessage</p>
+                        <a href="/login" class="btn btn-outline-primary mt-3 w-100">Back to Login</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Token { get; set; }
+
+    private bool isVerifying = true;
+    private bool isSuccess = false;
+    private string errorMessage = "The verification link is invalid or has expired.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Token))
+        {
+            isVerifying = false;
+            return;
+        }
+
+        try
+        {
+            isSuccess = await AuthService.VerifyEmailAsync(Token);
+            if (isSuccess)
+            {
+                ToastService.ShowSuccess("Email verified successfully!");
+            }
+            else
+            {
+                ToastService.ShowError("Email verification failed. The link may have expired.");
+            }
+        }
+        catch (Exception)
+        {
+            isSuccess = false;
+            ToastService.ShowError("An error occurred during verification.");
+        }
+        finally
+        {
+            isVerifying = false;
+        }
+    }
+}

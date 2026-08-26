@@ -35,12 +35,18 @@ namespace MiFuturoTrabajo.Client.Services
                     }
                 }
 
-                return null;
+                var errorContent = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (errorContent.TryGetProperty("error", out var errorProp))
+                {
+                    throw new Exception(errorProp.GetString());
+                }
+
+                throw new Exception("Registration failed for an unknown reason.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Registration error: {ex.Message}");
-                return null;
+                throw; // Rethrow to be caught by the UI
             }
         }
 
@@ -89,12 +95,18 @@ namespace MiFuturoTrabajo.Client.Services
                     }
                 }
 
-                return null;
+                var errorContent = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (errorContent.TryGetProperty("error", out var errorProp))
+                {
+                    throw new Exception(errorProp.GetString());
+                }
+
+                throw new Exception("OAuth login failed for an unknown reason.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"OAuth login error: {ex.Message}");
-                return null;
+                throw; // Rethrow to be caught by the UI
             }
         }
 

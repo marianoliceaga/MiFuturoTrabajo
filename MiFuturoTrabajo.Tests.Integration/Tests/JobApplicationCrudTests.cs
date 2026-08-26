@@ -32,6 +32,50 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             return authResponse!.AccessToken;
         }
 
+        /// <summary>
+        /// Regression guard for the implicit-[Required] trap: with
+        /// &lt;Nullable&gt;enable&lt;/Nullable&gt;, every non-nullable string on a DTO is
+        /// treated as required by model validation, so a company submitted with
+        /// only a name was rejected with a 400 naming five "optional" fields.
+        /// Raw JSON with explicit nulls is used deliberately - serialising a
+        /// CompanyDto would send empty strings and pass either way.
+        /// </summary>
+        [Fact]
+        public async Task Company_CreateWithOnlyName_Succeeds()
+        {
+            // Arrange
+            var token = await GetAuthTokenAsync();
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var rawJson = """
+                {
+                  "id": null,
+                  "name": "OnlyName Inc",
+                  "description": null,
+                  "website": null,
+                  "telephone": null,
+                  "address": null,
+                  "country": null,
+                  "labels": []
+                }
+                """;
+
+            // Act
+            var response = await _client.PostAsync(
+                "/api/companies/CompanyAdd",
+                new StringContent(rawJson, System.Text.Encoding.UTF8, "application/json"));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            var created = await response.Content.ReadFromJsonAsync<CompanyDto>();
+            Assert.NotNull(created);
+            Assert.Equal("OnlyName Inc", created!.Name);
+
+            // and the server must mint an id rather than persisting an empty key
+            Assert.False(string.IsNullOrWhiteSpace(created.Id));
+        }
+
         [Fact]
         public async Task JobApplication_FullCrudFlow_Success()
         {
@@ -49,7 +93,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Labels = new List<string> { "Tech", "Startup" }
             };
 
-            var companyResponse = await _client.PostAsJsonAsync("/api/companies", companyDto);
+            var companyResponse = await _client.PostAsJsonAsync("/api/companies/CompanyAdd", companyDto);
             Assert.Equal(HttpStatusCode.Created, companyResponse.StatusCode);
             var createdCompany = await companyResponse.Content.ReadFromJsonAsync<CompanyDto>();
             Assert.NotNull(createdCompany);
@@ -71,7 +115,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Labels = new List<string> { "Remote", "Priority" }
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/jobapplications", jobAppDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/jobapplication/JobApplicationAdd", jobAppDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var createdApp = await createResponse.Content.ReadFromJsonAsync<JobApplicationDto>();
@@ -82,7 +126,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(2, createdApp.Labels.Count);
 
             // Step 3: Get by ID
-            var getResponse = await _client.GetAsync($"/api/jobapplications/{createdApp.Id}");
+            var getResponse = await _client.GetAsync($"/api/jobapplication/JobApplicationGetById/{createdApp.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             var retrievedApp = await getResponse.Content.ReadFromJsonAsync<JobApplicationDto>();
@@ -95,7 +139,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             retrievedApp.Status = JobApplicationStatus.Applied;
             retrievedApp.Salary = 130000;
 
-            var updateResponse = await _client.PutAsJsonAsync($"/api/jobapplications/{retrievedApp.Id}", retrievedApp);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/jobapplication/{retrievedApp.Id}", retrievedApp);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             var updatedApp = await updateResponse.Content.ReadFromJsonAsync<JobApplicationDto>();
@@ -105,7 +149,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(130000, updatedApp.Salary);
 
             // Step 5: Get all
-            var getAllResponse = await _client.GetAsync("/api/jobapplications");
+            var getAllResponse = await _client.GetAsync("/api/jobapplication");
             Assert.Equal(HttpStatusCode.OK, getAllResponse.StatusCode);
 
             var allApps = await getAllResponse.Content.ReadFromJsonAsync<List<JobApplicationDto>>();
@@ -113,11 +157,11 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Contains(allApps, a => a.Id == createdApp.Id);
 
             // Step 6: Delete
-            var deleteResponse = await _client.DeleteAsync($"/api/jobapplications/{createdApp.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/jobapplication/JobApplicationDeleteById/{createdApp.Id}");
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
             // Step 7: Verify deletion
-            var getDeletedResponse = await _client.GetAsync($"/api/jobapplications/{createdApp.Id}");
+            var getDeletedResponse = await _client.GetAsync($"/api/jobapplication/JobApplicationGetById/{createdApp.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getDeletedResponse.StatusCode);
         }
 
@@ -140,7 +184,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Labels = new List<string> { "Enterprise", "Fortune500" }
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/companies", companyDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/companies/CompanyAdd", companyDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var created = await createResponse.Content.ReadFromJsonAsync<CompanyDto>();
@@ -148,12 +192,12 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(companyDto.Name, created.Name);
 
             // Read
-            var getResponse = await _client.GetAsync($"/api/companies/{created.Id}");
+            var getResponse = await _client.GetAsync($"/api/companies/CompanyGetById/{created.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             // Update
             created.Name = "Updated Tech Innovations";
-            var updateResponse = await _client.PutAsJsonAsync($"/api/companies/{created.Id}", created);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/companies/{created.Id}", created);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             var updated = await updateResponse.Content.ReadFromJsonAsync<CompanyDto>();
@@ -184,7 +228,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 CompanyName = "Elite Recruiting"
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/recruiters", recruiterDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/recruiters/RecruiterAdd", recruiterDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var created = await createResponse.Content.ReadFromJsonAsync<RecruiterDto>();
@@ -192,16 +236,16 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(recruiterDto.Name, created.Name);
 
             // Read
-            var getResponse = await _client.GetAsync($"/api/recruiters/{created.Id}");
+            var getResponse = await _client.GetAsync($"/api/recruiters/RecruiterGetById/{created.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             // Update
             created.Cellphone = "555-9999";
-            var updateResponse = await _client.PutAsJsonAsync($"/api/recruiters/{created.Id}", created);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/recruiters/{created.Id}", created);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Delete
-            var deleteResponse = await _client.DeleteAsync($"/api/recruiters/{created.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/recruiters/RecruiterDeleteById/{created.Id}");
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         }
 
@@ -223,7 +267,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Completed = false
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/applicanttasks", taskDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/applicanttask/ApplicantTaskAdd", taskDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var created = await createResponse.Content.ReadFromJsonAsync<ApplicantTaskDto>();
@@ -231,19 +275,19 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(taskDto.Title, created.Title);
 
             // Read
-            var getResponse = await _client.GetAsync($"/api/applicanttasks/{created.Id}");
+            var getResponse = await _client.GetAsync($"/api/applicanttask/ApplicantTaskGetById/{created.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             // Update
             created.Completed = true;
-            var updateResponse = await _client.PutAsJsonAsync($"/api/applicanttasks/{created.Id}", created);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/applicanttask/{created.Id}", created);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             var updated = await updateResponse.Content.ReadFromJsonAsync<ApplicantTaskDto>();
             Assert.True(updated!.Completed);
 
             // Delete
-            var deleteResponse = await _client.DeleteAsync($"/api/applicanttasks/{created.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/applicanttask/ApplicantTaskDeleteById/{created.Id}");
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         }
 
@@ -270,7 +314,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Recruiters = new List<RecruiterDto>()
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/meetings", meetingDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/meeting/MeetingAdd", meetingDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var created = await createResponse.Content.ReadFromJsonAsync<MeetingDto>();
@@ -278,16 +322,16 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.Equal(meetingDto.Title, created.Title);
 
             // Read
-            var getResponse = await _client.GetAsync($"/api/meetings/{created.Id}");
+            var getResponse = await _client.GetAsync($"/api/meeting/MeetingGetById/{created.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             // Update
             created.Outcome = "Great interview, moving forward";
-            var updateResponse = await _client.PutAsJsonAsync($"/api/meetings/{created.Id}", created);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/meeting/{created.Id}", created);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Delete
-            var deleteResponse = await _client.DeleteAsync($"/api/meetings/{created.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/meeting/MeetingDeleteById/{created.Id}");
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         }
 
@@ -307,7 +351,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 IsDefault = true
             };
 
-            var createResponse = await _client.PostAsJsonAsync("/api/cvversions", cvDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/cvversion", cvDto);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             var created = await createResponse.Content.ReadFromJsonAsync<CVVersionDto>();
@@ -316,16 +360,16 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             Assert.True(created.IsDefault);
 
             // Read
-            var getResponse = await _client.GetAsync($"/api/cvversions/{created.Id}");
+            var getResponse = await _client.GetAsync($"/api/cvversion/{created.Id}");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
             // Update
             created.Name = "Senior Software Engineer CV";
-            var updateResponse = await _client.PutAsJsonAsync($"/api/cvversions/{created.Id}", created);
+            var updateResponse = await _client.PatchAsJsonAsync($"/api/cvversion/{created.Id}", created);
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Delete
-            var deleteResponse = await _client.DeleteAsync($"/api/cvversions/{created.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/cvversion/{created.Id}");
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         }
 
@@ -338,7 +382,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var nonexistentId = Guid.NewGuid().ToString();
 
             // Act & Assert
-            var response = await _client.GetAsync($"/api/jobapplications/{nonexistentId}");
+            var response = await _client.GetAsync($"/api/jobapplication/JobApplicationGetById/{nonexistentId}");
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
@@ -357,7 +401,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             };
 
             // Act
-            var response = await _client.PutAsJsonAsync($"/api/jobapplications/{jobAppDto.Id}", jobAppDto);
+            var response = await _client.PatchAsJsonAsync($"/api/jobapplication/{jobAppDto.Id}", jobAppDto);
 
             // Assert
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -370,7 +414,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var companyDto = new CompanyDto { Name = "Test" };
 
             // Act & Assert
-            var createResponse = await _client.PostAsJsonAsync("/api/companies", companyDto);
+            var createResponse = await _client.PostAsJsonAsync("/api/companies/CompanyAdd", companyDto);
             Assert.Equal(HttpStatusCode.Unauthorized, createResponse.StatusCode);
 
             var getResponse = await _client.GetAsync("/api/companies");

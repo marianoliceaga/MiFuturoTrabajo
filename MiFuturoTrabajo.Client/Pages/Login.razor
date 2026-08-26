@@ -171,9 +171,10 @@
             isOAuthLoading = true;
             currentProvider = "Google";
             errorMessage = string.Empty;
+            StateHasChanged();
 
-            // Trigger Google One Tap
-            await JSRuntime.InvokeVoidAsync("showGoogleOneTap");
+            // Trigger Google popup flow (falls back to renderButton overlay if One Tap is suppressed)
+            await JSRuntime.InvokeVoidAsync("signInWithGoogle");
         }
         catch (Exception ex)
         {
@@ -182,6 +183,14 @@
             ToastService.ShowError("Google login failed");
             isOAuthLoading = false;
         }
+    }
+
+    [JSInvokable]
+    public void HandleGoogleCancelled()
+    {
+        isOAuthLoading = false;
+        currentProvider = string.Empty;
+        StateHasChanged();
     }
 
     [JSInvokable]

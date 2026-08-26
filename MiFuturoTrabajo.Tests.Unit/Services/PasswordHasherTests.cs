@@ -100,13 +100,17 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
         }
 
         [Fact]
-        public void VerifyPassword_ShouldHandleNullHash()
+        public void VerifyPassword_ShouldReturnFalse_ForNullHash()
         {
-            // Arrange
+            // Arrange - OAuth-only accounts have no password hash at all
             var password = "TestPassword123!";
 
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => _passwordHasher.VerifyPassword(password, null!));
+            // Act
+            var result = _passwordHasher.VerifyPassword(password, null);
+
+            // Assert - verification fails, but never throws: a password login
+            // attempt against an OAuth-only account must not 500.
+            Assert.False(result);
         }
     }
 }

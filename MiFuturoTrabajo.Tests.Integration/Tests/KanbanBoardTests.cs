@@ -42,7 +42,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 Country = "USA"
             };
 
-            var response = await _client.PostAsJsonAsync("/api/companies", companyDto);
+            var response = await _client.PostAsJsonAsync("/api/companies/CompanyAdd", companyDto);
             return (await response.Content.ReadFromJsonAsync<CompanyDto>())!;
         }
 
@@ -59,7 +59,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
                 IsDirect = true
             };
 
-            var response = await _client.PostAsJsonAsync("/api/jobapplications", jobAppDto);
+            var response = await _client.PostAsJsonAsync("/api/jobapplication/JobApplicationAdd", jobAppDto);
             return (await response.Content.ReadFromJsonAsync<JobApplicationDto>())!;
         }
 
@@ -80,7 +80,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             await CreateJobApplicationAsync(company, JobApplicationStatus.Offer);
 
             // Act
-            var response = await _client.GetAsync("/api/jobapplications/board");
+            var response = await _client.GetAsync("/api/jobapplication/board");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
             var board = await response.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
@@ -123,15 +123,15 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
 
             // Act - Move from NotApplied to Applied
             var updateStatusDto = new { Status = JobApplicationStatus.Applied };
-            var updateResponse = await _client.PutAsJsonAsync(
-                $"/api/jobapplications/{application.Id}/status",
+            var updateResponse = await _client.PatchAsJsonAsync(
+                $"/api/jobapplication/{application.Id}/status",
                 updateStatusDto
             );
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Verify the board reflects the change
-            var boardResponse = await _client.GetAsync("/api/jobapplications/board");
+            var boardResponse = await _client.GetAsync("/api/jobapplication/board");
             var board = await boardResponse.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             Assert.NotNull(board);
@@ -168,15 +168,15 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             for (int i = 1; i < statuses.Length; i++)
             {
                 var updateStatusDto = new { Status = statuses[i] };
-                var updateResponse = await _client.PutAsJsonAsync(
-                    $"/api/jobapplications/{application.Id}/status",
+                var updateResponse = await _client.PatchAsJsonAsync(
+                $"/api/jobapplication/{application.Id}/status",
                     updateStatusDto
                 );
 
                 Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
                 // Verify the application has the new status
-                var getResponse = await _client.GetAsync($"/api/jobapplications/{application.Id}");
+                var getResponse = await _client.GetAsync($"/api/jobapplication/JobApplicationGetById/{application.Id}");
                 var updated = await getResponse.Content.ReadFromJsonAsync<JobApplicationDto>();
 
                 Assert.NotNull(updated);
@@ -199,7 +199,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             await CreateJobApplicationAsync(company, JobApplicationStatus.Applied);
 
             // Act
-            var response = await _client.GetAsync("/api/jobapplications/board");
+            var response = await _client.GetAsync("/api/jobapplication/board");
             var board = await response.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             // Assert
@@ -218,7 +218,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             // Don't create any applications
 
             // Act
-            var response = await _client.GetAsync("/api/jobapplications/board");
+            var response = await _client.GetAsync("/api/jobapplication/board");
             var board = await response.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             // Assert
@@ -243,15 +243,15 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
 
             // Act - Move to Rejected status
             var updateStatusDto = new { Status = JobApplicationStatus.Rejected };
-            var updateResponse = await _client.PutAsJsonAsync(
-                $"/api/jobapplications/{application.Id}/status",
+            var updateResponse = await _client.PatchAsJsonAsync(
+                $"/api/jobapplication/{application.Id}/status",
                 updateStatusDto
             );
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Assert - Verify in Rejected column
-            var boardResponse = await _client.GetAsync("/api/jobapplications/board");
+            var boardResponse = await _client.GetAsync("/api/jobapplication/board");
             var board = await boardResponse.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             Assert.NotNull(board);
@@ -271,15 +271,15 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
 
             // Act - Move to NoResponse status
             var updateStatusDto = new { Status = JobApplicationStatus.NoResponse };
-            var updateResponse = await _client.PutAsJsonAsync(
-                $"/api/jobapplications/{application.Id}/status",
+            var updateResponse = await _client.PatchAsJsonAsync(
+                $"/api/jobapplication/{application.Id}/status",
                 updateStatusDto
             );
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             // Assert - Verify in NoResponse column
-            var boardResponse = await _client.GetAsync("/api/jobapplications/board");
+            var boardResponse = await _client.GetAsync("/api/jobapplication/board");
             var board = await boardResponse.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             Assert.NotNull(board);
@@ -304,7 +304,7 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var app3 = await CreateJobApplicationAsync(company, JobApplicationStatus.Applied);
 
             // Act
-            var response = await _client.GetAsync("/api/jobapplications/board");
+            var response = await _client.GetAsync("/api/jobapplication/board");
             var board = await response.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             // Assert
@@ -328,8 +328,8 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var updateStatusDto = new { Status = JobApplicationStatus.Applied };
 
             // Act
-            var response = await _client.PutAsJsonAsync(
-                $"/api/jobapplications/{nonexistentId}/status",
+            var response = await _client.PatchAsJsonAsync(
+                $"/api/jobapplication/{nonexistentId}/status",
                 updateStatusDto
             );
 
@@ -348,10 +348,10 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var application = await CreateJobApplicationAsync(company, JobApplicationStatus.Applied);
 
             // Delete the application
-            await _client.DeleteAsync($"/api/jobapplications/{application.Id}");
+            await _client.DeleteAsync($"/api/jobapplication/JobApplicationDeleteById/{application.Id}");
 
             // Act
-            var boardResponse = await _client.GetAsync("/api/jobapplications/board");
+            var boardResponse = await _client.GetAsync("/api/jobapplication/board");
             var board = await boardResponse.Content.ReadFromJsonAsync<List<BoardColumnDto>>();
 
             // Assert

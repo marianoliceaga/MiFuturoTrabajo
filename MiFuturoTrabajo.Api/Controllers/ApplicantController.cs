@@ -17,11 +17,13 @@ namespace MiFuturoTrabajo.Api.Controllers
     {
         private readonly ILogger<ApplicantController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly IBlobStorageService _blobStorageService;
 
-        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context)
+        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context, IBlobStorageService blobStorageService)
         {
             _logger = logger;
             _context = context;
+            _blobStorageService = blobStorageService;
         }
 
         [HttpGet("ApplicationGetById/{id}")]
@@ -151,71 +153,50 @@ namespace MiFuturoTrabajo.Api.Controllers
         }
 
         [HttpPost("UploadCV")]
-        public async Task<IActionResult> UploadCV([FromBody] Dictionary<string, string> cvData)
+        public async Task<IActionResult> UploadCV([FromForm] IFormFile file)
         {
-            _logger.LogInformation("Uploading CV");
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file uploaded.");
+            }
 
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized("Unauthorized");
+                return Unauthorized();
             }
 
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await _context.Applicants.FirstOrDefaultAsync(a => a.UserId == userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                if (cvData == null || !cvData.ContainsKey("name") || !cvData.ContainsKey("fileUrl"))
-                {
-                    return BadRequest("Invalid CV data. Required: name, fileUrl");
-                }
-
-                // Check if this is the first CV - make it default
-                var isFirstCV = !await _context.CVVersions.AnyAsync(cv => cv.ApplicantId == applicant.Id);
-                var isDefault = cvData.ContainsKey("isDefault")
-                    ? bool.Parse(cvData["isDefault"])
-                    : isFirstCV;
-
-                // If setting as default, unset all other CVs
-                if (isDefault)
-                {
-                    var existingCVs = await _context.CVVersions
-                        .Where(cv => cv.ApplicantId == applicant.Id && cv.IsDefault)
-                        .ToListAsync();
-
-                    foreach (var cv in existingCVs)
-                    {
-                        cv.IsDefault = false;
-                    }
-                }
+                using var stream = file.OpenReadStream();
+                var fileUrl = await _blobStorageService.UploadFileAsync(stream, file.FileName, file.ContentType);
 
                 var cvVersion = new CVVersion
                 {
                     Id = Guid.NewGuid().ToString(),
                     ApplicantId = applicant.Id,
-                    Name = cvData["name"],
-                    FileUrl = cvData["fileUrl"],
+                    Name = file.FileName,
+                    FileUrl = fileUrl,
                     UploadedDate = DateTime.UtcNow,
-                    IsDefault = isDefault
+                    VersionNotes = "Uploaded via blob storage",
+                    IsDefault = false
                 };
 
                 _context.CVVersions.Add(cvVersion);
                 await _context.SaveChangesAsync();
 
-                var cvDto = cvVersion.ToDto();
-
-                return StatusCode(201, cvDto);
+                return Ok(cvVersion.ToDto());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading CV");
-                return StatusCode(500, "An error occurred while uploading the CV");
+                _logger.LogError(ex, "Failed to upload CV blob");
+                return StatusCode(500, "An error occurred while uploading CV.");
             }
         }
 
@@ -337,6 +318,16 @@ namespace MiFuturoTrabajo.Api.Controllers
                 if (referenceDto == null)
                 {
                     return BadRequest("Invalid reference data");
+                }
+
+                if (string.IsNullOrWhiteSpace(referenceDto.CompanyName))
+                {
+                    return BadRequest("CompanyName is required");
+                }
+
+                if (string.IsNullOrWhiteSpace(referenceDto.JobTitle))
+                {
+                    return BadRequest("JobTitle is required");
                 }
 
                 var reference = referenceDto.ToEntity(applicant.Id);

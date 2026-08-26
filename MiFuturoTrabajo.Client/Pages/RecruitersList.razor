@@ -3,10 +3,12 @@
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
+@using Blazored.Toast.Services
 @attribute [Authorize]
 @inject IRecruiterService RecruiterService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject IToastService ToastService
 
 <div class="recruiters-container">
     <div class="recruiters-header">
@@ -197,6 +199,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading recruiters: {ex.Message}");
+            ToastService.ShowError("Failed to load recruiters.");
         }
         finally
         {
@@ -288,10 +291,12 @@
             }
             CloseRecruiterModal();
             StateHasChanged(); // Update UI after save
+            ToastService.ShowSuccess(isEditMode ? "Recruiter updated successfully." : "Recruiter added successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving recruiter: {ex.Message}");
+            ToastService.ShowError("Failed to save recruiter.");
         }
         finally
         {
@@ -311,10 +316,12 @@
         {
             await RecruiterService.DeleteAsync(id);
             recruiters.RemoveAll(r => r.Id == id);
+            ToastService.ShowSuccess("Recruiter deleted successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting recruiter: {ex.Message}");
+            ToastService.ShowError("Failed to delete recruiter.");
         }
     }
 }

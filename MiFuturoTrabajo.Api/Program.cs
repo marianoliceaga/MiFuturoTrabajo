@@ -4,7 +4,6 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Api.Services;
-using MiFuturoTrabajo.Client.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,26 +51,37 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     }
 });
 
-// Register Authentication Services
+// Register application services
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IOAuthService, OAuthService>();
+builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 
-// Register Email Service
+// Register Email Service (gracefully degrades if ACS is not configured)
 builder.Services.AddSingleton<IEmailService>(provider =>
 {
     var config = provider.GetRequiredService<IConfiguration>();
     var logger = provider.GetRequiredService<ILogger<EmailService>>();
-    var connectionString = config["AzureCommunicationServices:ConnectionString"] ?? "dummy";
-    var senderAddress = config["AzureCommunicationServices:SenderAddress"] ?? "test@example.com";
+    var connectionString = config["AzureCommunicationServices:ConnectionString"];
+    var senderAddress = config["AzureCommunicationServices:SenderAddress"];
 
-    return new EmailService(connectionString, senderAddress, logger);
+    var isConfigured = !string.IsNullOrWhiteSpace(connectionString)
+        && !connectionString.Contains("YOUR_ACS")
+        && !string.IsNullOrWhiteSpace(senderAddress)
+        && !senderAddress.Contains("your-domain");
+
+    if (isConfigured)
+    {
+        return new EmailService(connectionString!, senderAddress!, logger);
+    }
+
+    logger.LogWarning("AzureCommunicationServices not configured. Email sending will be skipped (no-op). Set AzureCommunicationServices:ConnectionString and SenderAddress in appsettings.");
+    return new NoOpEmailService(logger);
 });
 
-// Register Background Services for Timer Functions
-// Uncomment when you want to enable email reminders
-// builder.Services.AddHostedService<TaskReminderHostedService>();
-// builder.Services.AddHostedService<InterviewReminderHostedService>();
+// Register background services
+builder.Services.AddHostedService<TaskReminderHostedService>();
+builder.Services.AddHostedService<InterviewReminderHostedService>();
 
 // Configure CORS for Blazor Client
 var blazorClientUrl = builder.Configuration["BlazorClient:Url"] ?? "https://localhost:5011";
@@ -99,19 +109,19 @@ builder.Services.AddCors(options =>
 });
 
 // Add controllers
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    // DTOs describe the wire shape, not a required-field contract. Without this,
+    // every non-nullable string property is implicitly [Required] and optional
+    // fields (Address, Telephone, ...) reject the request with a 400.
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+})
     .AddNewtonsoftJson(); // For Newtonsoft.Json serialization
 
 // Add API Explorer for Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-
-var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "https://localhost:5011";
-builder.Services.AddHttpClient("MiFuturoTrabajo.Api", client =>
-{
-    client.BaseAddress = new Uri(apiBaseUrl);
-}).AddHttpMessageHandler<AuthenticationHttpMessageHandler>();
 
 var app = builder.Build();
 

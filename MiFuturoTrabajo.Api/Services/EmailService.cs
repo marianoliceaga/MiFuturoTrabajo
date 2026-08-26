@@ -50,4 +50,26 @@ namespace MiFuturoTrabajo.Api.Services
             }
         }
     }
+
+    /// <summary>
+    /// No-op email service used when Azure Communication Services is not configured.
+    /// Logs a warning instead of throwing, allowing the app to run locally without ACS.
+    /// </summary>
+    public class NoOpEmailService : IEmailService
+    {
+        private readonly ILogger _logger;
+
+        public NoOpEmailService(ILogger logger)
+        {
+            _logger = logger;
+        }
+
+        public Task SendEmailAsync(string toEmail, string subject, string htmlContent)
+        {
+            _logger.LogWarning(
+                "[NoOpEmailService] Email NOT sent to {Email} — ACS not configured. Subject: {Subject}",
+                toEmail, subject);
+            return Task.CompletedTask;
+        }
+    }
 }

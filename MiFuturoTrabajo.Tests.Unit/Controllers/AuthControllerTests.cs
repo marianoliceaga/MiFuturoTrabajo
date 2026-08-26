@@ -6,7 +6,9 @@ using MiFuturoTrabajo.Infrastructure.Entities;
 using MiFuturoTrabajo.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Hosting;
 using Moq;
 using Xunit;
 
@@ -18,6 +20,9 @@ namespace MiFuturoTrabajo.Tests.Unit.Controllers
         private readonly Mock<IJwtService> _jwtServiceMock;
         private readonly Mock<IPasswordHasher> _passwordHasherMock;
         private readonly Mock<IOAuthService> _oAuthServiceMock;
+        private readonly Mock<IEmailService> _emailServiceMock;
+        private readonly Mock<IWebHostEnvironment> _envMock;
+        private readonly Mock<IConfiguration> _configurationMock;
         private readonly Mock<ILogger<AuthController>> _loggerMock;
         private readonly AuthController _controller;
 
@@ -34,13 +39,22 @@ namespace MiFuturoTrabajo.Tests.Unit.Controllers
             _jwtServiceMock = new Mock<IJwtService>();
             _passwordHasherMock = new Mock<IPasswordHasher>();
             _oAuthServiceMock = new Mock<IOAuthService>();
+            _emailServiceMock = new Mock<IEmailService>();
+            _configurationMock = new Mock<IConfiguration>();
             _loggerMock = new Mock<ILogger<AuthController>>();
+
+            // Default env to Development so token-exposure tests still work
+            _envMock = new Mock<IWebHostEnvironment>();
+            _envMock.Setup(e => e.EnvironmentName).Returns("Development");
 
             _controller = new AuthController(
                 _context,
                 _jwtServiceMock.Object,
                 _passwordHasherMock.Object,
                 _oAuthServiceMock.Object,
+                _emailServiceMock.Object,
+                _envMock.Object,
+                _configurationMock.Object,
                 _loggerMock.Object
             );
         }

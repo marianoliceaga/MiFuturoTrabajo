@@ -3,9 +3,12 @@
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
+@using Blazored.Toast.Services
 @attribute [Authorize]
 @inject ICVVersionService CVVersionService
+@inject IApplicantService ApplicantService
 @inject IJSRuntime JSRuntime
+@inject IToastService ToastService
 
 <div class="cv-container">
     <div class="cv-header">
@@ -94,9 +97,14 @@
                         <input type="text" class="form-control" @bind="currentCV.Name" placeholder="e.g., Software Developer CV - 2025" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">File URL *</label>
-                        <input type="url" class="form-control" @bind="currentCV.FileUrl" placeholder="https://..." />
-                        <small class="form-text text-muted">Enter the URL where your CV is stored (e.g., OneDrive, Google Drive, Dropbox)</small>
+                        <label class="form-label">Upload File (Optional)</label>
+                        <InputFile class="form-control" OnChange="HandleFileSelected" accept=".pdf,.doc,.docx" />
+                        <small class="form-text text-muted">Upload a CV file to be stored securely.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Or File URL (Link)</label>
+                        <input type="url" class="form-control" @bind="currentCV.FileUrl" disabled="@(selectedFile != null)" placeholder="https://..." />
+                        <small class="form-text text-muted">Enter the URL where your CV is stored (if not uploading a file)</small>
                     </div>
                     @if (!isEditMode)
                     {
@@ -132,6 +140,7 @@
     private bool isEditMode = false;
     private bool isSaving = false;
     private CVVersionDto currentCV = new();
+    private Microsoft.AspNetCore.Components.Forms.IBrowserFile selectedFile;
 
     protected override async Task OnInitializedAsync()
     {
@@ -148,6 +157,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading CV versions: {ex.Message}");
+            ToastService.ShowError("Failed to load CV versions.");
         }
         finally
         {
@@ -185,11 +195,22 @@
     {
         showCVModal = false;
         currentCV = new();
+        selectedFile = null;
+    }
+
+    private void HandleFileSelected(Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        // Auto-fill name if empty
+        if (string.IsNullOrWhiteSpace(currentCV.Name) && selectedFile != null)
+        {
+            currentCV.Name = Path.GetFileNameWithoutExtension(selectedFile.Name);
+        }
     }
 
     private async Task SaveCV()
     {
-        if (string.IsNullOrWhiteSpace(currentCV.Name) || string.IsNullOrWhiteSpace(currentCV.FileUrl))
+        if (string.IsNullOrWhiteSpace(currentCV.Name) || (string.IsNullOrWhiteSpace(currentCV.FileUrl) && selectedFile == null))
         {
             return;
         }
@@ -208,14 +229,34 @@
             }
             else
             {
-                var created = await CVVersionService.CreateAsync(currentCV);
+                CVVersionDto created;
+                if (selectedFile != null)
+                {
+                    // Upload file via ApplicantService
+                    using var stream = selectedFile.OpenReadStream(10 * 1024 * 1024); // 10MB limit
+                    created = await ApplicantService.UploadCVAsync(selectedFile.Name, stream);
+                    // The upload endpoint creates the CVVersion, but it might not have the correct Name/IsDefault
+                    // Update it if needed
+                    if (created.Name != currentCV.Name || currentCV.IsDefault)
+                    {
+                        created.Name = currentCV.Name;
+                        if (currentCV.IsDefault) created.IsDefault = true;
+                        created = await CVVersionService.UpdateAsync(created.Id, created);
+                    }
+                }
+                else
+                {
+                    created = await CVVersionService.CreateAsync(currentCV);
+                }
                 cvVersions.Insert(0, created); // Add to top
             }
             CloseCVModal();
+            ToastService.ShowSuccess(isEditMode ? "CV updated successfully." : "CV added successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving CV: {ex.Message}");
+            ToastService.ShowError("Failed to save CV.");
         }
         finally
         {
@@ -236,10 +277,12 @@
             }
 
             StateHasChanged();
+            ToastService.ShowSuccess("Default CV updated.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error setting default CV: {ex.Message}");
+            ToastService.ShowError("Failed to set default CV.");
         }
     }
 
@@ -254,10 +297,12 @@
         {
             await CVVersionService.DeleteAsync(id);
             cvVersions.RemoveAll(cv => cv.Id == id);
+            ToastService.ShowSuccess("CV deleted successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting CV: {ex.Message}");
+            ToastService.ShowError("Failed to delete CV.");
         }
     }
 

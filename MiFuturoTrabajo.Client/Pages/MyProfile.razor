@@ -3,8 +3,13 @@
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using Blazored.Toast.Services
 @attribute [Authorize]
 @inject IApplicantService ApplicantService
+@inject ICVVersionService CVVersionService
+@inject IJSRuntime JSRuntime
+@inject IToastService ToastService
 
 <div class="profile-container">
     <div class="profile-header">
@@ -262,6 +267,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading profile: {ex.Message}");
+            ToastService.ShowError("Failed to load profile.");
         }
         finally
         {
@@ -280,10 +286,12 @@
         {
             await ApplicantService.UpdateProfileAsync(applicant);
             isEditing = false;
+            ToastService.ShowSuccess("Profile updated successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving profile: {ex.Message}");
+            ToastService.ShowError("Failed to save profile.");
         }
     }
 
@@ -314,10 +322,12 @@
             var cv = await ApplicantService.UploadCVAsync(newCVName, stream);
             applicant.CVVersions.Add(cv);
             showCVUploadModal = false;
+            ToastService.ShowSuccess("CV uploaded successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error uploading CV: {ex.Message}");
+            ToastService.ShowError("Failed to upload CV.");
         }
         finally
         {
@@ -325,17 +335,29 @@
         }
     }
 
-    private void DownloadCV(CVVersionDto cv)
+    private async Task DownloadCV(CVVersionDto cv)
     {
-        // Implementation for downloading CV
-        // NavigationManager.NavigateTo(cv.FileUrl, true);
+        if (!string.IsNullOrEmpty(cv.FileUrl))
+        {
+            await JSRuntime.InvokeVoidAsync("open", cv.FileUrl, "_blank");
+        }
     }
 
-    private void SetDefaultCV(CVVersionDto cv)
+    private async Task SetDefaultCV(CVVersionDto cv)
     {
-        foreach (var c in applicant.CVVersions)
+        try
         {
-            c.IsDefault = c.Id == cv.Id;
+            await CVVersionService.SetDefaultAsync(cv.Id);
+            foreach (var c in applicant.CVVersions)
+            {
+                c.IsDefault = c.Id == cv.Id;
+            }
+            ToastService.ShowSuccess("Default CV set.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error setting default CV: {ex.Message}");
+            ToastService.ShowError("Failed to set default CV.");
         }
     }
 
@@ -352,10 +374,12 @@
             var added = await ApplicantService.AddReferenceAsync(newReference);
             applicant.PastJobReferences.Add(added);
             showReferenceModal = false;
+            ToastService.ShowSuccess("Reference added successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error adding reference: {ex.Message}");
+            ToastService.ShowError("Failed to add reference.");
         }
     }
 
@@ -365,10 +389,12 @@
         {
             await ApplicantService.DeleteReferenceAsync(id);
             applicant.PastJobReferences.RemoveAll(r => r.Id == id);
+            ToastService.ShowSuccess("Reference deleted successfully.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting reference: {ex.Message}");
+            ToastService.ShowError("Failed to delete reference.");
         }
     }
 }

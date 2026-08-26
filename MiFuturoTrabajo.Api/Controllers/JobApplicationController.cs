@@ -136,7 +136,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                     .Include(ja => ja.JobApplicationRecruiters).ThenInclude(jar => jar.Recruiter)
                     .Include(ja => ja.InterviewSteps)
                     .Include(ja => ja.ApplicantTasks)
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id);
+                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {
@@ -235,7 +235,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                 var jobApp = await _context.JobApplications
                     .Include(ja => ja.JobApplicationRecruiters)
                     .Include(ja => ja.InterviewSteps)
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id);
+                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {
@@ -321,7 +321,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var jobApp = await _context.JobApplications
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id);
+                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {
@@ -359,7 +359,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var jobApp = await _context.JobApplications
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id);
+                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {

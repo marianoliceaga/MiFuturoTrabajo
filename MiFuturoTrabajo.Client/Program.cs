@@ -55,7 +55,6 @@ builder.Services.AddScoped<IApplicantTaskService, ApplicantTaskService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<IRecruiterService, RecruiterService>();
 builder.Services.AddScoped<ICVVersionService, CVVersionService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICalendarService, CalendarService>();
 builder.Services.AddScoped<StateContainer>();
 

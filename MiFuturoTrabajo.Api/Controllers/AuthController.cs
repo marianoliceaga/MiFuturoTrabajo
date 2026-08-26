@@ -16,19 +16,28 @@ namespace MiFuturoTrabajo.Api.Controllers
         private readonly IJwtService _jwtService;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IOAuthService _oAuthService;
+        private readonly IEmailService _emailService;
+        private readonly IWebHostEnvironment _env;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             ApplicationDbContext context,
             IJwtService jwtService,
             IPasswordHasher passwordHasher,
             IOAuthService oAuthService,
+            IEmailService emailService,
+            IWebHostEnvironment env,
+            IConfiguration configuration,
             ILogger<AuthController> logger)
         {
             _context = context;
             _jwtService = jwtService;
             _passwordHasher = passwordHasher;
             _oAuthService = oAuthService;
+            _emailService = emailService;
+            _env = env;
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -401,15 +410,32 @@ namespace MiFuturoTrabajo.Api.Controllers
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                // TODO: Send email with verification link
-                // In production, send email via Azure Communication Services
-                // var verificationLink = $"https://your-domain.com/verify-email?token={verificationToken}";
+                // Send verification email
+                var blazorClientUrl = _configuration["BlazorClient:Url"] ?? "https://localhost:5001";
+                var verificationLink = $"{blazorClientUrl}/verify-email?token={verificationToken}";
+                var emailHtml = $@"<h2>Verify your email</h2>
+                    <p>Click the link below to confirm your Mi Futuro Trabajo account:</p>
+                    <a href='{verificationLink}' style='display:inline-block;padding:12px 24px;background:#0d6efd;color:#fff;text-decoration:none;border-radius:6px;'>Verify Email</a>
+                    <p>If you didn't create an account, ignore this email.</p>";
 
-                return Ok(new
+                try
                 {
-                    message = "Verification email sent",
-                    verificationToken // Remove in production!
-                });
+                    await _emailService.SendEmailAsync(user.Email, "Verify your email – Mi Futuro Trabajo", emailHtml);
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogWarning(emailEx, "Could not send verification email (ACS not configured?)");
+                }
+
+                var response = new { message = "Verification email sent" };
+
+                // Only expose raw token in development to ease testing without email setup
+                if (_env.IsDevelopment())
+                {
+                    return Ok(new { response.message, verificationToken });
+                }
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -488,15 +514,32 @@ namespace MiFuturoTrabajo.Api.Controllers
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                // TODO: Send email with reset link
-                // In production, send email via Azure Communication Services
-                // var resetLink = $"https://your-domain.com/reset-password?token={resetToken}";
+                // Send reset email
+                var blazorClientUrl = _configuration["BlazorClient:Url"] ?? "https://localhost:5001";
+                var resetLink = $"{blazorClientUrl}/reset-password?token={resetToken}";
+                var emailHtml = $@"<h2>Reset your password</h2>
+                    <p>Click the link below to reset your Mi Futuro Trabajo password. This link expires in 1 hour.</p>
+                    <a href='{resetLink}' style='display:inline-block;padding:12px 24px;background:#0d6efd;color:#fff;text-decoration:none;border-radius:6px;'>Reset Password</a>
+                    <p>If you didn't request a password reset, you can safely ignore this email.</p>";
 
-                return Ok(new
+                try
                 {
-                    message = "If the email exists, a password reset link has been sent",
-                    resetToken // Remove in production!
-                });
+                    await _emailService.SendEmailAsync(user.Email, "Reset your password – Mi Futuro Trabajo", emailHtml);
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogWarning(emailEx, "Could not send password reset email (ACS not configured?)");
+                }
+
+                var successMessage = "If the email exists, a password reset link has been sent";
+
+                // Only expose raw token in development to ease testing without email setup
+                if (_env.IsDevelopment())
+                {
+                    return Ok(new { message = successMessage, resetToken });
+                }
+
+                return Ok(new { message = successMessage });
             }
             catch (Exception ex)
             {
