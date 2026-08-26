@@ -201,6 +201,31 @@ Phase 6 asked me to *verify* OAuth end to end. Verifying it meant finding that *
 
 **Blocked — needs you.** Your Entra redirect URIs are registered under `web`, but MSAL.js v2 requires the **SPA** platform (`AADSTS9002326`), the one SPA entry has the wrong path, and the production URI points at a Static Web App that no longer exists. Changing an app registration is a change to your account configuration, so I did not do it unilaterally — and the correct hostname is not knowable until Phase 7. Google's console I cannot reach at all.
 
+---
+
+### ✅ Phase 7 — deployment, CI/CD, hardening — [docs/phase7-results.md](docs/phase7-results.md)
+
+| | Before | After |
+|---|---|---|
+| Rate limiting | none | per-IP on auth, per-user elsewhere |
+| Per-user quotas | none | six caps, `429` with a useful message |
+| `AllowAnyOrigin` policy in Production | **registered** | not registered at all |
+| Cosmos containers created in Production | **never** | at startup |
+| Infrastructure | none | Bicep, one deployment |
+| CI/CD | none | build+test every push, deploy from `main` |
+| Tests | 194 / 194 | **196 / 196** |
+
+**Two deployment blockers found while wiring it up.** `EnsureCreatedAsync` ran in Development only — Bicep creates the *database*, but containers and partition keys come from the EF model, so on a fresh account every query in Production would have thrown. And CORS hardcoded localhost while registering an `AllowAnyOrigin` policy in every environment, one `if` away from being selected; that policy no longer exists in Production at all.
+
+**A mistake worth recording.** I hardcoded the rate limits, which made the entire integration suite fail — a `TestServer` has no client address, so 90 tests share one partition and blow through 10 requests a minute. The fix was not to special-case tests: limits legitimately differ by environment, so they became configuration. Two fixtures now set deliberately tiny ones, so the limiter and the caps are **proven rather than assumed** (acceptance criteria 10 and 11).
+
+**Infrastructure**, all free-tier or consumption, with a $5 budget alert that should never fire. No secret is a Bicep parameter — parameters land in deployment history. Containers are not declared in the template either, so partition keys stay defined once, in the EF model.
+
+**CI/CD** builds with `-warnaserror` (Phase 1 cleared 116 warnings; without a gate they come back), compiles the Bicep, and deploys only from `main` after calling that same gate — authenticating with OIDC rather than a stored publish profile, and ending with a smoke test against `/health`.
+
+**The demo account** is a plausible three-month job hunt across every board column, dated relative to now so it never looks abandoned. It is the most-seen code path in the project.
+
+
 
 
 
@@ -451,7 +476,10 @@ The plan below is kept as written for comparison; deviations are noted inline.*
 
 ---
 
-## Phase 7 — Azure deployment, CI/CD, and demo hardening
+## ✅ Phase 7 — Azure deployment, CI/CD, and demo hardening — **DONE**
+
+*Delivered on `claude/phase-7-deploy`. Full record: [docs/phase7-results.md](docs/phase7-results.md).
+The plan below is kept as written for comparison; deviations are noted inline.*
 
 **Objective:** A public URL a recruiter can click, that stays up, that cannot be trivially abused, and that never looks empty.
 
