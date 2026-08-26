@@ -7,21 +7,25 @@ using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.PerUserPolicy)]
     public class MeetingController : ControllerBase
     {
         private readonly ILogger<MeetingController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly QuotaService _quotas;
 
-        public MeetingController(ILogger<MeetingController> logger, ApplicationDbContext context)
+        public MeetingController(ILogger<MeetingController> logger, ApplicationDbContext context, QuotaService quotas)
         {
             _logger = logger;
             _context = context;
+            _quotas = quotas;
         }
 
         [HttpGet]
@@ -128,6 +132,14 @@ namespace MiFuturoTrabajo.Api.Controllers
                 // ToEntity copies the recruiter ids onto the document itself,
                 // so there is no join table to maintain.
                 var meeting = meetingDto.ToEntity(applicant.Id);
+                // Registration is open on a shared free-tier database, so one
+                // account cannot be allowed to fill it for everybody else.
+                var quotaError = await _quotas.CheckMeetingsAsync(applicant.Id, HttpContext.RequestAborted);
+                if (quotaError != null)
+                {
+                    return StatusCode(429, new { error = quotaError });
+                }
+
                 _context.Meetings.Add(meeting);
 
                 await _context.SaveChangesAsync();

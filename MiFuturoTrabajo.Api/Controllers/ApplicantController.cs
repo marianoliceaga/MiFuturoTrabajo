@@ -7,23 +7,27 @@ using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.PerUserPolicy)]
     public class ApplicantController : ControllerBase
     {
         private readonly ILogger<ApplicantController> _logger;
         private readonly ApplicationDbContext _context;
         private readonly ICvDocumentService _cvDocuments;
+        private readonly QuotaService _quotas;
 
-        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context, ICvDocumentService cvDocuments)
+        public ApplicantController(ILogger<ApplicantController> logger, ApplicationDbContext context, ICvDocumentService cvDocuments, QuotaService quotas)
         {
             _logger = logger;
             _context = context;
             _cvDocuments = cvDocuments;
+            _quotas = quotas;
         }
 
         [HttpGet("ApplicationGetById/{id}")]
@@ -173,6 +177,15 @@ namespace MiFuturoTrabajo.Api.Controllers
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
+                }
+
+                // Checked before the bytes are stored: uploading 5 MB only to be
+                // told there is no room would be rude and would cost the
+                // bandwidth anyway.
+                var quotaError = _quotas.CheckCVVersions(applicant.CVVersions.Count);
+                if (quotaError != null)
+                {
+                    return StatusCode(429, new { error = quotaError });
                 }
 
                 var (cvVersion, error) = await _cvDocuments.StoreAsync(userId, file, name, HttpContext.RequestAborted);

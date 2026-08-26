@@ -7,21 +7,25 @@ using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.PerUserPolicy)]
     public class JobApplicationController : ControllerBase
     {
         private readonly ILogger<JobApplicationController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly QuotaService _quotas;
 
-        public JobApplicationController(ILogger<JobApplicationController> logger, ApplicationDbContext context)
+        public JobApplicationController(ILogger<JobApplicationController> logger, ApplicationDbContext context, QuotaService quotas)
         {
             _logger = logger;
             _context = context;
+            _quotas = quotas;
         }
 
         [HttpGet]
@@ -176,6 +180,14 @@ namespace MiFuturoTrabajo.Api.Controllers
                 // document itself: no join table, no separate step container.
                 var jobApp = jobAppDto.ToEntity(applicant.Id);
                 await SyncCompanySnapshotAsync(jobApp, userId);
+
+                // Registration is open on a shared free-tier database, so one
+                // account cannot be allowed to fill it for everybody else.
+                var quotaError = await _quotas.CheckJobApplicationsAsync(applicant.Id, HttpContext.RequestAborted);
+                if (quotaError != null)
+                {
+                    return StatusCode(429, new { error = quotaError });
+                }
 
                 _context.JobApplications.Add(jobApp);
                 await _context.SaveChangesAsync();

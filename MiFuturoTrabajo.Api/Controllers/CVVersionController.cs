@@ -6,6 +6,7 @@ using MiFuturoTrabajo.Infrastructure.Entities;
 using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
@@ -17,6 +18,7 @@ namespace MiFuturoTrabajo.Api.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.PerUserPolicy)]
     public class CVVersionController : ControllerBase
     {
         private readonly ILogger<CVVersionController> _logger;

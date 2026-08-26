@@ -6,11 +6,13 @@ using MiFuturoTrabajo.Infrastructure.Entities;
 using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Services;
 using MiFuturoTrabajo.Infrastructure.Email;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [EnableRateLimiting(RateLimiting.AuthPolicy)]
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

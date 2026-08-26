@@ -1,0 +1,129 @@
+name: Deploy
+
+# Only from main, and only after the tests that guard main have passed.
+# workflow_dispatch is kept so a deploy can be re-run without an empty commit.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  # OIDC federated credentials rather than a stored publish profile or a
+  # long-lived service principal secret: nothing here is a credential that could
+  # leak from the repository.
+  id-token: write
+  contents: read
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  # Deploying a broken build is worse than not deploying, so the same gate runs
+  # first rather than being assumed from the push event.
+  build-test:
+    uses: ./.github/workflows/build-test.yml
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ------------------------------------------------------------------
+      # API
+      # ------------------------------------------------------------------
+
+      - name: Publish API
+        run: dotnet publish MiFuturoTrabajo.Api/MiFuturoTrabajo.Api.csproj -c Release -o publish/api
+
+      - name: Deploy API
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.API_APP_NAME }}
+          package: publish/api
+
+      # ------------------------------------------------------------------
+      # Reminder functions
+      # ------------------------------------------------------------------
+
+      - name: Publish Functions
+        run: dotnet publish MiFuturoTrabajo.Functions/MiFuturoTrabajo.Functions.csproj -c Release -o publish/functions
+
+      - name: Deploy Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.FUNCTIONS_APP_NAME }}
+          package: publish/functions
+
+      # ------------------------------------------------------------------
+      # Blazor client
+      # ------------------------------------------------------------------
+
+      # The client reads wwwroot/appsettings.json at runtime for ApiBaseUrl and
+      # the public OAuth client IDs. It is written here rather than committed
+      # with a hostname in it, so the same source deploys to any environment.
+      - name: Write client configuration
+        run: |
+          cat > MiFuturoTrabajo.Client/wwwroot/appsettings.json <<JSON
+          {
+            "ApiBaseUrl": "${{ vars.API_BASE_URL }}",
+            "OAuth": {
+              "Google": {
+                "ClientId": "${{ vars.GOOGLE_CLIENT_ID }}"
+              },
+              "Microsoft": {
+                "ClientId": "${{ vars.MICROSOFT_CLIENT_ID }}",
+                "Authority": "https://login.microsoftonline.com/common"
+              }
+            }
+          }
+          JSON
+          cat MiFuturoTrabajo.Client/wwwroot/appsettings.json
+
+      - name: Publish client
+        run: dotnet publish MiFuturoTrabajo.Client/MiFuturoTrabajo.Client.csproj -c Release -o publish/client
+
+      - name: Deploy client
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: publish/client/wwwroot
+          skip_app_build: true
+
+      # ------------------------------------------------------------------
+      # Prove it actually came up
+      # ------------------------------------------------------------------
+
+      # A deploy that reports success while the site returns 500 is worse than a
+      # failed one, because nobody looks. On F1 the first request also has to
+      # wake the site, hence the retries.
+      - name: Smoke test
+        run: |
+          url="${{ vars.API_BASE_URL }}"
+          url="${url%/api/}"
+          echo "Probing $url/health"
+
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url/health" || echo 000)
+            echo "attempt $attempt: $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 15
+          done
+
+          echo "API did not become healthy"
+          exit 1

@@ -94,6 +94,19 @@ builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 builder.Services.AddScoped<ICvDocumentService, CvDocumentService>();
 
+// Registration is open, so both "how fast" and "how much" need a ceiling.
+var rateLimitOptions = new RateLimitOptions();
+builder.Configuration.GetSection("RateLimits").Bind(rateLimitOptions);
+builder.Services.AddSingleton(rateLimitOptions);
+builder.Services.AddAppRateLimiting(rateLimitOptions);
+
+var quotaOptions = new QuotaOptions();
+builder.Configuration.GetSection("Quotas").Bind(quotaOptions);
+builder.Services.AddSingleton(quotaOptions);
+builder.Services.AddScoped<QuotaService>();
+
+builder.Services.AddScoped<DemoDataSeeder>();
+
 // Email. Degrades to a no-op locally, but NOT in Production: an app that
 // silently stops sending password-reset mail is an app whose users cannot get
 // back into their accounts, and the failure is invisible until someone
@@ -135,29 +148,56 @@ builder.Services.AddSingleton<IEmailService>(provider =>
 // the site unloads when idle and a polling BackgroundService silently stops
 // firing. A Consumption-plan timer has its own schedule and its own host.
 
-// Configure CORS for Blazor Client
-var blazorClientUrl = builder.Configuration["BlazorClient:Url"] ?? "https://localhost:5011";
+// CORS. The allowed origins are configuration, not literals: the deployed
+// client lives on a Static Web Apps hostname that is not knowable until the
+// infrastructure exists, and localhost must not be baked into a production
+// allowlist.
+//
+// BlazorClient:Url is the deployed origin. BlazorClient:AdditionalOrigins is a
+// comma-separated list for anything else (a custom domain, a preview slot).
+var blazorClientUrl = builder.Configuration["BlazorClient:Url"];
+
+var allowedOrigins = new List<string>();
+
+if (!string.IsNullOrWhiteSpace(blazorClientUrl))
+{
+    allowedOrigins.Add(blazorClientUrl.TrimEnd('/'));
+}
+
+allowedOrigins.AddRange(
+    (builder.Configuration["BlazorClient:AdditionalOrigins"] ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(o => o.TrimEnd('/')));
+
+if (!builder.Environment.IsProduction())
+{
+    // Only outside Production, and only these two.
+    allowedOrigins.Add("http://localhost:5001");
+    allowedOrigins.Add("https://localhost:5011");
+}
+
 builder.Services.AddCors(options =>
 {
-    // Production policy - only allow specific origins
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5001",
-                "https://localhost:5011",
-                blazorClientUrl)
+        policy.WithOrigins(allowedOrigins.Distinct().ToArray())
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 
-    // Development policy - allow any origin (for Postman, Swagger, etc.)
-    options.AddPolicy("AllowDevelopment", policy =>
+    // Any origin, for Postman and Swagger. Registering it at all in Production
+    // is a loaded gun lying next to a policy selector, so it does not exist
+    // there - a misconfigured environment name cannot reach for it.
+    if (!builder.Environment.IsProduction())
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
+        options.AddPolicy("AllowDevelopment", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+    }
 });
 
 // Add controllers
@@ -186,7 +226,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Enable CORS - use permissive policy in Development, restrictive in Production
+// Enable CORS - permissive outside Production, allowlist in Production.
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("AllowDevelopment");
@@ -200,22 +240,54 @@ else
 app.UseAuthentication();
 app.UseAuthorization();
 
+// After authentication, so the per-user policy can actually see the user.
+app.UseRateLimiter();
+
 app.MapControllers();
 
-// Ensure Cosmos DB database is created (Development only)
-if (app.Environment.IsDevelopment())
+// A liveness probe that touches nothing. App Service Free has no Always On,
+// so this is also what a keep-warm ping would hit.
+app.MapGet("/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNow }))
+   .AllowAnonymous();
+
+// Create the database and containers if they are not there yet.
+//
+// This used to run in Development only, which would have made the first
+// deployment fail: nothing else creates the Cosmos containers, so every query
+// against a fresh account would have thrown. It is idempotent and costs one
+// metadata call at startup.
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
     try
     {
-        // This creates the database if it doesn't exist
         await dbContext.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Cosmos DB database and containers ensured to exist.");
+        app.Logger.LogInformation("Database and containers ensured to exist.");
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Error ensuring Cosmos DB database exists. Make sure the Cosmos DB Emulator is running.");
+        // Do not take the site down over this: a transient failure here would
+        // otherwise turn into a crash loop, and the next request will surface
+        // the real problem with a real error.
+        app.Logger.LogError(ex, "Could not ensure the database exists.");
+    }
+}
+
+// Optional demo account, created once at startup when configured. Seeding is
+// idempotent and does nothing at all unless Demo:Enabled is true.
+if (app.Configuration.GetValue<bool>("Demo:Enabled"))
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+
+    try
+    {
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Demo seeding failed; the site will start without it.");
     }
 }
 

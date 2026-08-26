@@ -5,21 +5,25 @@ using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting(RateLimiting.PerUserPolicy)]
     public class ApplicantTaskController : ControllerBase
     {
         private readonly ILogger<ApplicantTaskController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly QuotaService _quotas;
 
-        public ApplicantTaskController(ILogger<ApplicantTaskController> logger, ApplicationDbContext context)
+        public ApplicantTaskController(ILogger<ApplicantTaskController> logger, ApplicationDbContext context, QuotaService quotas)
         {
             _logger = logger;
             _context = context;
+            _quotas = quotas;
         }
 
         [HttpGet]
@@ -113,6 +117,14 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var task = taskDto.ToEntity(applicant.Id);
+
+                // Registration is open on a shared free-tier database, so one
+                // account cannot be allowed to fill it for everybody else.
+                var quotaError = await _quotas.CheckTasksAsync(applicant.Id, HttpContext.RequestAborted);
+                if (quotaError != null)
+                {
+                    return StatusCode(429, new { error = quotaError });
+                }
 
                 _context.ApplicantTasks.Add(task);
                 await _context.SaveChangesAsync();
