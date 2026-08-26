@@ -133,7 +133,88 @@ Worth stating plainly, because it is the phase’s real lesson: five phases of l
 
 ---
 
+## It is live
+
+| | |
+|---|---|
+| **Client** | https://ambitious-coast-084594d03.7.azurestaticapps.net |
+| **API** | https://mifuturotrabajo-api.azurewebsites.net |
+| **Demo login** | `demo@mifuturotrabajo.app` / `DemoAccount2026!` |
+
+Verified against the deployed site, not locally:
+
+```
+GET  /health                     200   {"status":"ok"}
+POST /api/auth/login  (demo)     200   token issued
+GET  /api/jobapplication/board   200   8 columns populated
+GET  /api/companies              200   8
+GET  /api/Recruiters             200   3
+GET  /api/meeting                200   3
+GET  /api/applicanttask          200   5
+GET  /api/cvversion              200   2
+GET  /api/applicant/current      200
+```
+
+The demo account seeded itself on first start, against real Cosmos, and every list endpoint returns real data. The client is serving its production `appsettings.json` with the right API base URL.
+
+**The rate limiter, on the live site** — ten requests served, then refused, exactly as configured:
+
+```
+401 401 401 401 401 401 401 401 401 401 429 429 429 429
+```
+
+**CORS**: a request from `https://evil.example.com` comes back with **no** `Access-Control-Allow-Origin` header. The permissive policy genuinely does not exist in Production.
+
+**Both timer triggers are registered and the host reports no errors:**
+
+```
+InterviewReminders  timerTrigger  %InterviewReminderSchedule%
+TaskReminders       timerTrigger  %TaskReminderSchedule%
+host status: Running | errors: none
+```
+
+---
+
+## One more thing only deploying could find
+
+`az functionapp deployment source config-zip` reported success and produced a host that returned **503** with *"0 functions found... host.json is missing from the most recent deployment"*.
+
+The package was fine — `host.json`, `functions.metadata` and `worker.config.json` were all present at the zip root, which I checked rather than assumed. The mechanism is simply unreliable for Linux Consumption with the isolated worker. `func azure functionapp publish` deployed the identical output and both triggers registered immediately.
+
+Worth noting because the deploy workflow uses `Azure/functions-action`, which wraps the working path.
+
+---
+
 ## Also in this phase
 
 - A `/health` endpoint that touches nothing, used by the smoke test and by App Service's health check.
 - The rate limiter sits **after** authentication in the pipeline, so the per-user policy can actually see the user.
+
+---
+
+## What is left, and who has to do it
+
+**DNS for email.** The ACS domain `ideapixel.com.ar` is created but every check reads `NotStarted` — nothing sends until these exist at your registrar:
+
+| Type | Name | Value |
+|---|---|---|
+| TXT | `ideapixel.com.ar` | `ms-domain-verification=e3fec192-0f4a-4122-8f0f-51407cdee390` |
+| TXT | `ideapixel.com.ar` | `v=spf1 include:spf.protection.outlook.com -all` |
+| CNAME | `selector1-azurecomm-prod-net._domainkey` | `selector1-azurecomm-prod-net._domainkey.azurecomm.net` |
+| CNAME | `selector2-azurecomm-prod-net._domainkey` | `selector2-azurecomm-prod-net._domainkey.azurecomm.net` |
+
+Registration currently succeeds and simply logs that it could not send. That is the Phase 4 non-fatal path working as designed, but it means **the real-inbox test still has not happened** — for verification mail, password reset, or reminders.
+
+**The Entra redirect URIs**, blocked since Phase 6 and now unblocked because the hostname exists:
+
+```bash
+az ad app update --id 017e3aea-92a7-4724-94ed-fae35fba5131 --set spa.redirectUris="['http://localhost:5011/login-callback','https://ambitious-coast-084594d03.7.azurestaticapps.net/login-callback']"
+```
+
+They must be **SPA**, not **Web** — MSAL.js v2 redeems cross-origin with PKCE, and a Web URI fails with `AADSTS9002326`. I have not run it: changing an app registration is a change to your account configuration.
+
+Google's console needs the same origin added as an authorised JavaScript origin. I cannot reach it at all.
+
+**CI/CD is committed but not connected.** The workflows need the repository variables and secrets listed in `infra/README.md`, plus a federated credential for OIDC. Until then deployment is manual, as it was here.
+
+**Cosmos is serverless, not free tier.** Revisit when the free-tier slot releases; changing it means a new account and moving the data.
