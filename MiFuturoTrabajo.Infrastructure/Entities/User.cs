@@ -35,14 +35,21 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public bool EmailConfirmed { get; set; } = false;
 
         /// <summary>
-        /// Email verification token
+        /// SHA-256 hash of the email verification token - never the token
+        /// itself. Whoever can read this row cannot use what they find.
         /// </summary>
-        public string? EmailConfirmationToken { get; set; }
+        public string? EmailConfirmationTokenHash { get; set; }
 
         /// <summary>
-        /// Password reset token (if requested)
+        /// When the verification token stops working. Previously absent, which
+        /// meant verification links were valid forever.
         /// </summary>
-        public string? PasswordResetToken { get; set; }
+        public DateTime? EmailConfirmationTokenExpiry { get; set; }
+
+        /// <summary>
+        /// SHA-256 hash of the password reset token - never the token itself.
+        /// </summary>
+        public string? PasswordResetTokenHash { get; set; }
 
         /// <summary>
         /// Password reset token expiration

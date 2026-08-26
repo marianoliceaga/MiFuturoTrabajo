@@ -83,9 +83,13 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest(new { error = "Password must be at least 8 characters long" });
                 }
 
-                // Check if user already exists
+                var normalizedEmail = NormalizeEmail(registerRequest.Email);
+
+                // Single-partition read: Email is the partition key, and the
+                // comparison is against the stored form rather than wrapping
+                // the column in ToLower(), which would defeat that.
                 var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == registerRequest.Email.ToLower());
+                    .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
 
                 if (existingUser != null)
                 {
@@ -98,7 +102,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                 // Create new user
                 var newUser = new User
                 {
-                    Email = registerRequest.Email.ToLower(),
+                    Email = normalizedEmail,
                     PasswordHash = passwordHash,
                     FirstName = registerRequest.FirstName,
                     LastName = registerRequest.LastName,
@@ -127,6 +131,11 @@ namespace MiFuturoTrabajo.Api.Controllers
                 newUser.ApplicantId = applicant.Id;
                 _context.Users.Update(newUser);
                 await _context.SaveChangesAsync();
+
+                // Verification is offered immediately rather than waiting for
+                // the user to find a "resend" button. Best-effort: a mail
+                // outage must not fail an otherwise good registration.
+                await IssueVerificationEmailAsync(newUser);
 
                 // Generate tokens
                 var accessToken = _jwtService.GenerateAccessToken(newUser.Id, newUser.Email);
@@ -183,9 +192,12 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest(new { error = "Email and password are required" });
                 }
 
-                // Find user by email
+                // Find user by email. This is the hottest path in the app, so
+                // it matters that it is a single-partition read.
+                var loginEmail = NormalizeEmail(loginRequest.Email);
+
                 var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == loginRequest.Email.ToLower());
+                    .FirstOrDefaultAsync(u => u.Email == loginEmail);
 
                 if (user == null)
                 {
@@ -404,43 +416,92 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest(new { error = "Email already confirmed" });
                 }
 
-                // Generate verification token
-                var verificationToken = Guid.NewGuid().ToString("N");
-                user.EmailConfirmationToken = verificationToken;
-                _context.Users.Update(user);
-                await _context.SaveChangesAsync();
+                await IssueVerificationEmailAsync(user);
 
-                // Send verification email
-                var blazorClientUrl = _configuration["BlazorClient:Url"] ?? "https://localhost:5001";
-                var verificationLink = $"{blazorClientUrl}/verify-email?token={verificationToken}";
-                var emailHtml = $@"<h2>Verify your email</h2>
-                    <p>Click the link below to confirm your Mi Futuro Trabajo account:</p>
-                    <a href='{verificationLink}' style='display:inline-block;padding:12px 24px;background:#0d6efd;color:#fff;text-decoration:none;border-radius:6px;'>Verify Email</a>
-                    <p>If you didn't create an account, ignore this email.</p>";
-
-                try
-                {
-                    await _emailService.SendEmailAsync(user.Email, "Verify your email – Mi Futuro Trabajo", emailHtml);
-                }
-                catch (Exception emailEx)
-                {
-                    _logger.LogWarning(emailEx, "Could not send verification email (ACS not configured?)");
-                }
-
-                var response = new { message = "Verification email sent" };
-
-                // Only expose raw token in development to ease testing without email setup
-                if (_env.IsDevelopment())
-                {
-                    return Ok(new { response.message, verificationToken });
-                }
-
-                return Ok(response);
+                // The token is not in this response, in any environment. It is
+                // a credential; the only place it belongs is the recipient
+                // inbox. With no mail provider configured, NoOpEmailService
+                // writes the link to the server log instead.
+                return Ok(new { message = "Verification email sent" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send verification");
-                return StatusCode(500, new { error = $"Failed to send verification: {ex.Message}" });
+                return StatusCode(500, new { error = "Failed to send verification" });
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Email-borne credentials
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Email is the Cosmos partition key for Users, so its exact casing is
+        /// part of a document address. Every read and write goes through this,
+        /// because "User@example.com" and "user@example.com" would otherwise be
+        /// two different partitions - that is, two different accounts for one
+        /// person, with no unique index to catch it.
+        /// </summary>
+        private static string NormalizeEmail(string? email) =>
+            (email ?? string.Empty).Trim().ToLowerInvariant();
+
+        private const int PasswordResetTokenLifetimeHours = 1;
+        private const int VerificationTokenLifetimeHours = 24;
+
+        private const string NeutralForgotPasswordMessage =
+            "If the email exists, a password reset link has been sent";
+
+        /// <summary>
+        /// Mints a verification token, stores only its hash, and mails the
+        /// link. Never throws: callers use it as a side effect of registering
+        /// or of an explicit resend, and neither should fail because a mail
+        /// provider is down.
+        /// </summary>
+        private async Task IssueVerificationEmailAsync(User user)
+        {
+            var verificationToken = SecurityTokens.Create();
+
+            user.EmailConfirmationTokenHash = SecurityTokens.Hash(verificationToken);
+            user.EmailConfirmationTokenExpiry = DateTime.UtcNow.AddHours(VerificationTokenLifetimeHours);
+
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            var link = BuildClientLink("verify-email", verificationToken, user.Email);
+
+            await TrySendAsync(
+                user.Email,
+                EmailTemplates.Verification(user.FirstName, link, VerificationTokenLifetimeHours),
+                "email verification");
+        }
+
+        /// <summary>
+        /// Builds a link into the Blazor client. The email rides along with the
+        /// token so redemption is a single-partition read in Cosmos rather than
+        /// a scan across every account.
+        /// </summary>
+        private string BuildClientLink(string page, string token, string email)
+        {
+            var baseUrl = (_configuration["BlazorClient:Url"] ?? "https://localhost:5011").TrimEnd('/');
+
+            return $"{baseUrl}/{page}?token={Uri.EscapeDataString(token)}&email={Uri.EscapeDataString(email)}";
+        }
+
+        /// <summary>
+        /// Sends and swallows. A failure here is logged and nothing more: the
+        /// caller has already committed its state change, and surfacing a mail
+        /// error would leak whether an account exists and would fail requests
+        /// that actually succeeded.
+        /// </summary>
+        private async Task TrySendAsync(string toEmail, EmailMessageContent content, string what)
+        {
+            try
+            {
+                await _emailService.SendAsync(toEmail, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not send {What} email to {Email}", what, toEmail);
             }
         }
 
@@ -450,27 +511,39 @@ namespace MiFuturoTrabajo.Api.Controllers
         /// </summary>
         [HttpPost("verify-email")]
         [AllowAnonymous]
-        public async Task<IActionResult> VerifyEmail([FromBody] Dictionary<string, string> request)
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
         {
             try
             {
-                var verificationToken = request?["verificationToken"];
-
-                if (string.IsNullOrEmpty(verificationToken))
+                if (request == null ||
+                    string.IsNullOrWhiteSpace(request.Email) ||
+                    string.IsNullOrWhiteSpace(request.VerificationToken))
                 {
-                    return BadRequest(new { error = "Verification token is required" });
+                    return BadRequest(new { error = "Email and verification token are required" });
                 }
 
-                var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.EmailConfirmationToken == verificationToken);
+                var email = NormalizeEmail(request.Email);
 
-                if (user == null)
+                // Email is the partition key, so this is a single-partition
+                // read rather than a scan of every account in the system.
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+                // One message for every failure: a distinct "no such account"
+                // would turn this endpoint into an email-enumeration oracle.
+                if (user == null ||
+                    !SecurityTokens.Matches(request.VerificationToken, user.EmailConfirmationTokenHash) ||
+                    user.EmailConfirmationTokenExpiry == null ||
+                    user.EmailConfirmationTokenExpiry < DateTime.UtcNow)
                 {
-                    return NotFound(new { error = "Invalid verification token" });
+                    return BadRequest(new { error = "Invalid or expired verification link" });
                 }
 
                 user.EmailConfirmed = true;
-                user.EmailConfirmationToken = null;
+
+                // Single use: the token is spent whether or not it is replayed.
+                user.EmailConfirmationTokenHash = null;
+                user.EmailConfirmationTokenExpiry = null;
+
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
@@ -479,7 +552,7 @@ namespace MiFuturoTrabajo.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Email verification failed");
-                return StatusCode(500, new { error = $"Email verification failed: {ex.Message}" });
+                return StatusCode(500, new { error = "Email verification failed" });
             }
         }
 
@@ -498,53 +571,40 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest(new { error = "Email is required" });
                 }
 
+                var forgotEmail = NormalizeEmail(forgotPasswordRequest.Email);
+
                 var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == forgotPasswordRequest.Email.ToLower());
+                    .FirstOrDefaultAsync(u => u.Email == forgotEmail);
 
                 // Always return success to prevent email enumeration
                 if (user == null)
                 {
-                    return Ok(new { message = "If the email exists, a password reset link has been sent" });
+                    return Ok(new { message = NeutralForgotPasswordMessage });
                 }
 
-                // Generate password reset token
-                var resetToken = Guid.NewGuid().ToString("N");
-                user.PasswordResetToken = resetToken;
-                user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1); // Token valid for 1 hour
+                var resetToken = SecurityTokens.Create();
+
+                user.PasswordResetTokenHash = SecurityTokens.Hash(resetToken);
+                user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(PasswordResetTokenLifetimeHours);
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                // Send reset email
-                var blazorClientUrl = _configuration["BlazorClient:Url"] ?? "https://localhost:5001";
-                var resetLink = $"{blazorClientUrl}/reset-password?token={resetToken}";
-                var emailHtml = $@"<h2>Reset your password</h2>
-                    <p>Click the link below to reset your Mi Futuro Trabajo password. This link expires in 1 hour.</p>
-                    <a href='{resetLink}' style='display:inline-block;padding:12px 24px;background:#0d6efd;color:#fff;text-decoration:none;border-radius:6px;'>Reset Password</a>
-                    <p>If you didn't request a password reset, you can safely ignore this email.</p>";
+                var resetLink = BuildClientLink("reset-password", resetToken, user.Email);
 
-                try
-                {
-                    await _emailService.SendEmailAsync(user.Email, "Reset your password – Mi Futuro Trabajo", emailHtml);
-                }
-                catch (Exception emailEx)
-                {
-                    _logger.LogWarning(emailEx, "Could not send password reset email (ACS not configured?)");
-                }
+                // A mail outage must not change what this endpoint says or how
+                // long it takes to say it, or the neutral message above becomes
+                // a way to tell real accounts from imaginary ones.
+                await TrySendAsync(
+                    user.Email,
+                    EmailTemplates.PasswordReset(user.FirstName, resetLink, PasswordResetTokenLifetimeHours),
+                    "password reset");
 
-                var successMessage = "If the email exists, a password reset link has been sent";
-
-                // Only expose raw token in development to ease testing without email setup
-                if (_env.IsDevelopment())
-                {
-                    return Ok(new { message = successMessage, resetToken });
-                }
-
-                return Ok(new { message = successMessage });
+                return Ok(new { message = NeutralForgotPasswordMessage });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Password reset request failed");
-                return StatusCode(500, new { error = $"Password reset request failed: {ex.Message}" });
+                return StatusCode(500, new { error = "Password reset request failed" });
             }
         }
 
@@ -576,12 +636,16 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest(new { error = "Password must be at least 8 characters long" });
                 }
 
-                var user = await _context.Users
-                    .FirstOrDefaultAsync(u =>
-                        u.Email.ToLower() == resetPasswordRequest.Email.ToLower() &&
-                        u.PasswordResetToken == resetPasswordRequest.ResetToken);
+                var email = NormalizeEmail(resetPasswordRequest.Email);
+
+                // Looked up by email alone - the partition key - then the token
+                // is compared against its stored hash in constant time. Putting
+                // the token in the query would have meant a cross-partition
+                // scan, and could not work at all once tokens are hashed.
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
 
                 if (user == null ||
+                    !SecurityTokens.Matches(resetPasswordRequest.ResetToken, user.PasswordResetTokenHash) ||
                     user.PasswordResetTokenExpiry == null ||
                     user.PasswordResetTokenExpiry < DateTime.UtcNow)
                 {
@@ -590,8 +654,23 @@ namespace MiFuturoTrabajo.Api.Controllers
 
                 // Hash new password
                 user.PasswordHash = _passwordHasher.HashPassword(resetPasswordRequest.NewPassword);
-                user.PasswordResetToken = null;
+                user.PasswordResetTokenHash = null;
                 user.PasswordResetTokenExpiry = null;
+
+                // A completed reset proves control of the mailbox, so it also
+                // settles verification. Without this, someone who registered
+                // and never clicked the first link stays unverified forever
+                // despite having demonstrated exactly what verification asks.
+                user.EmailConfirmed = true;
+
+                // Any reset link still outstanding is now void.
+                user.EmailConfirmationTokenHash = null;
+                user.EmailConfirmationTokenExpiry = null;
+
+                // Existing sessions do not survive a password reset - that is
+                // the point of resetting it.
+                user.RefreshToken = null;
+                user.RefreshTokenExpiry = null;
 
                 // Reset failed login attempts
                 user.FailedLoginAttempts = 0;
@@ -732,9 +811,14 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return Unauthorized(new { error = "Invalid OAuth token or provider" });
                 }
 
+                // Normalized for the same reason as every other email in this
+                // controller: it is the partition key, so a provider returning
+                // mixed case would create a second account for the same person.
+                var oauthEmail = NormalizeEmail(oauthUserInfo.Email);
+
                 // Step 2: Find or create user
                 var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email == oauthUserInfo.Email);
+                    .FirstOrDefaultAsync(u => u.Email == oauthEmail);
 
                 if (user == null)
                 {
@@ -742,7 +826,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                     user = new User
                     {
                         Id = Guid.NewGuid().ToString(),
-                        Email = oauthUserInfo.Email,
+                        Email = oauthEmail,
                         FirstName = oauthUserInfo.FirstName,
                         LastName = oauthUserInfo.LastName,
                         EmailConfirmed = oauthUserInfo.EmailVerified,

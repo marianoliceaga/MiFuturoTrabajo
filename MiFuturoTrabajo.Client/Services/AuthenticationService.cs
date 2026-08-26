@@ -229,13 +229,14 @@ namespace MiFuturoTrabajo.Client.Services
             }
         }
 
-        public async Task<bool> VerifyEmailAsync(string token)
+        public async Task<bool> VerifyEmailAsync(string email, string token)
         {
             try
             {
-                var request = new Dictionary<string, string>
+                var request = new VerifyEmailRequest
                 {
-                    { "verificationToken", token }
+                    Email = email,
+                    VerificationToken = token
                 };
 
                 var response = await _httpClient.PostAsJsonAsync("auth/verify-email", request);

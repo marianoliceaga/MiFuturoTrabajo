@@ -74,25 +74,39 @@ builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 builder.Services.AddScoped<ICvDocumentService, CvDocumentService>();
 
-// Register Email Service (gracefully degrades if ACS is not configured)
+// Email. Degrades to a no-op locally, but NOT in Production: an app that
+// silently stops sending password-reset mail is an app whose users cannot get
+// back into their accounts, and the failure is invisible until someone
+// complains. Better to refuse to start.
+var emailConnectionString = builder.Configuration["AzureCommunicationServices:ConnectionString"];
+var emailSenderAddress = builder.Configuration["AzureCommunicationServices:SenderAddress"];
+
+var emailIsConfigured =
+    !string.IsNullOrWhiteSpace(emailConnectionString)
+    && !emailConnectionString.Contains("YOUR_ACS")
+    && !string.IsNullOrWhiteSpace(emailSenderAddress)
+    && !emailSenderAddress.Contains("your-domain");
+
+if (!emailIsConfigured && builder.Environment.IsProduction())
+{
+    throw new InvalidOperationException(
+        "AzureCommunicationServices:ConnectionString and :SenderAddress must be set in Production. " +
+        "Email verification and password reset do not work without them.");
+}
+
 builder.Services.AddSingleton<IEmailService>(provider =>
 {
-    var config = provider.GetRequiredService<IConfiguration>();
     var logger = provider.GetRequiredService<ILogger<EmailService>>();
-    var connectionString = config["AzureCommunicationServices:ConnectionString"];
-    var senderAddress = config["AzureCommunicationServices:SenderAddress"];
 
-    var isConfigured = !string.IsNullOrWhiteSpace(connectionString)
-        && !connectionString.Contains("YOUR_ACS")
-        && !string.IsNullOrWhiteSpace(senderAddress)
-        && !senderAddress.Contains("your-domain");
-
-    if (isConfigured)
+    if (emailIsConfigured)
     {
-        return new EmailService(connectionString!, senderAddress!, logger);
+        return new EmailService(emailConnectionString!, emailSenderAddress!, logger);
     }
 
-    logger.LogWarning("AzureCommunicationServices not configured. Email sending will be skipped (no-op). Set AzureCommunicationServices:ConnectionString and SenderAddress in appsettings.");
+    logger.LogWarning(
+        "No email provider configured. Verification and password-reset links will be written " +
+        "to this log instead of being sent.");
+
     return new NoOpEmailService(logger);
 });
 

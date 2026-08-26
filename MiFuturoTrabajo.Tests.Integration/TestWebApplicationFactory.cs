@@ -15,6 +15,9 @@ namespace MiFuturoTrabajo.Tests.Integration
         /// </summary>
         public FakeBlobStorageService Blobs { get; } = new();
 
+        /// <summary>Every email the API tried to send during the test run.</summary>
+        public CapturingEmailService Emails { get; } = new();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureServices(services =>
@@ -30,6 +33,18 @@ namespace MiFuturoTrabajo.Tests.Integration
                 }
 
                 services.AddSingleton<IBlobStorageService>(Blobs);
+
+                // Mail is captured rather than sent, so tests can read a token
+                // out of the message the way a user would.
+                var emailDescriptor = services.SingleOrDefault(
+                    d => d.ServiceType == typeof(IEmailService));
+
+                if (emailDescriptor != null)
+                {
+                    services.Remove(emailDescriptor);
+                }
+
+                services.AddSingleton<IEmailService>(Emails);
 
                 // Remove the existing DbContext registration
                 var descriptor = services.SingleOrDefault(

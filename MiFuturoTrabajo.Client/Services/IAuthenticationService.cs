@@ -11,7 +11,7 @@ namespace MiFuturoTrabajo.Client.Services
         Task<AuthResponse?> RefreshTokenAsync();
         Task<UserDto?> GetCurrentUserAsync();
         Task<bool> SendEmailVerificationAsync();
-        Task<bool> VerifyEmailAsync(string token);
+        Task<bool> VerifyEmailAsync(string email, string token);
         Task<bool> ForgotPasswordAsync(string email);
         Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
         Task<bool> ChangePasswordAsync(ChangePasswordRequest request);

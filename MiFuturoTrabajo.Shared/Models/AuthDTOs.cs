@@ -65,6 +65,21 @@ namespace MiFuturoTrabajo.Shared.Models
     }
 
     /// <summary>
+    /// Request DTO for confirming an email address.
+    ///
+    /// The email travels with the token because Users is partitioned by email
+    /// in Cosmos: looking a user up by token alone is a cross-partition scan of
+    /// every account in the system, while email plus token is a single-
+    /// partition read. The email is not a secret and grants nothing on its own
+    /// - the token is still what has to match.
+    /// </summary>
+    public class VerifyEmailRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string VerificationToken { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// Request DTO for password reset confirmation
     /// </summary>
     public class ResetPasswordRequest

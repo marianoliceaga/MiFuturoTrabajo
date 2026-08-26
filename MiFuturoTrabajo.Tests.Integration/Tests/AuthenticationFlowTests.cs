@@ -22,17 +22,13 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
         }
 
         /// <summary>
-        /// Reads the reset token straight from the database. The API deliberately
-        /// does NOT return it - it is delivered by email - so the test has to look
-        /// where the real flow puts it.
+        /// Reads the reset token out of the email, which is the only place it
+        /// exists in usable form: the API does not return it, and the database
+        /// stores only its hash. A test that could still recover a working
+        /// token from the database would be evidence the hashing did nothing.
         /// </summary>
-        private async Task<string?> ReadResetTokenAsync(string email)
-        {
-            using var scope = _factory.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower());
-            return user?.PasswordResetToken;
-        }
+        private string? ReadResetTokenFromEmail(string email) =>
+            _factory.Emails.LastTo(email)?.LinkParameter("token");
 
         [Fact]
         public async Task Register_Login_Logout_FullFlow_Success()
@@ -277,9 +273,20 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var forgotResponseData = await forgotResponse.Content.ReadAsStringAsync();
             Assert.DoesNotContain("resetToken", forgotResponseData);
 
-            // Fetch it the way the mail would have delivered it.
-            var resetToken = await ReadResetTokenAsync(registerRequest.Email);
+            // Fetch it the way the mail delivered it.
+            var resetToken = ReadResetTokenFromEmail(registerRequest.Email);
             Assert.NotNull(resetToken);
+
+            // And confirm the stored copy is not the token: a database read
+            // must not yield a usable credential.
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var stored = await db.Users.FirstOrDefaultAsync(u => u.Email == registerRequest.Email.ToLower());
+
+                Assert.NotNull(stored!.PasswordResetTokenHash);
+                Assert.NotEqual(resetToken, stored.PasswordResetTokenHash);
+            }
 
             // Step 2: Reset password with token
             var resetPasswordRequest = new ResetPasswordRequest
