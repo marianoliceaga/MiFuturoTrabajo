@@ -2,6 +2,11 @@ using MiFuturoTrabajo.Shared.Models;
 
 namespace MiFuturoTrabajo.Infrastructure.Entities
 {
+    /// <summary>
+    /// Aggregate root, container "JobApplications", partition key /ApplicantId.
+    /// Interview steps, recruiter links, notes, labels and the company snapshot
+    /// are embedded, so rendering the board is a single-partition query.
+    /// </summary>
     public class JobApplication
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -19,20 +24,18 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public DateTime DateApplied { get; set; }
         public string MainRecruiterContactId { get; set; } = string.Empty;
         public string FirstMeetingId { get; set; } = string.Empty;
-        public string NotesJson { get; set; } = "[]"; // Store as JSON string
-        public string LabelsJson { get; set; } = "[]"; // Store as JSON string
         public DateTime DeadLine { get; set; }
         public string JobOffer { get; set; } = string.Empty;
         public string CVUsedId { get; set; } = string.Empty;
         public DateTime CreatedOnDate { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; }
 
-        // Navigation properties
-        public Applicant Applicant { get; set; } = null!;
-        public Company Company { get; set; } = null!;
-        public ICollection<JobApplicationRecruiter> JobApplicationRecruiters { get; set; } = new List<JobApplicationRecruiter>();
-        public ICollection<ApplicantTask> ApplicantTasks { get; set; } = new List<ApplicantTask>();
-        public ICollection<InterviewStep> InterviewSteps { get; set; } = new List<InterviewStep>();
-        public ICollection<Meeting> Meetings { get; set; } = new List<Meeting>();
+        // Embedded. Cosmos stores these as native JSON arrays / objects, so the
+        // old NotesJson / LabelsJson string round-tripping is gone.
+        public List<string> Notes { get; set; } = new();
+        public List<string> Labels { get; set; } = new();
+        public List<string> RecruiterIds { get; set; } = new();
+        public List<InterviewStep> InterviewSteps { get; set; } = new();
+        public CompanySnapshot? Company { get; set; }
     }
 }

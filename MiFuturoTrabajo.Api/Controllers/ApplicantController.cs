@@ -39,10 +39,11 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             try
             {
+                // CVVersions and PastJobReferences are embedded in this
+                // document, so they arrive with it - no Include required.
                 var applicant = await _context.Applicants
-                    .Include(a => a.CVVersions)
-                    .Include(a => a.PastJobReferences)
-                    .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+                    .Where(a => a.UserId == userId)
+                    .FirstOrDefaultAsync(a => a.Id == id);
 
                 if (applicant == null)
                 {
@@ -74,9 +75,8 @@ namespace MiFuturoTrabajo.Api.Controllers
             try
             {
                 var applicant = await _context.Applicants
-                    .Include(a => a.CVVersions)
-                    .Include(a => a.PastJobReferences)
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
+                    .Where(a => a.UserId == userId)
+                    .FirstOrDefaultAsync();
 
                 if (applicant == null)
                 {
@@ -180,15 +180,15 @@ namespace MiFuturoTrabajo.Api.Controllers
                 var cvVersion = new CVVersion
                 {
                     Id = Guid.NewGuid().ToString(),
-                    ApplicantId = applicant.Id,
                     Name = file.FileName,
                     FileUrl = fileUrl,
                     UploadedDate = DateTime.UtcNow,
                     VersionNotes = "Uploaded via blob storage",
-                    IsDefault = false
+                    // First CV uploaded becomes the default.
+                    IsDefault = applicant.CVVersions.Count == 0
                 };
 
-                _context.CVVersions.Add(cvVersion);
+                applicant.CVVersions.Add(cvVersion);
                 await _context.SaveChangesAsync();
 
                 return Ok(cvVersion.ToDto());
@@ -221,20 +221,16 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
-                var cv = await _context.CVVersions
-                    .FirstOrDefaultAsync(c => c.Id == cvId && c.ApplicantId == applicant.Id);
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == cvId);
 
                 if (cv == null)
                 {
                     return NotFound($"CV with ID {cvId} not found");
                 }
 
-                // Unset all other CVs as default
-                var existingDefaultCVs = await _context.CVVersions
-                    .Where(c => c.ApplicantId == applicant.Id && c.IsDefault && c.Id != cvId)
-                    .ToListAsync();
-
-                foreach (var existingCV in existingDefaultCVs)
+                // One document, one write: the collection can never end up
+                // with two defaults.
+                foreach (var existingCV in applicant.CVVersions)
                 {
                     existingCV.IsDefault = false;
                 }
@@ -274,15 +270,25 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
-                var cv = await _context.CVVersions
-                    .FirstOrDefaultAsync(c => c.Id == cvId && c.ApplicantId == applicant.Id);
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == cvId);
 
                 if (cv == null)
                 {
                     return NotFound($"CV with ID {cvId} not found");
                 }
 
-                _context.CVVersions.Remove(cv);
+                var wasDefault = cv.IsDefault;
+                applicant.CVVersions.Remove(cv);
+
+                // Never leave the applicant without a default CV.
+                if (wasDefault && applicant.CVVersions.Count > 0)
+                {
+                    applicant.CVVersions
+                        .OrderByDescending(c => c.UploadedDate)
+                        .First()
+                        .IsDefault = true;
+                }
+
                 await _context.SaveChangesAsync();
 
                 return NoContent();
@@ -330,9 +336,9 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest("JobTitle is required");
                 }
 
-                var reference = referenceDto.ToEntity(applicant.Id);
+                var reference = referenceDto.ToEntity();
 
-                _context.JobReferences.Add(reference);
+                applicant.PastJobReferences.Add(reference);
                 await _context.SaveChangesAsync();
 
                 var createdDto = reference.ToDto();
@@ -367,15 +373,15 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
-                var reference = await _context.JobReferences
-                    .FirstOrDefaultAsync(r => r.Id == referenceId && r.ApplicantId == applicant.Id);
+                var reference = applicant.PastJobReferences
+                    .FirstOrDefault(r => r.Id == referenceId);
 
                 if (reference == null)
                 {
                     return NotFound($"Reference with ID {referenceId} not found");
                 }
 
-                _context.JobReferences.Remove(reference);
+                applicant.PastJobReferences.Remove(reference);
                 await _context.SaveChangesAsync();
 
                 return NoContent();

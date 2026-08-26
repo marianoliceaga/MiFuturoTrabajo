@@ -43,14 +43,15 @@ namespace MiFuturoTrabajo.Api.Controllers
 
                 var meetings = await _context.Meetings
                     .Where(m => m.ApplicantId == applicant.Id)
-                    .Include(m => m.MeetingRecruiters).ThenInclude(mr => mr.Recruiter)
                     .ToListAsync();
 
-                var meetingsDto = meetings.Select(m =>
-                {
-                    var recruiters = m.MeetingRecruiters.Select(mr => mr.Recruiter).ToList();
-                    return m.ToDto(recruiters);
-                }).ToList();
+                // Cosmos cannot join across containers. Recruiters are a small
+                // per-user set, so load them once and join in memory.
+                var recruiters = await _context.Recruiters
+                    .Where(r => r.UserId == userId)
+                    .ToListAsync();
+
+                var meetingsDto = meetings.Select(m => m.ToDto(recruiters)).ToList();
 
                 return Ok(meetingsDto);
             }
@@ -79,15 +80,18 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var meeting = await _context.Meetings
-                    .Include(m => m.MeetingRecruiters).ThenInclude(mr => mr.Recruiter)
-                    .FirstOrDefaultAsync(m => m.Id == id && m.ApplicantId == applicant.Id);
+                    .Where(m => m.ApplicantId == applicant.Id)
+                    .FirstOrDefaultAsync(m => m.Id == id);
 
                 if (meeting == null)
                 {
                     return NotFound($"Meeting with ID {id} not found");
                 }
 
-                var recruiters = meeting.MeetingRecruiters.Select(mr => mr.Recruiter).ToList();
+                var recruiters = await _context.Recruiters
+                    .Where(r => r.UserId == userId)
+                    .ToListAsync();
+
                 var meetingDto = meeting.ToDto(recruiters);
 
                 return Ok(meetingDto);
@@ -121,25 +125,18 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest("Invalid meeting data");
                 }
 
+                // ToEntity copies the recruiter ids onto the document itself,
+                // so there is no join table to maintain.
                 var meeting = meetingDto.ToEntity(applicant.Id);
                 _context.Meetings.Add(meeting);
 
-                // Add recruiter associations
-                if (meetingDto.Recruiters != null)
-                {
-                    foreach (var recruiterDto in meetingDto.Recruiters)
-                    {
-                        _context.MeetingRecruiters.Add(new MeetingRecruiter
-                        {
-                            MeetingId = meeting.Id,
-                            RecruiterId = recruiterDto.Id
-                        });
-                    }
-                }
-
                 await _context.SaveChangesAsync();
 
-                var createdDto = meeting.ToDto(meetingDto.Recruiters?.Select(r => r.ToEntity(userId)).ToList());
+                var recruiterPool = await _context.Recruiters
+                    .Where(r => r.UserId == userId)
+                    .ToListAsync();
+
+                var createdDto = meeting.ToDto(recruiterPool);
 
                 return StatusCode(201, createdDto);
             }
@@ -168,8 +165,8 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var meeting = await _context.Meetings
-                    .Include(m => m.MeetingRecruiters)
-                    .FirstOrDefaultAsync(m => m.Id == id && m.ApplicantId == applicant.Id);
+                    .Where(m => m.ApplicantId == applicant.Id)
+                    .FirstOrDefaultAsync(m => m.Id == id);
 
                 if (meeting == null)
                 {
@@ -195,23 +192,22 @@ namespace MiFuturoTrabajo.Api.Controllers
                 meeting.SendReminderEmail = meetingDto.SendReminderEmail;
                 meeting.ReminderMinutesBefore = meetingDto.ReminderMinutesBefore;
 
-                // Update recruiters
+                // Recruiter links live on the document; replace the id list.
                 if (meetingDto.Recruiters != null)
                 {
-                    _context.MeetingRecruiters.RemoveRange(meeting.MeetingRecruiters);
-                    foreach (var recruiterDto in meetingDto.Recruiters)
-                    {
-                        _context.MeetingRecruiters.Add(new MeetingRecruiter
-                        {
-                            MeetingId = meeting.Id,
-                            RecruiterId = recruiterDto.Id
-                        });
-                    }
+                    meeting.RecruiterIds = meetingDto.Recruiters
+                        .Select(r => r.Id)
+                        .Where(rid => !string.IsNullOrWhiteSpace(rid))
+                        .ToList();
                 }
 
                 await _context.SaveChangesAsync();
 
-                var updatedDto = meeting.ToDto();
+                var updatedRecruiters = await _context.Recruiters
+                    .Where(r => r.UserId == userId)
+                    .ToListAsync();
+
+                var updatedDto = meeting.ToDto(updatedRecruiters);
 
                 return Ok(updatedDto);
             }

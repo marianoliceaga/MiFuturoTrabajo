@@ -9,6 +9,11 @@ using MiFuturoTrabajo.Api.Services;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
+    /// <summary>
+    /// CV versions are embedded in the Applicant document rather than stored
+    /// in their own container, so every action here is: load the applicant
+    /// with one single-partition query, mutate the embedded collection, save.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -23,11 +28,18 @@ namespace MiFuturoTrabajo.Api.Controllers
             _context = context;
         }
 
+        /// <summary>Applicants are partitioned by UserId, so this is a single-partition read.</summary>
+        private Task<Applicant?> LoadApplicantAsync(string userId) =>
+            _context.Applicants.Where(a => a.UserId == userId).FirstOrDefaultAsync();
+
+        private static IEnumerable<CVVersion> Ordered(Applicant applicant) =>
+            applicant.CVVersions
+                .OrderByDescending(cv => cv.IsDefault)
+                .ThenByDescending(cv => cv.UploadedDate);
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            _logger.LogInformation("Getting all CV versions");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
@@ -36,23 +48,13 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                var cvVersions = await _context.CVVersions
-                    .Where(cv => cv.ApplicantId == applicant.Id)
-                    .OrderByDescending(cv => cv.IsDefault)
-                    .ThenByDescending(cv => cv.UploadedDate)
-                    .ToListAsync();
-
-                var cvVersionsDto = cvVersions.Select(cv => cv.ToDto()).ToList();
-
-                return Ok(cvVersionsDto);
+                return Ok(Ordered(applicant).Select(cv => cv.ToDto()).ToList());
             }
             catch (Exception ex)
             {
@@ -64,8 +66,6 @@ namespace MiFuturoTrabajo.Api.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            _logger.LogInformation($"Getting CV version with ID: {id}");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
@@ -74,29 +74,23 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                var cvVersion = await _context.CVVersions
-                    .FirstOrDefaultAsync(cv => cv.Id == id && cv.ApplicantId == applicant.Id);
-
-                if (cvVersion == null)
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == id);
+                if (cv == null)
                 {
                     return NotFound($"CV version with ID {id} not found");
                 }
 
-                var cvVersionDto = cvVersion.ToDto();
-
-                return Ok(cvVersionDto);
+                return Ok(cv.ToDto());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting CV version with ID: {id}");
+                _logger.LogError(ex, "Error getting CV version {Id}", id);
                 return StatusCode(500, "An error occurred while retrieving the CV version");
             }
         }
@@ -104,67 +98,44 @@ namespace MiFuturoTrabajo.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CVVersionDto cvVersionDto)
         {
-            _logger.LogInformation("Creating new CV version");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("Unauthorized");
             }
 
+            if (cvVersionDto == null)
+            {
+                return BadRequest("Invalid CV version data");
+            }
+
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                if (cvVersionDto == null)
+                var cv = cvVersionDto.ToEntity();
+
+                // First CV uploaded becomes the default automatically.
+                if (applicant.CVVersions.Count == 0)
                 {
-                    return BadRequest("Invalid CV version data");
+                    cv.IsDefault = true;
                 }
-
-                if (string.IsNullOrWhiteSpace(cvVersionDto.Name) || string.IsNullOrWhiteSpace(cvVersionDto.FileUrl))
+                else if (cv.IsDefault)
                 {
-                    return BadRequest("Name and FileUrl are required");
-                }
-
-                // Check if this is the first CV - make it default
-                var isFirstCV = !await _context.CVVersions.AnyAsync(cv => cv.ApplicantId == applicant.Id);
-                var isDefault = cvVersionDto.IsDefault || isFirstCV;
-
-                // If setting as default, unset all other CVs
-                if (isDefault)
-                {
-                    var existingCVs = await _context.CVVersions
-                        .Where(cv => cv.ApplicantId == applicant.Id && cv.IsDefault)
-                        .ToListAsync();
-
-                    foreach (var cv in existingCVs)
+                    foreach (var other in applicant.CVVersions)
                     {
-                        cv.IsDefault = false;
+                        other.IsDefault = false;
                     }
                 }
 
-                var cvVersion = new CVVersion
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    ApplicantId = applicant.Id,
-                    Name = cvVersionDto.Name,
-                    FileUrl = cvVersionDto.FileUrl,
-                    UploadedDate = DateTime.UtcNow,
-                    IsDefault = isDefault
-                };
-
-                _context.CVVersions.Add(cvVersion);
+                applicant.CVVersions.Add(cv);
                 await _context.SaveChangesAsync();
 
-                var createdDto = cvVersion.ToDto();
-
-                return StatusCode(201, createdDto);
+                return StatusCode(201, cv.ToDto());
             }
             catch (Exception ex)
             {
@@ -176,66 +147,41 @@ namespace MiFuturoTrabajo.Api.Controllers
         [HttpPatch("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] CVVersionDto cvVersionDto)
         {
-            _logger.LogInformation($"Updating CV version with ID: {id}");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("Unauthorized");
             }
 
+            if (cvVersionDto == null)
+            {
+                return BadRequest("Invalid CV version data");
+            }
+
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                var cvVersion = await _context.CVVersions
-                    .FirstOrDefaultAsync(cv => cv.Id == id && cv.ApplicantId == applicant.Id);
-
-                if (cvVersion == null)
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == id);
+                if (cv == null)
                 {
                     return NotFound($"CV version with ID {id} not found");
                 }
 
-                if (cvVersionDto == null)
-                {
-                    return BadRequest("Invalid CV version data");
-                }
-
-                // Update properties
-                cvVersion.Name = cvVersionDto.Name ?? cvVersion.Name;
-                cvVersion.FileUrl = cvVersionDto.FileUrl ?? cvVersion.FileUrl;
-
-                // Handle IsDefault change
-                if (cvVersionDto.IsDefault && !cvVersion.IsDefault)
-                {
-                    // Unset all other CVs as default
-                    var existingDefaultCVs = await _context.CVVersions
-                        .Where(cv => cv.ApplicantId == applicant.Id && cv.IsDefault && cv.Id != id)
-                        .ToListAsync();
-
-                    foreach (var existingCV in existingDefaultCVs)
-                    {
-                        existingCV.IsDefault = false;
-                    }
-
-                    cvVersion.IsDefault = true;
-                }
+                cv.Name = cvVersionDto.Name;
+                cv.FileUrl = cvVersionDto.FileUrl;
 
                 await _context.SaveChangesAsync();
 
-                var updatedDto = cvVersion.ToDto();
-
-                return Ok(updatedDto);
+                return Ok(cv.ToDto());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error updating CV version with ID: {id}");
+                _logger.LogError(ex, "Error updating CV version {Id}", id);
                 return StatusCode(500, "An error occurred while updating the CV version");
             }
         }
@@ -243,8 +189,6 @@ namespace MiFuturoTrabajo.Api.Controllers
         [HttpPatch("{id}/setDefault")]
         public async Task<IActionResult> SetDefault(string id)
         {
-            _logger.LogInformation($"Setting CV {id} as default");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
@@ -253,51 +197,40 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                var cv = await _context.CVVersions
-                    .FirstOrDefaultAsync(c => c.Id == id && c.ApplicantId == applicant.Id);
-
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == id);
                 if (cv == null)
                 {
-                    return NotFound($"CV with ID {id} not found");
+                    return NotFound($"CV version with ID {id} not found");
                 }
 
-                // Unset all other CVs as default
-                var existingDefaultCVs = await _context.CVVersions
-                    .Where(c => c.ApplicantId == applicant.Id && c.IsDefault && c.Id != id)
-                    .ToListAsync();
-
-                foreach (var existingCV in existingDefaultCVs)
+                // Embedding makes this atomic: one document, one write, so the
+                // collection can never end up with two defaults.
+                foreach (var other in applicant.CVVersions)
                 {
-                    existingCV.IsDefault = false;
+                    other.IsDefault = false;
                 }
 
                 cv.IsDefault = true;
                 await _context.SaveChangesAsync();
 
-                var cvDto = cv.ToDto();
-
-                return Ok(cvDto);
+                return Ok(cv.ToDto());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error setting CV {id} as default");
-                return StatusCode(500, "An error occurred while setting the default CV");
+                _logger.LogError(ex, "Error setting CV version {Id} as default", id);
+                return StatusCode(500, "An error occurred while setting the default CV version");
             }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            _logger.LogInformation($"Deleting CV version with ID: {id}");
-
             var userId = AuthHelper.GetUserIdFromClaims(User);
             if (string.IsNullOrEmpty(userId))
             {
@@ -306,30 +239,37 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             try
             {
-                var applicant = await _context.Applicants
-                    .FirstOrDefaultAsync(a => a.UserId == userId);
-
+                var applicant = await LoadApplicantAsync(userId);
                 if (applicant == null)
                 {
                     return NotFound("Applicant not found");
                 }
 
-                var cvVersion = await _context.CVVersions
-                    .FirstOrDefaultAsync(cv => cv.Id == id && cv.ApplicantId == applicant.Id);
-
-                if (cvVersion == null)
+                var cv = applicant.CVVersions.FirstOrDefault(c => c.Id == id);
+                if (cv == null)
                 {
                     return NotFound($"CV version with ID {id} not found");
                 }
 
-                _context.CVVersions.Remove(cvVersion);
+                var wasDefault = cv.IsDefault;
+                applicant.CVVersions.Remove(cv);
+
+                // Never leave the applicant without a default.
+                if (wasDefault && applicant.CVVersions.Count > 0)
+                {
+                    applicant.CVVersions
+                        .OrderByDescending(c => c.UploadedDate)
+                        .First()
+                        .IsDefault = true;
+                }
+
                 await _context.SaveChangesAsync();
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deleting CV version with ID: {id}");
+                _logger.LogError(ex, "Error deleting CV version {Id}", id);
                 return StatusCode(500, "An error occurred while deleting the CV version");
             }
         }

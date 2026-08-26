@@ -82,7 +82,6 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             var entity = new CVVersion
             {
                 Id = Guid.NewGuid().ToString(),
-                ApplicantId = Guid.NewGuid().ToString(),
                 Name = "Software Engineer CV",
                 FileUrl = "https://storage.example.com/cv.pdf",
                 UploadedDate = DateTime.UtcNow,
@@ -115,7 +114,7 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 Telephone = "555-1234",
                 Address = "123 Tech St",
                 Country = "USA",
-                LabelsJson = JsonConvert.SerializeObject(labels)
+                Labels = labels
             };
 
             // Act
@@ -164,9 +163,9 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             Assert.Equal(dto.Address, entity.Address);
             Assert.Equal(dto.Country, entity.Country);
 
-            var deserializedLabels = JsonConvert.DeserializeObject<List<string>>(entity.LabelsJson);
-            Assert.NotNull(deserializedLabels);
-            Assert.Equal(2, deserializedLabels.Count);
+            Assert.NotNull(entity.Labels);
+            Assert.Equal(2, entity.Labels.Count);
+            Assert.Equal(entity.Labels, dto.Labels);
         }
 
         [Fact]
@@ -297,15 +296,14 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 Status = JobApplicationStatus.Applied,
                 DateApplied = DateTime.UtcNow,
                 MainRecruiterContactId = Guid.NewGuid().ToString(),
-                NotesJson = JsonConvert.SerializeObject(notes),
-                LabelsJson = JsonConvert.SerializeObject(labels),
+                Notes = notes,
+                Labels = labels,
                 DeadLine = DateTime.UtcNow.AddDays(30),
                 JobOffer = "",
                 CVUsedId = Guid.NewGuid().ToString(),
                 CreatedOnDate = DateTime.UtcNow,
                 IsDeleted = false,
-                InterviewSteps = new List<InterviewStep>(),
-                ApplicantTasks = new List<ApplicantTask>()
+                InterviewSteps = new List<InterviewStep>()
             };
 
             // Act
@@ -374,7 +372,7 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 Id = Guid.NewGuid().ToString(),
                 UserId = Guid.NewGuid().ToString(),
                 Name = "Test Company",
-                LabelsJson = "[]"
+                Labels = new List<string>()
             };
 
             // Act
@@ -401,13 +399,11 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             var entity = dto.ToEntity(applicantId);
 
             // Assert
-            var notes = JsonConvert.DeserializeObject<List<string>>(entity.NotesJson);
-            var labels = JsonConvert.DeserializeObject<List<string>>(entity.LabelsJson);
-
-            Assert.NotNull(notes);
-            Assert.Empty(notes);
-            Assert.NotNull(labels);
-            Assert.Empty(labels);
+            // A null collection on the wire must map to an empty one, not blow up.
+            Assert.NotNull(entity.Notes);
+            Assert.Empty(entity.Notes);
+            Assert.NotNull(entity.Labels);
+            Assert.Empty(entity.Labels);
         }
     }
 }

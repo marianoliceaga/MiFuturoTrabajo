@@ -2,6 +2,12 @@ using MiFuturoTrabajo.Shared.Models;
 
 namespace MiFuturoTrabajo.Infrastructure.Entities
 {
+    /// <summary>
+    /// Aggregate root, container "ApplicantTasks", partition key /ApplicantId.
+    /// Kept separate from JobApplication because tasks exist independently of
+    /// an application and are queried standalone by the tasks page and the
+    /// reminder job.
+    /// </summary>
     public class ApplicantTask
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -13,10 +19,6 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public DateTime StartDate { get; set; }
         public DateTime Deadline { get; set; }
         public bool Completed { get; set; }
-        public bool ReminderSent { get; set; } // Track if reminder has been sent
-
-        // Navigation properties
-        public Applicant Applicant { get; set; } = null!;
-        public JobApplication JobApplication { get; set; } = null!;
+        public bool ReminderSent { get; set; }
     }
 }

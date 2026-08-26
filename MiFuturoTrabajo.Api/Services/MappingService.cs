@@ -1,340 +1,355 @@
 using MiFuturoTrabajo.Infrastructure.Entities;
 using MiFuturoTrabajo.Shared.Models;
-using Newtonsoft.Json;
 
 namespace MiFuturoTrabajo.Api.Services
 {
+    /// <summary>
+    /// Entity &lt;-&gt; DTO translation.
+    ///
+    /// The DTOs are the wire contract and are unchanged by the Cosmos
+    /// redesign. What changed underneath: CV versions, job references and
+    /// interview steps are now embedded owned types rather than rows in their
+    /// own containers, notes/labels are native JSON arrays rather than
+    /// serialised strings, and recruiters are referenced by id.
+    ///
+    /// Because Cosmos cannot join across containers, anything that needs a
+    /// recruiter or task list is passed it explicitly by the caller, which
+    /// loads that set once per request with a single-partition query.
+    /// </summary>
     public static class MappingService
     {
-        // Applicant mappings
-        public static ApplicantDto ToDto(this Applicant entity)
-        {
-            return new ApplicantDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Lastname = entity.Lastname,
-                CurrentJob = entity.CurrentJob,
-                LinkedInUrl = entity.LinkedInUrl,
-                ContactEmail = entity.ContactEmail,
-                Cellphone = entity.Cellphone,
-                CreatedOnDate = entity.CreatedOnDate,
-                CVVersions = entity.CVVersions?.Select(cv => cv.ToDto()).ToList() ?? new(),
-                PastJobReferences = entity.PastJobReferences?.Select(jr => jr.ToDto()).ToList() ?? new()
-            };
-        }
+        private static string NewIdIfBlank(string? id) =>
+            string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
 
-        public static Applicant ToEntity(this ApplicantDto dto, string userId)
-        {
-            return new Applicant
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                UserId = userId,
-                Name = dto.Name ?? string.Empty,
-                Lastname = dto.Lastname ?? string.Empty,
-                CurrentJob = dto.CurrentJob ?? string.Empty,
-                LinkedInUrl = dto.LinkedInUrl ?? string.Empty,
-                ContactEmail = dto.ContactEmail ?? string.Empty,
-                Cellphone = dto.Cellphone ?? string.Empty,
-                CreatedOnDate = dto.CreatedOnDate
-            };
-        }
+        /// <summary>
+        /// Non-nullable string properties are required in the EF model, so a
+        /// null from the wire would make SaveChanges throw. Optional fields
+        /// legitimately arrive null, so they land as empty instead.
+        /// </summary>
+        private static string OrEmpty(string? value) => value ?? string.Empty;
 
-        // CVVersion mappings
-        public static CVVersionDto ToDto(this CVVersion entity)
+        // ------------------------------------------------------------------
+        // Applicant (embeds CV versions + past job references)
+        // ------------------------------------------------------------------
+        public static ApplicantDto ToDto(this Applicant entity) => new()
         {
-            return new CVVersionDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                FileUrl = entity.FileUrl,
-                UploadedDate = entity.UploadedDate,
-                IsDefault = entity.IsDefault
-            };
-        }
+            Id = entity.Id,
+            Name = entity.Name,
+            Lastname = entity.Lastname,
+            CurrentJob = entity.CurrentJob,
+            LinkedInUrl = entity.LinkedInUrl,
+            ContactEmail = entity.ContactEmail,
+            Cellphone = entity.Cellphone,
+            CreatedOnDate = entity.CreatedOnDate,
+            CVVersions = entity.CVVersions.Select(cv => cv.ToDto()).ToList(),
+            PastJobReferences = entity.PastJobReferences.Select(jr => jr.ToDto()).ToList()
+        };
 
-        public static CVVersion ToEntity(this CVVersionDto dto, string applicantId)
+        public static Applicant ToEntity(this ApplicantDto dto, string userId) => new()
         {
-            return new CVVersion
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                ApplicantId = applicantId,
-                Name = dto.Name ?? string.Empty,
-                FileUrl = dto.FileUrl ?? string.Empty,
-                UploadedDate = dto.UploadedDate,
-                IsDefault = dto.IsDefault
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            UserId = userId,
+            Name = OrEmpty(dto.Name),
+            Lastname = OrEmpty(dto.Lastname),
+            CurrentJob = OrEmpty(dto.CurrentJob),
+            LinkedInUrl = OrEmpty(dto.LinkedInUrl),
+            ContactEmail = OrEmpty(dto.ContactEmail),
+            Cellphone = OrEmpty(dto.Cellphone),
+            CreatedOnDate = dto.CreatedOnDate == default ? DateTime.UtcNow : dto.CreatedOnDate,
+            CVVersions = (dto.CVVersions ?? new()).Select(cv => cv.ToEntity()).ToList(),
+            PastJobReferences = (dto.PastJobReferences ?? new()).Select(jr => jr.ToEntity()).ToList()
+        };
 
-        // JobReference mappings
-        public static JobReferenceDto ToDto(this JobReference entity)
+        // ------------------------------------------------------------------
+        // CV version (owned)
+        // ------------------------------------------------------------------
+        public static CVVersionDto ToDto(this CVVersion entity) => new()
         {
-            return new JobReferenceDto
-            {
-                Id = entity.Id,
-                CompanyName = entity.CompanyName,
-                JobTitle = entity.JobTitle,
-                ContactName = entity.ContactName,
-                ContactEmail = entity.ContactEmail,
-                ContactPhone = entity.ContactPhone,
-                StartDate = entity.StartDate,
-                EndDate = entity.EndDate
-            };
-        }
+            Id = entity.Id,
+            Name = entity.Name,
+            FileUrl = entity.FileUrl,
+            UploadedDate = entity.UploadedDate,
+            IsDefault = entity.IsDefault
+        };
 
-        public static JobReference ToEntity(this JobReferenceDto dto, string applicantId)
+        public static CVVersion ToEntity(this CVVersionDto dto) => new()
         {
-            return new JobReference
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                ApplicantId = applicantId,
-                CompanyName = dto.CompanyName ?? string.Empty,
-                JobTitle = dto.JobTitle ?? string.Empty,
-                ContactName = dto.ContactName ?? string.Empty,
-                ContactEmail = dto.ContactEmail ?? string.Empty,
-                ContactPhone = dto.ContactPhone ?? string.Empty,
-                StartDate = dto.StartDate,
-                EndDate = dto.EndDate
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            Name = OrEmpty(dto.Name),
+            FileUrl = OrEmpty(dto.FileUrl),
+            UploadedDate = dto.UploadedDate == default ? DateTime.UtcNow : dto.UploadedDate,
+            IsDefault = dto.IsDefault
+        };
 
-        // Company mappings
-        public static CompanyDto ToDto(this Company entity)
+        // ------------------------------------------------------------------
+        // Job reference (owned)
+        // ------------------------------------------------------------------
+        public static JobReferenceDto ToDto(this JobReference entity) => new()
         {
-            return new CompanyDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Description = entity.Description,
-                Website = entity.Website,
-                Telephone = entity.Telephone,
-                Address = entity.Address,
-                Country = entity.Country,
-                Labels = JsonConvert.DeserializeObject<List<string>>(entity.LabelsJson) ?? new()
-            };
-        }
+            Id = entity.Id,
+            CompanyName = entity.CompanyName,
+            JobTitle = entity.JobTitle,
+            ContactName = entity.ContactName,
+            ContactEmail = entity.ContactEmail,
+            ContactPhone = entity.ContactPhone,
+            StartDate = entity.StartDate,
+            EndDate = entity.EndDate
+        };
 
-        public static Company ToEntity(this CompanyDto dto, string userId)
+        public static JobReference ToEntity(this JobReferenceDto dto) => new()
         {
-            return new Company
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                UserId = userId,
-                Name = dto.Name ?? string.Empty,
-                Description = dto.Description ?? string.Empty,
-                Website = dto.Website ?? string.Empty,
-                Telephone = dto.Telephone ?? string.Empty,
-                Address = dto.Address ?? string.Empty,
-                Country = dto.Country ?? string.Empty,
-                LabelsJson = JsonConvert.SerializeObject(dto.Labels ?? new List<string>())
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            CompanyName = OrEmpty(dto.CompanyName),
+            JobTitle = OrEmpty(dto.JobTitle),
+            ContactName = OrEmpty(dto.ContactName),
+            ContactEmail = OrEmpty(dto.ContactEmail),
+            ContactPhone = OrEmpty(dto.ContactPhone),
+            StartDate = dto.StartDate,
+            EndDate = dto.EndDate
+        };
 
-        // Recruiter mappings
-        public static RecruiterDto ToDto(this Recruiter entity)
+        // ------------------------------------------------------------------
+        // Company
+        // ------------------------------------------------------------------
+        public static CompanyDto ToDto(this Company entity) => new()
         {
-            return new RecruiterDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Lastname = entity.Lastname,
-                ContactEmail = entity.ContactEmail,
-                Cellphone = entity.Cellphone,
-                Landline = entity.Landline,
-                LinkedInUrl = entity.LinkedInUrl,
-                IsFromConsultancy = entity.IsFromConsultancy,
-                CompanyName = entity.CompanyName
-            };
-        }
+            Id = entity.Id,
+            Name = entity.Name,
+            Description = entity.Description,
+            Website = entity.Website,
+            Telephone = entity.Telephone,
+            Address = entity.Address,
+            Country = entity.Country,
+            Labels = new List<string>(entity.Labels)
+        };
 
-        public static Recruiter ToEntity(this RecruiterDto dto, string userId)
+        public static Company ToEntity(this CompanyDto dto, string userId) => new()
         {
-            return new Recruiter
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                UserId = userId,
-                Name = dto.Name ?? string.Empty,
-                Lastname = dto.Lastname ?? string.Empty,
-                ContactEmail = dto.ContactEmail ?? string.Empty,
-                Cellphone = dto.Cellphone ?? string.Empty,
-                Landline = dto.Landline ?? string.Empty,
-                LinkedInUrl = dto.LinkedInUrl ?? string.Empty,
-                IsFromConsultancy = dto.IsFromConsultancy,
-                CompanyName = dto.CompanyName ?? string.Empty
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            UserId = userId,
+            Name = OrEmpty(dto.Name),
+            Description = OrEmpty(dto.Description),
+            Website = OrEmpty(dto.Website),
+            Telephone = OrEmpty(dto.Telephone),
+            Address = OrEmpty(dto.Address),
+            Country = OrEmpty(dto.Country),
+            Labels = new List<string>(dto.Labels ?? new())
+        };
 
-        // InterviewStep mappings
-        public static InterviewStepDto ToDto(this InterviewStep entity)
+        // ------------------------------------------------------------------
+        // Recruiter
+        // ------------------------------------------------------------------
+        public static RecruiterDto ToDto(this Recruiter entity) => new()
         {
-            return new InterviewStepDto
-            {
-                Id = entity.Id,
-                StepName = entity.StepName,
-                StepOrder = entity.StepOrder,
-                ScheduledDate = entity.ScheduledDate,
-                CompletedDate = entity.CompletedDate,
-                IsCompleted = entity.IsCompleted,
-                Notes = entity.Notes,
-                MeetingId = entity.MeetingId
-            };
-        }
+            Id = entity.Id,
+            Name = entity.Name,
+            Lastname = entity.Lastname,
+            ContactEmail = entity.ContactEmail,
+            Cellphone = entity.Cellphone,
+            Landline = entity.Landline,
+            LinkedInUrl = entity.LinkedInUrl,
+            IsFromConsultancy = entity.IsFromConsultancy,
+            CompanyName = entity.CompanyName
+        };
 
-        public static InterviewStep ToEntity(this InterviewStepDto dto, string jobApplicationId)
+        public static Recruiter ToEntity(this RecruiterDto dto, string userId) => new()
         {
-            return new InterviewStep
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                JobApplicationId = jobApplicationId,
-                StepName = dto.StepName ?? string.Empty,
-                StepOrder = dto.StepOrder,
-                ScheduledDate = dto.ScheduledDate,
-                CompletedDate = dto.CompletedDate,
-                IsCompleted = dto.IsCompleted,
-                Notes = dto.Notes ?? string.Empty,
-                MeetingId = dto.MeetingId ?? string.Empty
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            UserId = userId,
+            Name = OrEmpty(dto.Name),
+            Lastname = OrEmpty(dto.Lastname),
+            ContactEmail = OrEmpty(dto.ContactEmail),
+            Cellphone = OrEmpty(dto.Cellphone),
+            Landline = OrEmpty(dto.Landline),
+            LinkedInUrl = OrEmpty(dto.LinkedInUrl),
+            IsFromConsultancy = dto.IsFromConsultancy,
+            CompanyName = dto.CompanyName
+        };
 
-        // ApplicantTask mappings
-        public static ApplicantTaskDto ToDto(this ApplicantTask entity)
+        // ------------------------------------------------------------------
+        // Interview step (owned)
+        // ------------------------------------------------------------------
+        public static InterviewStepDto ToDto(this InterviewStep entity) => new()
         {
-            return new ApplicantTaskDto
-            {
-                Id = entity.Id,
-                ApplicantId = entity.ApplicantId,
-                JobApplicationId = entity.JobApplicationId,
-                Type = entity.Type,
-                Title = entity.Title,
-                Note = entity.Note,
-                StartDate = entity.StartDate,
-                Deadline = entity.Deadline,
-                Completed = entity.Completed
-            };
-        }
+            Id = entity.Id,
+            StepName = entity.StepName,
+            StepOrder = entity.StepOrder,
+            ScheduledDate = entity.ScheduledDate,
+            CompletedDate = entity.CompletedDate,
+            IsCompleted = entity.IsCompleted,
+            Notes = entity.Notes,
+            MeetingId = entity.MeetingId
+        };
 
-        public static ApplicantTask ToEntity(this ApplicantTaskDto dto, string applicantId)
+        public static InterviewStep ToEntity(this InterviewStepDto dto) => new()
         {
-            return new ApplicantTask
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                ApplicantId = applicantId,
-                JobApplicationId = dto.JobApplicationId ?? string.Empty,
-                Type = dto.Type,
-                Title = dto.Title ?? string.Empty,
-                Note = dto.Note ?? string.Empty,
-                StartDate = dto.StartDate,
-                Deadline = dto.Deadline,
-                Completed = dto.Completed,
-                ReminderSent = false
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            StepName = OrEmpty(dto.StepName),
+            StepOrder = dto.StepOrder,
+            ScheduledDate = dto.ScheduledDate,
+            CompletedDate = dto.CompletedDate,
+            IsCompleted = dto.IsCompleted,
+            Notes = OrEmpty(dto.Notes),
+            MeetingId = dto.MeetingId
+        };
 
-        // Meeting mappings
-        public static MeetingDto ToDto(this Meeting entity, List<Recruiter>? recruiters = null)
+        // ------------------------------------------------------------------
+        // Applicant task
+        // ------------------------------------------------------------------
+        public static ApplicantTaskDto ToDto(this ApplicantTask entity) => new()
         {
-            return new MeetingDto
-            {
-                Id = entity.Id,
-                ApplicantId = entity.ApplicantId,
-                JobApplicationId = entity.JobApplicationId,
-                Title = entity.Title,
-                Description = entity.Description,
-                StartDateTime = entity.StartDateTime,
-                EndDateTime = entity.EndDateTime,
-                IsPhonecall = entity.IsPhonecall,
-                OnlineMeetingURL = entity.OnlineMeetingURL,
-                PhysicalLocation = entity.PhysicalLocation,
-                MeetingAccessCode = entity.MeetingAccessCode,
-                Outcome = entity.Outcome,
-                Note = entity.Note,
-                SendReminderEmail = entity.SendReminderEmail,
-                ReminderMinutesBefore = entity.ReminderMinutesBefore,
-                Recruiters = recruiters?.Select(r => r.ToDto()).ToList() ?? new()
-            };
-        }
+            Id = entity.Id,
+            ApplicantId = entity.ApplicantId,
+            JobApplicationId = entity.JobApplicationId,
+            Type = entity.Type,
+            Title = entity.Title,
+            Note = entity.Note,
+            StartDate = entity.StartDate,
+            Deadline = entity.Deadline,
+            Completed = entity.Completed
+        };
 
-        public static Meeting ToEntity(this MeetingDto dto, string applicantId)
+        public static ApplicantTask ToEntity(this ApplicantTaskDto dto, string applicantId) => new()
         {
-            return new Meeting
-            {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                ApplicantId = applicantId,
-                JobApplicationId = dto.JobApplicationId ?? string.Empty,
-                Title = dto.Title ?? string.Empty,
-                Description = dto.Description ?? string.Empty,
-                StartDateTime = dto.StartDateTime,
-                EndDateTime = dto.EndDateTime,
-                IsPhonecall = dto.IsPhonecall,
-                OnlineMeetingURL = dto.OnlineMeetingURL ?? string.Empty,
-                PhysicalLocation = dto.PhysicalLocation ?? string.Empty,
-                MeetingAccessCode = dto.MeetingAccessCode ?? string.Empty,
-                Outcome = dto.Outcome ?? string.Empty,
-                Note = dto.Note ?? string.Empty,
-                SendReminderEmail = dto.SendReminderEmail,
-                ReminderMinutesBefore = dto.ReminderMinutesBefore,
-                ReminderSent = false
-            };
-        }
+            Id = NewIdIfBlank(dto.Id),
+            ApplicantId = applicantId,
+            JobApplicationId = OrEmpty(dto.JobApplicationId),
+            Type = dto.Type,
+            Title = OrEmpty(dto.Title),
+            Note = OrEmpty(dto.Note),
+            StartDate = dto.StartDate,
+            Deadline = dto.Deadline,
+            Completed = dto.Completed,
+            ReminderSent = false
+        };
 
-        // JobApplication mappings
-        public static JobApplicationDto ToDto(this JobApplication entity, Company? company = null, List<Recruiter>? recruiters = null)
+        // ------------------------------------------------------------------
+        // Meeting (recruiters referenced by id, resolved by the caller)
+        // ------------------------------------------------------------------
+        public static MeetingDto ToDto(this Meeting entity, IReadOnlyCollection<Recruiter>? recruiters = null) => new()
         {
-            return new JobApplicationDto
-            {
-                Id = entity.Id,
-                ApplicantId = entity.ApplicantId,
-                Company = company?.ToDto(),
-                JobTitle = entity.JobTitle,
-                Source = entity.Source,
-                URL = entity.URL,
-                JobDescription = entity.JobDescription,
-                Salary = entity.Salary,
-                Location = entity.Location,
-                IsDirect = entity.IsDirect,
-                IsConsultancy = entity.IsConsultancy,
-                Status = entity.Status,
-                DateApplied = entity.DateApplied,
-                MainRecruiterContactId = entity.MainRecruiterContactId,
-                Notes = JsonConvert.DeserializeObject<List<string>>(entity.NotesJson) ?? new(),
-                Labels = JsonConvert.DeserializeObject<List<string>>(entity.LabelsJson) ?? new(),
-                DeadLine = entity.DeadLine,
-                JobOffer = entity.JobOffer,
-                CVUsedId = entity.CVUsedId,
-                CreatedOnDate = entity.CreatedOnDate,
-                IsDeleted = entity.IsDeleted,
-                Recruiters = recruiters?.Select(r => r.ToDto()).ToList() ?? new(),
-                InterviewSteps = entity.InterviewSteps?.Select(s => s.ToDto()).ToList() ?? new(),
-                ApplicantTasks = entity.ApplicantTasks?.Select(t => t.ToDto()).ToList() ?? new()
-            };
-        }
+            Id = entity.Id,
+            ApplicantId = entity.ApplicantId,
+            JobApplicationId = entity.JobApplicationId,
+            Title = entity.Title,
+            Description = entity.Description,
+            StartDateTime = entity.StartDateTime,
+            EndDateTime = entity.EndDateTime,
+            IsPhonecall = entity.IsPhonecall,
+            OnlineMeetingURL = entity.OnlineMeetingURL,
+            PhysicalLocation = entity.PhysicalLocation,
+            MeetingAccessCode = entity.MeetingAccessCode,
+            Outcome = entity.Outcome,
+            Note = entity.Note,
+            SendReminderEmail = entity.SendReminderEmail,
+            ReminderMinutesBefore = entity.ReminderMinutesBefore,
+            Recruiters = ResolveRecruiters(entity.RecruiterIds, recruiters)
+        };
 
-        public static JobApplication ToEntity(this JobApplicationDto dto, string applicantId)
+        public static Meeting ToEntity(this MeetingDto dto, string applicantId) => new()
         {
-            return new JobApplication
+            Id = NewIdIfBlank(dto.Id),
+            ApplicantId = applicantId,
+            JobApplicationId = OrEmpty(dto.JobApplicationId),
+            Title = OrEmpty(dto.Title),
+            Description = OrEmpty(dto.Description),
+            StartDateTime = dto.StartDateTime,
+            EndDateTime = dto.EndDateTime,
+            IsPhonecall = dto.IsPhonecall,
+            OnlineMeetingURL = OrEmpty(dto.OnlineMeetingURL),
+            PhysicalLocation = OrEmpty(dto.PhysicalLocation),
+            MeetingAccessCode = OrEmpty(dto.MeetingAccessCode),
+            Outcome = OrEmpty(dto.Outcome),
+            Note = OrEmpty(dto.Note),
+            SendReminderEmail = dto.SendReminderEmail,
+            ReminderMinutesBefore = dto.ReminderMinutesBefore,
+            ReminderSent = false,
+            RecruiterIds = (dto.Recruiters ?? new()).Select(r => r.Id).Where(id => !string.IsNullOrWhiteSpace(id)).ToList()
+        };
+
+        // ------------------------------------------------------------------
+        // Job application (embeds interview steps + company snapshot)
+        // ------------------------------------------------------------------
+        public static JobApplicationDto ToDto(
+            this JobApplication entity,
+            IReadOnlyCollection<Recruiter>? recruiters = null,
+            IReadOnlyCollection<ApplicantTask>? tasks = null) => new()
+        {
+            Id = entity.Id,
+            ApplicantId = entity.ApplicantId,
+            JobTitle = entity.JobTitle,
+            Source = entity.Source,
+            URL = entity.URL,
+            JobDescription = entity.JobDescription,
+            Salary = entity.Salary,
+            Location = entity.Location,
+            IsDirect = entity.IsDirect,
+            IsConsultancy = entity.IsConsultancy,
+            Status = entity.Status,
+            DateApplied = entity.DateApplied,
+            MainRecruiterContactId = entity.MainRecruiterContactId,
+            DeadLine = entity.DeadLine,
+            JobOffer = entity.JobOffer,
+            CVUsedId = entity.CVUsedId,
+            CreatedOnDate = entity.CreatedOnDate,
+            IsDeleted = entity.IsDeleted,
+            Notes = new List<string>(entity.Notes),
+            Labels = new List<string>(entity.Labels),
+            InterviewSteps = entity.InterviewSteps
+                .OrderBy(s => s.StepOrder)
+                .Select(s => s.ToDto())
+                .ToList(),
+            // The snapshot is what makes the board a single query: the company
+            // name travels inside the application document.
+            Company = entity.Company is null
+                ? new CompanyDto { Id = entity.CompanyId }
+                : new CompanyDto { Id = entity.Company.Id, Name = entity.Company.Name },
+            Recruiters = ResolveRecruiters(entity.RecruiterIds, recruiters),
+            ApplicantTasks = tasks is null
+                ? new List<ApplicantTaskDto>()
+                : tasks.Where(t => t.JobApplicationId == entity.Id).Select(t => t.ToDto()).ToList()
+        };
+
+        public static JobApplication ToEntity(this JobApplicationDto dto, string applicantId) => new()
+        {
+            Id = NewIdIfBlank(dto.Id),
+            ApplicantId = applicantId,
+            CompanyId = dto.Company?.Id ?? string.Empty,
+            Company = dto.Company is null
+                ? null
+                : new CompanySnapshot { Id = dto.Company.Id, Name = dto.Company.Name },
+            JobTitle = OrEmpty(dto.JobTitle),
+            Source = dto.Source,
+            URL = OrEmpty(dto.URL),
+            JobDescription = OrEmpty(dto.JobDescription),
+            Salary = dto.Salary,
+            Location = OrEmpty(dto.Location),
+            IsDirect = dto.IsDirect,
+            IsConsultancy = dto.IsConsultancy,
+            Status = dto.Status,
+            DateApplied = dto.DateApplied,
+            MainRecruiterContactId = OrEmpty(dto.MainRecruiterContactId),
+            DeadLine = dto.DeadLine,
+            JobOffer = OrEmpty(dto.JobOffer),
+            CVUsedId = OrEmpty(dto.CVUsedId),
+            CreatedOnDate = dto.CreatedOnDate == default ? DateTime.UtcNow : dto.CreatedOnDate,
+            IsDeleted = dto.IsDeleted,
+            Notes = new List<string>(dto.Notes ?? new()),
+            Labels = new List<string>(dto.Labels ?? new()),
+            RecruiterIds = (dto.Recruiters ?? new()).Select(r => r.Id).Where(id => !string.IsNullOrWhiteSpace(id)).ToList(),
+            InterviewSteps = (dto.InterviewSteps ?? new()).Select(s => s.ToEntity()).ToList()
+        };
+
+        // ------------------------------------------------------------------
+        private static List<RecruiterDto> ResolveRecruiters(
+            List<string> ids, IReadOnlyCollection<Recruiter>? pool)
+        {
+            if (pool is null || ids.Count == 0)
             {
-                Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
-                ApplicantId = applicantId,
-                CompanyId = dto.Company?.Id ?? string.Empty,
-                JobTitle = dto.JobTitle ?? string.Empty,
-                Source = dto.Source,
-                URL = dto.URL ?? string.Empty,
-                JobDescription = dto.JobDescription ?? string.Empty,
-                Salary = dto.Salary,
-                Location = dto.Location ?? string.Empty,
-                IsDirect = dto.IsDirect,
-                IsConsultancy = dto.IsConsultancy,
-                Status = dto.Status,
-                DateApplied = dto.DateApplied,
-                MainRecruiterContactId = dto.MainRecruiterContactId ?? string.Empty,
-                NotesJson = JsonConvert.SerializeObject(dto.Notes ?? new List<string>()),
-                LabelsJson = JsonConvert.SerializeObject(dto.Labels ?? new List<string>()),
-                DeadLine = dto.DeadLine,
-                JobOffer = dto.JobOffer ?? string.Empty,
-                CVUsedId = dto.CVUsedId ?? string.Empty,
-                CreatedOnDate = dto.CreatedOnDate,
-                IsDeleted = dto.IsDeleted
-            };
+                return new List<RecruiterDto>();
+            }
+
+            return pool.Where(r => ids.Contains(r.Id)).Select(r => r.ToDto()).ToList();
         }
     }
 }

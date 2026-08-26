@@ -94,10 +94,8 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         /// </summary>
         public string? ApplicantId { get; set; }
 
-        /// <summary>
-        /// Navigation property to Applicant
-        /// </summary>
-        public Applicant? Applicant { get; set; }
+        // No navigation to Applicant: it lives in a different container and
+        // Cosmos cannot join across containers. Load it by ApplicantId.
 
         /// <summary>
         /// OAuth provider used for authentication (null for email/password users)

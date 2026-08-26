@@ -41,19 +41,18 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
+                // Interview steps, labels, notes and the company snapshot are
+                // embedded in each document, so one single-partition query
+                // returns fully-formed cards.
                 var jobApps = await _context.JobApplications
-                    .Where(ja => ja.ApplicantId == applicant.Id && !ja.IsDeleted)
-                    .Include(ja => ja.Company)
-                    .Include(ja => ja.JobApplicationRecruiters).ThenInclude(jar => jar.Recruiter)
-                    .Include(ja => ja.InterviewSteps)
-                    .Include(ja => ja.ApplicantTasks)
+                    .Where(ja => ja.ApplicantId == applicant.Id)
+                    .Where(ja => !ja.IsDeleted)
                     .ToListAsync();
 
-                var jobAppsDto = jobApps.Select(ja =>
-                {
-                    var recruiters = ja.JobApplicationRecruiters.Select(jar => jar.Recruiter).ToList();
-                    return ja.ToDto(ja.Company, recruiters);
-                }).ToList();
+                var recruiters = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
+                var tasks = await _context.ApplicantTasks.Where(t => t.ApplicantId == applicant.Id).ToListAsync();
+
+                var jobAppsDto = jobApps.Select(ja => ja.ToDto(recruiters, tasks)).ToList();
 
                 return Ok(jobAppsDto);
             }
@@ -81,12 +80,13 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return NotFound("Applicant not found");
                 }
 
+                // The whole board from a single single-partition query.
                 var jobApps = await _context.JobApplications
-                    .Where(ja => ja.ApplicantId == applicant.Id && !ja.IsDeleted)
-                    .Include(ja => ja.Company)
-                    .Include(ja => ja.JobApplicationRecruiters).ThenInclude(jar => jar.Recruiter)
-                    .Include(ja => ja.InterviewSteps)
+                    .Where(ja => ja.ApplicantId == applicant.Id)
+                    .Where(ja => !ja.IsDeleted)
                     .ToListAsync();
+
+                var recruiters = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
 
                 // Group by status
                 var boardColumns = Enum.GetValues<JobApplicationStatus>()
@@ -96,11 +96,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                         Title = status.ToString(),
                         Applications = jobApps
                             .Where(ja => ja.Status == status)
-                            .Select(ja =>
-                            {
-                                var recruiters = ja.JobApplicationRecruiters.Select(jar => jar.Recruiter).ToList();
-                                return ja.ToDto(ja.Company, recruiters);
-                            })
+                            .Select(ja => ja.ToDto(recruiters))
                             .ToList()
                     })
                     .ToList();
@@ -132,19 +128,18 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var jobApp = await _context.JobApplications
-                    .Include(ja => ja.Company)
-                    .Include(ja => ja.JobApplicationRecruiters).ThenInclude(jar => jar.Recruiter)
-                    .Include(ja => ja.InterviewSteps)
-                    .Include(ja => ja.ApplicantTasks)
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
+                    .Where(ja => ja.ApplicantId == applicant.Id)
+                    .FirstOrDefaultAsync(ja => ja.Id == id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {
                     return NotFound($"Job application with ID {id} not found");
                 }
 
-                var recruiters = jobApp.JobApplicationRecruiters.Select(jar => jar.Recruiter).ToList();
-                var jobAppDto = jobApp.ToDto(jobApp.Company, recruiters);
+                var recruiters = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
+                var tasks = await _context.ApplicantTasks.Where(t => t.ApplicantId == applicant.Id).ToListAsync();
+
+                var jobAppDto = jobApp.ToDto(recruiters, tasks);
 
                 return Ok(jobAppDto);
             }
@@ -177,35 +172,16 @@ namespace MiFuturoTrabajo.Api.Controllers
                     return BadRequest("Invalid job application data");
                 }
 
+                // ToEntity embeds the recruiter ids and interview steps in the
+                // document itself: no join table, no separate step container.
                 var jobApp = jobAppDto.ToEntity(applicant.Id);
+                await SyncCompanySnapshotAsync(jobApp, userId);
+
                 _context.JobApplications.Add(jobApp);
-
-                // Add recruiter associations
-                if (jobAppDto.Recruiters != null)
-                {
-                    foreach (var recruiterDto in jobAppDto.Recruiters)
-                    {
-                        _context.JobApplicationRecruiters.Add(new JobApplicationRecruiter
-                        {
-                            JobApplicationId = jobApp.Id,
-                            RecruiterId = recruiterDto.Id
-                        });
-                    }
-                }
-
-                // Add interview steps
-                if (jobAppDto.InterviewSteps != null)
-                {
-                    foreach (var stepDto in jobAppDto.InterviewSteps)
-                    {
-                        var step = stepDto.ToEntity(jobApp.Id);
-                        _context.InterviewSteps.Add(step);
-                    }
-                }
-
                 await _context.SaveChangesAsync();
 
-                var createdDto = jobApp.ToDto();
+                var recruiterPool = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
+                var createdDto = jobApp.ToDto(recruiterPool);
                 return StatusCode(201, createdDto);
             }
             catch (Exception ex)
@@ -233,9 +209,8 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 var jobApp = await _context.JobApplications
-                    .Include(ja => ja.JobApplicationRecruiters)
-                    .Include(ja => ja.InterviewSteps)
-                    .FirstOrDefaultAsync(ja => ja.Id == id && ja.ApplicantId == applicant.Id && !ja.IsDeleted);
+                    .Where(ja => ja.ApplicantId == applicant.Id)
+                    .FirstOrDefaultAsync(ja => ja.Id == id && !ja.IsDeleted);
 
                 if (jobApp == null)
                 {
@@ -260,40 +235,33 @@ namespace MiFuturoTrabajo.Api.Controllers
                 jobApp.Status = jobAppDto.Status;
                 jobApp.DateApplied = jobAppDto.DateApplied;
                 jobApp.MainRecruiterContactId = jobAppDto.MainRecruiterContactId ?? jobApp.MainRecruiterContactId;
-                jobApp.NotesJson = JsonConvert.SerializeObject(jobAppDto.Notes ?? new List<string>());
-                jobApp.LabelsJson = JsonConvert.SerializeObject(jobAppDto.Labels ?? new List<string>());
+                jobApp.Notes = new List<string>(jobAppDto.Notes);
+                jobApp.Labels = new List<string>(jobAppDto.Labels);
                 jobApp.DeadLine = jobAppDto.DeadLine;
                 jobApp.JobOffer = jobAppDto.JobOffer ?? jobApp.JobOffer;
                 jobApp.CVUsedId = jobAppDto.CVUsedId ?? jobApp.CVUsedId;
 
-                // Update recruiters
+                // Both collections live on the document; replace them wholesale.
                 if (jobAppDto.Recruiters != null)
                 {
-                    _context.JobApplicationRecruiters.RemoveRange(jobApp.JobApplicationRecruiters);
-                    foreach (var recruiterDto in jobAppDto.Recruiters)
-                    {
-                        _context.JobApplicationRecruiters.Add(new JobApplicationRecruiter
-                        {
-                            JobApplicationId = jobApp.Id,
-                            RecruiterId = recruiterDto.Id
-                        });
-                    }
+                    jobApp.RecruiterIds = jobAppDto.Recruiters
+                        .Select(r => r.Id)
+                        .Where(rid => !string.IsNullOrWhiteSpace(rid))
+                        .ToList();
                 }
 
-                // Update interview steps
                 if (jobAppDto.InterviewSteps != null)
                 {
-                    _context.InterviewSteps.RemoveRange(jobApp.InterviewSteps);
-                    foreach (var stepDto in jobAppDto.InterviewSteps)
-                    {
-                        var step = stepDto.ToEntity(jobApp.Id);
-                        _context.InterviewSteps.Add(step);
-                    }
+                    jobApp.InterviewSteps = jobAppDto.InterviewSteps
+                        .Select(s => s.ToEntity())
+                        .ToList();
                 }
 
+                await SyncCompanySnapshotAsync(jobApp, userId);
                 await _context.SaveChangesAsync();
 
-                var updatedDto = jobApp.ToDto();
+                var updatedRecruiters = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
+                var updatedDto = jobApp.ToDto(updatedRecruiters);
                 return Ok(updatedDto);
             }
             catch (Exception ex)
@@ -374,7 +342,8 @@ namespace MiFuturoTrabajo.Api.Controllers
                 jobApp.Status = statusUpdate["status"];
                 await _context.SaveChangesAsync();
 
-                var updatedDto = jobApp.ToDto();
+                var statusRecruiters = await _context.Recruiters.Where(r => r.UserId == userId).ToListAsync();
+                var updatedDto = jobApp.ToDto(statusRecruiters);
                 return Ok(updatedDto);
             }
             catch (Exception ex)
@@ -382,6 +351,38 @@ namespace MiFuturoTrabajo.Api.Controllers
                 _logger.LogError(ex, $"Error updating status for job application with ID: {id}");
                 return StatusCode(500, "An error occurred while updating the job application status");
             }
+        }
+
+        /// <summary>
+        /// Keeps the embedded CompanySnapshot in step with the Companies
+        /// container.
+        ///
+        /// The company name is denormalised into the application document so
+        /// the board can render from one single-partition query rather than a
+        /// cross-container join, which Cosmos cannot perform. That trade buys
+        /// read speed at the cost of this write-time sync.
+        /// </summary>
+        private async Task SyncCompanySnapshotAsync(JobApplication jobApp, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(jobApp.CompanyId))
+            {
+                jobApp.Company = null;
+                return;
+            }
+
+            var company = await _context.Companies
+                .Where(c => c.UserId == userId)
+                .FirstOrDefaultAsync(c => c.Id == jobApp.CompanyId);
+
+            if (company == null)
+            {
+                // Unknown company: keep the id so the link is not lost, but do
+                // not invent a name.
+                jobApp.Company = new CompanySnapshot { Id = jobApp.CompanyId };
+                return;
+            }
+
+            jobApp.Company = new CompanySnapshot { Id = company.Id, Name = company.Name };
         }
     }
 }

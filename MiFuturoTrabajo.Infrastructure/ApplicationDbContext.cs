@@ -3,6 +3,26 @@ using MiFuturoTrabajo.Infrastructure.Entities;
 
 namespace MiFuturoTrabajo.Infrastructure
 {
+    /// <summary>
+    /// Cosmos DB model.
+    ///
+    /// The provider cannot join documents across containers, so anything that
+    /// is always read together with its parent is *embedded* as an owned type
+    /// rather than modelled as a cross-container relationship. That collapses
+    /// twelve containers to seven and turns the board view into a single
+    /// single-partition query.
+    ///
+    /// Container        Partition key   Embedded
+    /// ---------------  --------------  ------------------------------------
+    /// Users            /Email          -
+    /// Applicants       /UserId         CVVersions, PastJobReferences
+    /// JobApplications  /ApplicantId    InterviewSteps, Company snapshot,
+    ///                                  Notes, Labels, RecruiterIds
+    /// Meetings         /ApplicantId    RecruiterIds
+    /// ApplicantTasks   /ApplicantId    -
+    /// Companies        /UserId         Labels
+    /// Recruiters       /UserId         -
+    /// </summary>
     public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -10,192 +30,98 @@ namespace MiFuturoTrabajo.Infrastructure
         {
         }
 
-        // DbSets
         public DbSet<User> Users { get; set; }
         public DbSet<Applicant> Applicants { get; set; }
-        public DbSet<CVVersion> CVVersions { get; set; }
-        public DbSet<JobReference> JobReferences { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<Recruiter> Recruiters { get; set; }
         public DbSet<JobApplication> JobApplications { get; set; }
-        public DbSet<JobApplicationRecruiter> JobApplicationRecruiters { get; set; }
-        public DbSet<InterviewStep> InterviewSteps { get; set; }
         public DbSet<Meeting> Meetings { get; set; }
-        public DbSet<MeetingRecruiter> MeetingRecruiters { get; set; }
         public DbSet<ApplicantTask> ApplicantTasks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // User Configuration (for proprietary authentication)
+            // ---------------------------------------------------------------
+            // Users - partitioned by email because login is the hot path and
+            // becomes a point read. The JWT also carries an email claim, so
+            // authenticated lookups can be point reads too.
+            //
+            // Note: no unique index on Email. The Cosmos provider does not
+            // enforce unique indexes, so declaring one was a false guarantee.
+            // Uniqueness comes from the partition key plus a pre-insert check.
+            // ---------------------------------------------------------------
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToContainer("Users");
                 entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.Email); // Partition by email for efficient login queries
-
-                // Unique email constraint
-                entity.HasIndex(e => e.Email).IsUnique();
-
-                // One-to-one relationship with Applicant
-                entity.HasOne(e => e.Applicant)
-                    .WithOne()
-                    .HasForeignKey<User>(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                entity.HasPartitionKey(e => e.Email);
             });
 
-            // Applicant Configuration
+            // ---------------------------------------------------------------
+            // Applicants
+            // ---------------------------------------------------------------
             modelBuilder.Entity<Applicant>(entity =>
             {
                 entity.ToContainer("Applicants");
                 entity.HasKey(e => e.Id);
                 entity.HasPartitionKey(e => e.UserId);
 
-                entity.HasMany(e => e.CVVersions)
-                    .WithOne(e => e.Applicant)
-                    .HasForeignKey(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.PastJobReferences)
-                    .WithOne(e => e.Applicant)
-                    .HasForeignKey(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.JobApplications)
-                    .WithOne(e => e.Applicant)
-                    .HasForeignKey(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.Meetings)
-                    .WithOne(e => e.Applicant)
-                    .HasForeignKey(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.Tasks)
-                    .WithOne(e => e.Applicant)
-                    .HasForeignKey(e => e.ApplicantId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                entity.OwnsMany(e => e.CVVersions);
+                entity.OwnsMany(e => e.PastJobReferences);
             });
 
-            // CVVersion Configuration
-            modelBuilder.Entity<CVVersion>(entity =>
-            {
-                entity.ToContainer("CVVersions");
-                entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.ApplicantId);
-            });
-
-            // JobReference Configuration
-            modelBuilder.Entity<JobReference>(entity =>
-            {
-                entity.ToContainer("JobReferences");
-                entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.ApplicantId);
-            });
-
-            // Company Configuration
-            modelBuilder.Entity<Company>(entity =>
-            {
-                entity.ToContainer("Companies");
-                entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.UserId);
-
-                entity.HasMany(e => e.JobApplications)
-                    .WithOne(e => e.Company)
-                    .HasForeignKey(e => e.CompanyId)
-                    .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            // Recruiter Configuration
-            modelBuilder.Entity<Recruiter>(entity =>
-            {
-                entity.ToContainer("Recruiters");
-                entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.UserId);
-
-                entity.HasMany(e => e.JobApplicationRecruiters)
-                    .WithOne(e => e.Recruiter)
-                    .HasForeignKey(e => e.RecruiterId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.MeetingRecruiters)
-                    .WithOne(e => e.Recruiter)
-                    .HasForeignKey(e => e.RecruiterId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // JobApplication Configuration
+            // ---------------------------------------------------------------
+            // JobApplications
+            // ---------------------------------------------------------------
             modelBuilder.Entity<JobApplication>(entity =>
             {
                 entity.ToContainer("JobApplications");
                 entity.HasKey(e => e.Id);
                 entity.HasPartitionKey(e => e.ApplicantId);
 
-                entity.HasMany(e => e.JobApplicationRecruiters)
-                    .WithOne(e => e.JobApplication)
-                    .HasForeignKey(e => e.JobApplicationId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.ApplicantTasks)
-                    .WithOne(e => e.JobApplication)
-                    .HasForeignKey(e => e.JobApplicationId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.InterviewSteps)
-                    .WithOne(e => e.JobApplication)
-                    .HasForeignKey(e => e.JobApplicationId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasMany(e => e.Meetings)
-                    .WithOne(e => e.JobApplication)
-                    .HasForeignKey(e => e.JobApplicationId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                entity.OwnsMany(e => e.InterviewSteps);
+                entity.OwnsOne(e => e.Company);
             });
 
-            // JobApplicationRecruiter Configuration (Many-to-Many)
-            modelBuilder.Entity<JobApplicationRecruiter>(entity =>
-            {
-                entity.ToContainer("JobApplicationRecruiters");
-                entity.HasKey(e => new { e.JobApplicationId, e.RecruiterId });
-                entity.HasPartitionKey(e => e.JobApplicationId);
-            });
-
-            // InterviewStep Configuration
-            modelBuilder.Entity<InterviewStep>(entity =>
-            {
-                entity.ToContainer("InterviewSteps");
-                entity.HasKey(e => e.Id);
-                entity.HasPartitionKey(e => e.JobApplicationId);
-            });
-
-            // Meeting Configuration
+            // ---------------------------------------------------------------
+            // Meetings
+            // ---------------------------------------------------------------
             modelBuilder.Entity<Meeting>(entity =>
             {
                 entity.ToContainer("Meetings");
                 entity.HasKey(e => e.Id);
                 entity.HasPartitionKey(e => e.ApplicantId);
-
-                entity.HasMany(e => e.MeetingRecruiters)
-                    .WithOne(e => e.Meeting)
-                    .HasForeignKey(e => e.MeetingId)
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // MeetingRecruiter Configuration (Many-to-Many)
-            modelBuilder.Entity<MeetingRecruiter>(entity =>
-            {
-                entity.ToContainer("MeetingRecruiters");
-                entity.HasKey(e => new { e.MeetingId, e.RecruiterId });
-                entity.HasPartitionKey(e => e.MeetingId);
-            });
-
-            // ApplicantTask Configuration
+            // ---------------------------------------------------------------
+            // ApplicantTasks
+            // ---------------------------------------------------------------
             modelBuilder.Entity<ApplicantTask>(entity =>
             {
                 entity.ToContainer("ApplicantTasks");
                 entity.HasKey(e => e.Id);
                 entity.HasPartitionKey(e => e.ApplicantId);
+            });
+
+            // ---------------------------------------------------------------
+            // Companies
+            // ---------------------------------------------------------------
+            modelBuilder.Entity<Company>(entity =>
+            {
+                entity.ToContainer("Companies");
+                entity.HasKey(e => e.Id);
+                entity.HasPartitionKey(e => e.UserId);
+            });
+
+            // ---------------------------------------------------------------
+            // Recruiters
+            // ---------------------------------------------------------------
+            modelBuilder.Entity<Recruiter>(entity =>
+            {
+                entity.ToContainer("Recruiters");
+                entity.HasKey(e => e.Id);
+                entity.HasPartitionKey(e => e.UserId);
             });
         }
     }

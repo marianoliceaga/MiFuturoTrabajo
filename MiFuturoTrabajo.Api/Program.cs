@@ -35,20 +35,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// Configure Entity Framework Core with Cosmos DB or InMemory
+// Persistence provider is an explicit choice, not a side effect of what the
+// connection string happens to contain. The old code silently swapped in the
+// InMemory provider whenever the string mentioned localhost:8081, which meant
+// "running on the Cosmos emulator" actually meant "running on a volatile
+// in-memory store" - and hid the fact that the data access could not run on
+// Cosmos at all.
+var persistenceProvider = builder.Configuration["Persistence:Provider"] ?? "Cosmos";
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
+    if (string.Equals(persistenceProvider, "InMemory", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseInMemoryDatabase("MiFuturoTrabajoLocal");
+        return;
+    }
+
     var cosmosConnectionString = builder.Configuration["CosmosDb:ConnectionString"];
     var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
 
-    if (!string.IsNullOrEmpty(cosmosConnectionString) && cosmosConnectionString.Contains("localhost:8081"))
+    if (string.IsNullOrEmpty(cosmosConnectionString) || string.IsNullOrEmpty(cosmosDatabaseName))
     {
-        options.UseInMemoryDatabase("MiFuturoTrabajoLocal");
+        throw new InvalidOperationException(
+            "Persistence:Provider is 'Cosmos' but CosmosDb:ConnectionString / CosmosDb:DatabaseName " +
+            "are not configured. Set them, or set Persistence:Provider to 'InMemory' for a " +
+            "throwaway local store.");
     }
-    else if (!string.IsNullOrEmpty(cosmosConnectionString) && !string.IsNullOrEmpty(cosmosDatabaseName))
-    {
-        options.UseCosmos(cosmosConnectionString, cosmosDatabaseName);
-    }
+
+    options.UseCosmos(cosmosConnectionString, cosmosDatabaseName);
 });
 
 // Register application services

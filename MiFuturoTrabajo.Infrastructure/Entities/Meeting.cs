@@ -1,5 +1,9 @@
 namespace MiFuturoTrabajo.Infrastructure.Entities
 {
+    /// <summary>
+    /// Aggregate root, container "Meetings", partition key /ApplicantId.
+    /// Queried by date range for the calendar and the reminder job.
+    /// </summary>
     public class Meeting
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -17,11 +21,9 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public string Note { get; set; } = string.Empty;
         public bool SendReminderEmail { get; set; }
         public int ReminderMinutesBefore { get; set; } = 60;
-        public bool ReminderSent { get; set; } // Track if reminder has been sent
+        public bool ReminderSent { get; set; }
 
-        // Navigation properties
-        public Applicant Applicant { get; set; } = null!;
-        public JobApplication JobApplication { get; set; } = null!;
-        public ICollection<MeetingRecruiter> MeetingRecruiters { get; set; } = new List<MeetingRecruiter>();
+        // Embedded link to recruiters, which live in their own container.
+        public List<string> RecruiterIds { get; set; } = new();
     }
 }

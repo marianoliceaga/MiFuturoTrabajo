@@ -5,7 +5,7 @@ using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Helpers;
 using MiFuturoTrabajo.Api.Services;
-using Newtonsoft.Json;
+using Entities = MiFuturoTrabajo.Infrastructure.Entities;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {
@@ -144,15 +144,25 @@ namespace MiFuturoTrabajo.Api.Controllers
                 }
 
                 // Update properties
+                var previousName = company.Name;
                 company.Name = companyDto.Name ?? company.Name;
                 company.Description = companyDto.Description ?? company.Description;
                 company.Website = companyDto.Website ?? company.Website;
                 company.Telephone = companyDto.Telephone ?? company.Telephone;
                 company.Address = companyDto.Address ?? company.Address;
                 company.Country = companyDto.Country ?? company.Country;
-                company.LabelsJson = JsonConvert.SerializeObject(companyDto.Labels ?? new List<string>());
+                company.Labels = new List<string>(companyDto.Labels);
 
                 await _context.SaveChangesAsync();
+
+                // The company name is denormalised into every job application
+                // document so the board can render in a single query. When the
+                // name changes, fan the new value out. Bounded: one
+                // single-partition query over this user's own applications.
+                if (!string.Equals(previousName, company.Name, StringComparison.Ordinal))
+                {
+                    await FanOutCompanyRenameAsync(userId, company.Id, company.Name);
+                }
 
                 var updatedDto = company.ToDto();
 
@@ -196,6 +206,46 @@ namespace MiFuturoTrabajo.Api.Controllers
                 _logger.LogError(ex, $"Error deleting company with ID: {id}");
                 return StatusCode(500, "An error occurred while deleting the company");
             }
+        }
+
+        /// <summary>
+        /// Propagates a company rename into the CompanySnapshot embedded in
+        /// each of this user's job applications.
+        ///
+        /// This is the maintenance cost of the denormalisation that lets the
+        /// board render from one single-partition query instead of a
+        /// cross-container join Cosmos cannot perform. It is bounded by the
+        /// number of applications a single user has.
+        /// </summary>
+        private async Task FanOutCompanyRenameAsync(string userId, string companyId, string newName)
+        {
+            var applicant = await _context.Applicants
+                .FirstOrDefaultAsync(a => a.UserId == userId);
+
+            if (applicant == null)
+            {
+                return;
+            }
+
+            var affected = await _context.JobApplications
+                .Where(ja => ja.ApplicantId == applicant.Id)
+                .Where(j => j.CompanyId == companyId)
+                .ToListAsync();
+
+            if (affected.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var application in affected)
+            {
+                application.Company ??= new Entities.CompanySnapshot { Id = companyId };
+                application.Company.Name = newName;
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Company rename fanned out to {Count} job application(s)", affected.Count);
         }
     }
 }
