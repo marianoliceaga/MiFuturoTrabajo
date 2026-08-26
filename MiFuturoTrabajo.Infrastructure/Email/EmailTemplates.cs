@@ -1,6 +1,6 @@
 using System.Text.Encodings.Web;
 
-namespace MiFuturoTrabajo.Api.Services
+namespace MiFuturoTrabajo.Infrastructure.Email
 {
     /// <summary>Subject line plus HTML body, ready to hand to <see cref="IEmailService"/>.</summary>
     public record EmailMessageContent(string Subject, string HtmlBody);
@@ -45,26 +45,52 @@ namespace MiFuturoTrabajo.Api.Services
                     {Button(resetLink, "Reset password")}
                     <p class=""muted"">This link expires in {expiryHours} hour{(expiryHours == 1 ? "" : "s")} and can be used once. If you did not ask for this, nothing has changed and you can ignore this message.</p>"));
 
-        public static EmailMessageContent TaskReminder(string firstName, string taskTitle, DateTime deadlineUtc) =>
-            new($"Due tomorrow: {taskTitle}",
-                Wrap(
-                    "A task is due soon",
-                    $@"
-                    <p>Hi {E(firstName)},</p>
-                    <p><strong>{E(taskTitle)}</strong> is due on {E(deadlineUtc.ToString("dddd d MMMM, HH:mm"))} UTC.</p>
-                    <p class=""muted"">You are getting this because the task has a deadline within the next 24 hours.</p>"));
+        /// <param name="items">Title and deadline of each task falling due.</param>
+        public static EmailMessageContent TaskReminder(
+            string firstName, IReadOnlyList<(string Title, DateTime DeadlineUtc)> items)
+        {
+            var subject = items.Count == 1
+                ? $"Due soon: {items[0].Title}"
+                : $"{items.Count} tasks due in the next 24 hours";
 
+            var rows = string.Concat(items.Select(i =>
+                $@"<li><strong>{E(i.Title)}</strong> &mdash; {E(When(i.DeadlineUtc))}</li>"));
+
+            return new(subject, Wrap(
+                items.Count == 1 ? "A task is due soon" : "Tasks due soon",
+                $@"
+                <p>Hi {E(firstName)},</p>
+                <p>{(items.Count == 1 ? "This is due" : "These are due")} in the next 24 hours:</p>
+                <ul style=""padding-left:20px"">{rows}</ul>
+                <p class=""muted"">You are getting this because the deadline is inside the next 24 hours.</p>"));
+        }
+
+        /// <param name="items">Title, start time and location of each meeting.</param>
         public static EmailMessageContent InterviewReminder(
-            string firstName, string jobTitle, string companyName, DateTime startsAtUtc, string? location) =>
-            new($"Interview reminder: {jobTitle}",
-                Wrap(
-                    "You have an interview coming up",
-                    $@"
-                    <p>Hi {E(firstName)},</p>
-                    <p><strong>{E(jobTitle)}</strong>{(string.IsNullOrWhiteSpace(companyName) ? "" : $" at {E(companyName)}")}
-                       starts at {E(startsAtUtc.ToString("dddd d MMMM, HH:mm"))} UTC.</p>
-                    {(string.IsNullOrWhiteSpace(location) ? "" : $@"<p>Where: {E(location)}</p>")}
-                    <p class=""muted"">Good luck.</p>"));
+            string firstName, IReadOnlyList<(string Title, DateTime StartsAtUtc, string? Location)> items)
+        {
+            var subject = items.Count == 1
+                ? $"Reminder: {items[0].Title}"
+                : $"{items.Count} interviews coming up";
+
+            var rows = string.Concat(items.Select(i =>
+                $@"<li><strong>{E(i.Title)}</strong> &mdash; {E(When(i.StartsAtUtc))}{
+                    (string.IsNullOrWhiteSpace(i.Location) ? "" : $"<br /><span style=\"color:#6b7280\">{E(i.Location)}</span>")
+                }</li>"));
+
+            return new(subject, Wrap(
+                items.Count == 1 ? "You have an interview coming up" : "Interviews coming up",
+                $@"
+                <p>Hi {E(firstName)},</p>
+                <ul style=""padding-left:20px"">{rows}</ul>
+                <p class=""muted"">Good luck.</p>"));
+        }
+
+        /// <summary>
+        /// Every stored time is UTC and the recipient time zone is unknown, so
+        /// the offset is stated rather than silently implied.
+        /// </summary>
+        private static string When(DateTime utc) => utc.ToString("dddd d MMMM 'at' HH:mm") + " UTC";
 
         /// <summary>
         /// Inline styles only, and a table-free layout: email clients strip

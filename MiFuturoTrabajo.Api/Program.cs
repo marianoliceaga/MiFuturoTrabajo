@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Api.Services;
+using MiFuturoTrabajo.Infrastructure.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -110,9 +111,10 @@ builder.Services.AddSingleton<IEmailService>(provider =>
     return new NoOpEmailService(logger);
 });
 
-// Register background services
-builder.Services.AddHostedService<TaskReminderHostedService>();
-builder.Services.AddHostedService<InterviewReminderHostedService>();
+// Reminders are NOT hosted here. They run as Azure Functions timer triggers
+// in MiFuturoTrabajo.Functions, because App Service Free has no Always On:
+// the site unloads when idle and a polling BackgroundService silently stops
+// firing. A Consumption-plan timer has its own schedule and its own host.
 
 // Configure CORS for Blazor Client
 var blazorClientUrl = builder.Configuration["BlazorClient:Url"] ?? "https://localhost:5011";

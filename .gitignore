@@ -364,3 +364,7 @@ FodyWeavers.xsd
 
 # ASP.NET Core sensitive configuration file
 appsettings.json
+# Azure Functions local settings: holds the Cosmos and ACS connection strings.
+# Committed once, it is in history forever. local.settings.json.example is the
+# tracked template.
+local.settings.json

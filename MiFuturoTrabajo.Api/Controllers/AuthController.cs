@@ -5,6 +5,7 @@ using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Infrastructure.Entities;
 using MiFuturoTrabajo.Shared.Models;
 using MiFuturoTrabajo.Api.Services;
+using MiFuturoTrabajo.Infrastructure.Email;
 
 namespace MiFuturoTrabajo.Api.Controllers
 {

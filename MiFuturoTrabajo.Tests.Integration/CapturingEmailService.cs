@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Web;
 using MiFuturoTrabajo.Api.Services;
+using MiFuturoTrabajo.Infrastructure.Email;
 
 namespace MiFuturoTrabajo.Tests.Integration
 {

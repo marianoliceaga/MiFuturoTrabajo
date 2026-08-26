@@ -3,7 +3,7 @@ using Azure;
 using Azure.Communication.Email;
 using Microsoft.Extensions.Logging;
 
-namespace MiFuturoTrabajo.Api.Services
+namespace MiFuturoTrabajo.Infrastructure.Email
 {
     public interface IEmailService
     {
