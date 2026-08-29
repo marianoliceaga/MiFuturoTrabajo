@@ -96,7 +96,8 @@
     public class JobApplicationDto
     {
         public string Id { get; set; } = string.Empty;
-        public CompanyDto Company { get; set; }
+        /// <summary>Always populated by the mapper - both branches produce a value.</summary>
+        public CompanyDto Company { get; set; } = new();
         public string JobTitle { get; set; } = string.Empty;
         public JobSource Source { get; set; }
         public string URL { get; set; } = string.Empty;
@@ -110,7 +111,8 @@
         public DateTime DateApplied { get; set; }
         public List<RecruiterDto> Recruiters { get; set; } = new();
         public string MainRecruiterContactId { get; set; } = string.Empty;
-        public MeetingDto FirstMeeting { get; set; }
+        /// <summary>Nullable because nothing populates it: declared, never set.</summary>
+        public MeetingDto? FirstMeeting { get; set; }
         public List<string> Notes { get; set; } = new();
         public List<ApplicantTaskDto> ApplicantTasks { get; set; } = new();
         public List<string> Labels { get; set; } = new();

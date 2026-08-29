@@ -382,7 +382,7 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 JobTitle = "Developer",
                 Source = JobSource.LinkedIn,
                 Status = JobApplicationStatus.NotApplied,
-                Company = null // No company
+                Company = null! // deliberately absent - the mapper must cope
             };
 
             // Act
@@ -399,7 +399,7 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             var userId = Guid.NewGuid().ToString();
             var dto = new ApplicantDto
             {
-                Id = null, // No ID provided
+                Id = null!, // deliberately absent - the mapper must generate one
                 Name = "Test",
                 Lastname = "User"
             };
@@ -441,8 +441,8 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             var dto = new JobApplicationDto
             {
                 JobTitle = "Developer",
-                Notes = null,
-                Labels = null
+                Notes = null!,
+                Labels = null!
             };
 
             // Act
