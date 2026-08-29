@@ -28,21 +28,21 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<JobApplicationDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<JobApplicationDto>($"jobapplication/JobApplicationGetById/{id}");
+            return await _http.GetRequiredAsync<JobApplicationDto>($"jobapplication/JobApplicationGetById/{id}");
         }
 
         public async Task<JobApplicationDto> CreateAsync(JobApplicationDto application)
         {
             var response = await _http.PostAsJsonAsync("jobapplication/JobApplicationAdd", application);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<JobApplicationDto>();
+            return await response.Content.ReadRequiredAsync<JobApplicationDto>("jobapplication/JobApplicationAdd");
         }
 
         public async Task<JobApplicationDto> UpdateAsync(string id, JobApplicationDto application)
         {
             var response = await _http.PatchAsJsonAsync($"jobapplication/{id}", application);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<JobApplicationDto>();
+            return await response.Content.ReadRequiredAsync<JobApplicationDto>($"jobapplication/{id}");
         }
 
         public async Task DeleteAsync(string id)

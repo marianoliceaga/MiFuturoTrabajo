@@ -14,26 +14,26 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<List<CompanyDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<CompanyDto>>("companies") ?? new List<CompanyDto>();
+            return await _http.GetListAsync<CompanyDto>("companies");
         }
 
         public async Task<CompanyDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<CompanyDto>($"companies/CompanyGetById/{id}");
+            return await _http.GetRequiredAsync<CompanyDto>($"companies/CompanyGetById/{id}");
         }
 
         public async Task<CompanyDto> CreateAsync(CompanyDto company)
         {
             var response = await _http.PostAsJsonAsync("companies/CompanyAdd", company);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<CompanyDto>();
+            return await response.Content.ReadRequiredAsync<CompanyDto>("companies/CompanyAdd");
         }
 
         public async Task<CompanyDto> UpdateAsync(string id, CompanyDto company)
         {
             var response = await _http.PatchAsJsonAsync($"companies/{id}", company);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<CompanyDto>();
+            return await response.Content.ReadRequiredAsync<CompanyDto>($"companies/{id}");
         }
 
         public async Task DeleteAsync(string id)

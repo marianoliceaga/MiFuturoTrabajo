@@ -29,27 +29,11 @@ jobs:
       - name: Restore
         run: dotnet restore MiFuturoTrabajo.sln
 
+      # Warnings-as-errors across the whole solution. Every project passes
+      # it, including the Client - see the nullable cleanup that made that
+      # true. Without a gate the warnings come back one pull request at a time.
       - name: Build
-        run: dotnet build MiFuturoTrabajo.sln -c Release --no-restore
-
-      # Warnings-as-errors, on the projects that actually pass it. Without a
-      # gate they come back one pull request at a time.
-      #
-      # MiFuturoTrabajo.Client is excluded, and that is a debt rather than a
-      # decision: it carries ~51 nullable warnings (mostly CS8603, where a
-      # service method promises T but returns the T? that ReadFromJsonAsync
-      # gives it - a latent NullReferenceException at the call site, not
-      # noise). Cleaning it means touching Blazor pages that have no tests, so
-      # it wants doing deliberately rather than as a batch annotation sweep.
-      #
-      # Remove the exclusion once that is done.
-      - name: Build with warnings as errors
-        run: |
-          for p in Api Infrastructure Functions Shared Tests.Unit Tests.Integration; do
-            echo "::group::$p"
-            dotnet build "MiFuturoTrabajo.$p/MiFuturoTrabajo.$p.csproj"               -c Release --no-restore -warnaserror
-            echo "::endgroup::"
-          done
+        run: dotnet build MiFuturoTrabajo.sln -c Release --no-restore -warnaserror
 
       # The suite is self-contained: an InMemory store, a fake blob service and
       # a capturing mail service, so there is nothing to provision here and no

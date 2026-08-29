@@ -7,14 +7,14 @@ namespace MiFuturoTrabajo.Client.Services
     public class AuthService : IAuthService
     {
         private readonly HttpClient _http;
-        private ApplicantDto _currentApplicant;
+        private ApplicantDto? _currentApplicant;
 
         public AuthService(HttpClient http)
         {
             _http = http;
         }
 
-        public async Task<ApplicantDto> LoginAsync(string email, string password)
+        public async Task<ApplicantDto?> LoginAsync(string email, string password)
         {
             // Simplified - in real app, implement proper authentication
             var response = await _http.PostAsJsonAsync("Auth/Login", new { email, password });

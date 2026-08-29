@@ -14,26 +14,26 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<List<RecruiterDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<RecruiterDto>>("recruiters") ?? new List<RecruiterDto>();
+            return await _http.GetListAsync<RecruiterDto>("recruiters");
         }
 
         public async Task<RecruiterDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<RecruiterDto>($"recruiters/RecruiterGetById/{id}");
+            return await _http.GetRequiredAsync<RecruiterDto>($"recruiters/RecruiterGetById/{id}");
         }
 
         public async Task<RecruiterDto> CreateAsync(RecruiterDto recruiter)
         {
             var response = await _http.PostAsJsonAsync("recruiters/RecruiterAdd", recruiter);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<RecruiterDto>();
+            return await response.Content.ReadRequiredAsync<RecruiterDto>("recruiters/RecruiterAdd");
         }
 
         public async Task<RecruiterDto> UpdateAsync(string id, RecruiterDto recruiter)
         {
             var response = await _http.PatchAsJsonAsync($"recruiters/{id}", recruiter);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<RecruiterDto>();
+            return await response.Content.ReadRequiredAsync<RecruiterDto>($"recruiters/{id}");
         }
 
         public async Task DeleteAsync(string id)

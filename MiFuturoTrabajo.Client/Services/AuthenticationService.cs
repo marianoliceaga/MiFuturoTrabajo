@@ -194,7 +194,7 @@ namespace MiFuturoTrabajo.Client.Services
 
                 if (response.IsSuccessStatusCode)
                 {
-                    return await response.Content.ReadFromJsonAsync<UserDto>();
+                    return await response.Content.ReadRequiredAsync<UserDto>("(unknown)");
                 }
 
                 return null;

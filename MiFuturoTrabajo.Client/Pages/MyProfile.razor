@@ -242,14 +242,14 @@
 }
 
 @code {
-    private ApplicantDto applicant;
+    private ApplicantDto applicant = new();
     private bool isLoading = true;
     private bool isEditing = false;
     private bool showCVUploadModal = false;
     private bool showReferenceModal = false;
     private bool isUploading = false;
     private string newCVName = "";
-    private IBrowserFile selectedFile;
+    private IBrowserFile? selectedFile;
     private JobReferenceDto newReference = new();
 
     protected override async Task OnInitializedAsync()

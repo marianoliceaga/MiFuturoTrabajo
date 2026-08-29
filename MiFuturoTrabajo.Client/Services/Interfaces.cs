@@ -85,7 +85,7 @@ namespace MiFuturoTrabajo.Client.Services
 
     public interface IAuthService
     {
-        Task<ApplicantDto> LoginAsync(string email, string password);
+        Task<ApplicantDto?> LoginAsync(string email, string password);
         Task LogoutAsync();
         Task<bool> IsAuthenticatedAsync();
         Task<string> GetCurrentApplicantIdAsync();
@@ -93,9 +93,9 @@ namespace MiFuturoTrabajo.Client.Services
 
     public class StateContainer
     {
-        private ApplicantDto _currentApplicant;
+        private ApplicantDto? _currentApplicant;
 
-        public ApplicantDto CurrentApplicant
+        public ApplicantDto? CurrentApplicant
         {
             get => _currentApplicant;
             set
@@ -105,7 +105,7 @@ namespace MiFuturoTrabajo.Client.Services
             }
         }
 
-        public event Action OnChange;
+        public event Action? OnChange;
 
         private void NotifyStateChanged() => OnChange?.Invoke();
     }

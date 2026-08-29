@@ -73,7 +73,7 @@
     public bool IsVisible { get; set; }
 
     [Parameter]
-    public CompanyDto Company { get; set; }
+    public CompanyDto Company { get; set; } = default!;
 
     [Parameter]
     public EventCallback<CompanyDto> OnCompanySaved { get; set; }
@@ -82,7 +82,7 @@
     public EventCallback OnCancel { get; set; }
 
     [Parameter]
-    public string InitialName { get; set; }
+    public string InitialName { get; set; } = string.Empty;
 
     private bool IsEditMode => Company != null && !string.IsNullOrEmpty(Company.Id);
     private CompanyDto currentCompany = new();

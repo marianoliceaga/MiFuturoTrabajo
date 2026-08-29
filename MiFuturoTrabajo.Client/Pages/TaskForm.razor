@@ -84,7 +84,7 @@
 
 @code {
     [Parameter]
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
 
     private ApplicantTaskDto task = new();
     private List<JobApplicationDto> applications = new();
@@ -109,7 +109,7 @@
                 applications = await appsTask;
                 // Set defaults
                 var applicant = await ApplicantService.GetCurrentApplicantAsync();
-                task.ApplicantId = applicant?.Id;
+                task.ApplicantId = applicant?.Id ?? string.Empty;
                 task.Deadline = DateTime.Today;
                 task.StartDate = DateTime.Today;
             }

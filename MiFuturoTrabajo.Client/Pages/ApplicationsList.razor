@@ -400,7 +400,7 @@
         NavigationManager.NavigateTo("/applications/new");
     }
 
-    [Inject] private IJSRuntime JSRuntime { get; set; }
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 }
 
 <style>

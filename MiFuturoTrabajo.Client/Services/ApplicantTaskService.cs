@@ -14,7 +14,7 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<List<ApplicantTaskDto>> GetAllAsync()
         {
-            return await _http.GetFromJsonAsync<List<ApplicantTaskDto>>("applicanttask") ?? new List<ApplicantTaskDto>();
+            return await _http.GetListAsync<ApplicantTaskDto>("applicanttask");
         }
 
         public async Task<List<ApplicantTaskDto>> GetByApplicantAsync(string applicantId)
@@ -25,21 +25,21 @@ namespace MiFuturoTrabajo.Client.Services
 
         public async Task<ApplicantTaskDto> GetByIdAsync(string id)
         {
-            return await _http.GetFromJsonAsync<ApplicantTaskDto>($"applicanttask/ApplicantTaskGetById/{id}");
+            return await _http.GetRequiredAsync<ApplicantTaskDto>($"applicanttask/ApplicantTaskGetById/{id}");
         }
 
         public async Task<ApplicantTaskDto> CreateAsync(ApplicantTaskDto task)
         {
             var response = await _http.PostAsJsonAsync("applicanttask/ApplicantTaskAdd", task);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ApplicantTaskDto>();
+            return await response.Content.ReadRequiredAsync<ApplicantTaskDto>("applicanttask/ApplicantTaskAdd");
         }
 
         public async Task<ApplicantTaskDto> UpdateAsync(string id, ApplicantTaskDto task)
         {
             var response = await _http.PatchAsJsonAsync($"applicanttask/{id}", task);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ApplicantTaskDto>();
+            return await response.Content.ReadRequiredAsync<ApplicantTaskDto>($"applicanttask/{id}");
         }
 
         public async Task DeleteAsync(string id)

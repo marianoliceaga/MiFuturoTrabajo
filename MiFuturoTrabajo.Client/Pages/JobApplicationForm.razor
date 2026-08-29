@@ -288,7 +288,7 @@
 
 @code {
     [Parameter]
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
 
     private JobApplicationDto application = new();
     private List<CompanyDto> companySuggestions = new();
@@ -298,7 +298,7 @@
     private string labelsString = "";
     private bool isSaving = false;
     private bool showCompanyModal = false;
-    private CompanyDto editingCompany = null;
+    private CompanyDto? editingCompany = null;
     private bool IsNew => string.IsNullOrEmpty(Id);
 
     protected override async Task OnInitializedAsync()

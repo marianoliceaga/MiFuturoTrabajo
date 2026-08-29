@@ -74,7 +74,7 @@
 @code {
     private List<BoardColumnDto> boardColumns = new();
     private bool isLoading = true;
-    private JobApplicationDto draggedApplication;
+    private JobApplicationDto? draggedApplication;
     private JobApplicationStatus? dragOverColumn;
 
     protected override async Task OnInitializedAsync()
