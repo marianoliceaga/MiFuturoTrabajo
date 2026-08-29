@@ -132,7 +132,10 @@ When deploying to Azure App Service, configure these as Application Settings:
 
 ### Prerequisites
 - .NET 8.0 SDK
-- Azure Cosmos DB Emulator (for local development) or Azure Cosmos DB account
+- Azurite for blob storage (`npx azurite`)
+
+No Cosmos emulator: local development uses the EF InMemory provider by default
+(`Persistence:Provider`). See [docs/local-setup.md](../docs/local-setup.md).
 
 ### Steps
 
@@ -208,7 +211,10 @@ The API is configured to allow requests from the Blazor client. Update the `Blaz
 1. **HttpTrigger → Controller Actions**: Azure Functions converted to standard MVC controller actions
 2. **HttpRequestData → ControllerBase**: Using ASP.NET Core's built-in request/response handling
 3. **Anonymous AuthorizationLevel → [Authorize] Attribute**: Cleaner authorization model
-4. **Timer Functions**: Can be converted to Background Services if needed (commented out in Program.cs)
+4. **Timer Functions**: moved to their own app, `MiFuturoTrabajo.Functions`, on a
+   Consumption plan. App Service Free has no Always On, so a polling
+   `BackgroundService` inside this API stops firing when the site unloads -
+   silently. See [ADR 0003](../docs/decisions/0003-reminders-as-functions.md).
 
 ### What Stayed the Same
 1. All business logic and data access
@@ -233,9 +239,10 @@ The API is configured to allow requests from the Blazor client. Update the `Blaz
 
 - The API maintains backward compatibility with the Azure Functions endpoints
 - All custom routes (like `CompanyGetById`, `RecruiterAdd`) are preserved for client compatibility
-- Timer Functions for email reminders are currently disabled (commented out in Program.cs)
+- Email reminders run as timer triggers in `MiFuturoTrabajo.Functions`, not here
 - No dependencies on Azure Functions runtime - pure ASP.NET Core
 
 ## Support
 
-For issues or questions, please refer to the main project documentation in [CLAUDE.md](../CLAUDE.md).
+See the [main README](../README.md), [architecture notes](../docs/architecture.md)
+and the [ADRs](../docs/decisions/).

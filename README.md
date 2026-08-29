@@ -1,396 +1,237 @@
-# MiFuturoTrabajo - Job Application Tracker
+# MiFuturoTrabajo
 
-A comprehensive job application tracking system built with Blazor WebAssembly and ASP.NET Core Web API, featuring custom JWT authentication with OAuth support (Google, Microsoft) and Azure Cosmos DB storage.
+A job-application tracker: Kanban board, companies, recruiters, interviews, tasks, and CV versions. Blazor WebAssembly front end, ASP.NET Core API, Azure Cosmos DB, and two Azure Functions timer triggers for reminders.
 
-## Project Structure
+**[Live demo](https://ambitious-coast-084594d03.7.azurestaticapps.net)** · `demo@mifuturotrabajo.app` / `DemoAccount2026!`
+
+The demo account is seeded with a realistic three-month job hunt. Its credentials are meant to be public; per-user quotas cap what anyone can do with it.
+
+> The API runs on App Service **F1 Free**, which has no Always On. If the site has been idle for ~20 minutes the first request takes a few seconds while it wakes up.
+
+---
+
+## What actually works
+
+Everything listed here has been exercised against the deployed environment, not only locally.
+
+| | |
+|---|---|
+| Job applications | Kanban board with drag-and-drop across 8 statuses, list view, soft delete |
+| Companies & recruiters | Full CRUD, scoped per user |
+| Interviews | Meetings with per-meeting email reminder lead times |
+| Tasks | Deadlines, completion, daily reminder digest |
+| CV versions | Real file upload to Blob Storage, expiring download links, default selection |
+| Job references | Past employment, embedded in the applicant document |
+| Auth | Email/password with BCrypt, refresh tokens, account lockout, Google and Microsoft sign-in |
+| Email | Verification and password reset via Azure Communication Services |
+| Abuse control | Rate limiting on auth and per-user, plus per-user storage quotas |
+
+### Known limitations
+
+Stated plainly, because a README that hides these is worse than one that admits them.
+
+- **Transactional email does not send yet.** The ACS domain `ideapixel.com.ar` is provisioned but its DNS records (DKIM, SPF, domain verification) have not been added at the registrar, so every check reads `NotStarted`. Registration and password reset both succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives.
+- **Microsoft sign-in will fail in the browser.** The Entra app registration has its redirect URIs on the `Web` platform; MSAL.js v2 redeems tokens cross-origin with PKCE and requires the `SPA` platform, so it returns `AADSTS9002326`. Server-side token validation is implemented and tested; the registration needs one change.
+- **Google sign-in is untested against the deployed origin.** It needs that origin added as an authorised JavaScript origin in the Google console.
+- **Cosmos runs on serverless, not the free tier.** The free-tier slot in this subscription had not released when the deployment ran. Serverless costs cents per month at this volume; switching means creating a new account, since billing mode cannot be changed in place.
+- **CI/CD is written but not connected.** The workflows exist and pass locally; the repository variables, secrets and OIDC federated credential described in [`infra/README.md`](infra/README.md) have not been set, so deployment is currently manual.
+
+---
+
+## Architecture
 
 ```
-MiFuturoTrabajo/
-├── MiFuturoTrabajo.Client/              # Blazor WebAssembly Frontend
-├── MiFuturoTrabajo.Api/                 # ASP.NET Core Web API Backend
-├── MiFuturoTrabajo.Infrastructure/      # EF Core & Data Access Layer
-├── MiFuturoTrabajo.Shared/              # DTOs, Models & Enums
-├── MiFuturoTrabajo.Tests.Unit/          # Unit Tests (xUnit)
-├── MiFuturoTrabajo.Tests.Integration/   # Integration Tests (xUnit)
-└── README.md                        # This file
+Blazor WebAssembly  ──HTTPS──>  ASP.NET Core API  ──>  Cosmos DB (7 containers)
+(Static Web Apps)                (App Service F1)  ──>  Blob Storage (CV files)
+                                                   ──>  Communication Services (email)
+
+Azure Functions (Consumption)  ──>  Cosmos DB
+  TaskReminders       daily 08:00 UTC
+  InterviewReminders  every 15 minutes
 ```
 
-## Features
+Projects:
 
-### Frontend (Blazor WebAssembly)
-- ✅ Job Application Management (Kanban Board & List View with drag-and-drop)
-- ✅ Company Management
-- ✅ Recruiter Contacts
-- ✅ Interview Scheduling (Meetings)
-- ✅ Task Management
-- ✅ Profile & CV Management (Multiple CV versions with upload)
-- ✅ Job References Management
-- ✅ Authentication (Email/Password + Google OAuth + Microsoft OAuth)
-- ✅ User Logout with Token Revocation
+```
+MiFuturoTrabajo.Client/             Blazor WebAssembly front end
+MiFuturoTrabajo.Api/                ASP.NET Core Web API
+MiFuturoTrabajo.Functions/          Reminder timer triggers (isolated worker)
+MiFuturoTrabajo.Infrastructure/     EF Core, entities, email, reminder logic
+MiFuturoTrabajo.Shared/             DTOs and enums, shared by client and API
+MiFuturoTrabajo.Tests.Unit/         104 tests
+MiFuturoTrabajo.Tests.Integration/  92 tests
+infra/                              Bicep templates
+```
 
-### Backend (ASP.NET Core Web API)
-- ✅ Complete CRUD APIs for all entities (8 controllers)
-- ✅ Custom JWT Token Authentication
-- ✅ OAuth Integration (Google & Microsoft)
-- ✅ Password Reset & Recovery
-- ✅ Email Verification (skeleton implemented)
-- ✅ Account Lockout (5 failed attempts)
-- ✅ Token Refresh Mechanism
-- ✅ User Data Isolation (multi-tenant ready)
-- ✅ EF Core with Cosmos DB
-- ✅ Swagger/OpenAPI Documentation
+`Api` references `Infrastructure` and `Shared` only. `Functions` references the same two — email and reminder logic live in `Infrastructure` precisely so both hosts can share them without a web project in the middle.
 
-### Testing
-- ✅ Comprehensive Unit Tests
-  - Service layer tests (JWT, Password Hashing, Mapping)
-  - Controller tests (AuthController with mocked dependencies)
-- ✅ Comprehensive Integration Tests
-  - End-to-end authentication flow tests
-  - Full CRUD operations for all entities
-  - Kanban board functionality tests
-  - WebApplicationFactory-based testing
+For the reasoning behind the significant decisions, see [`docs/architecture.md`](docs/architecture.md) and the ADRs in [`docs/decisions/`](docs/decisions/).
 
-### Security
-- ✅ Custom JWT Authentication
-- ✅ BCrypt Password Hashing
-- ✅ OAuth 2.0 / OpenID Connect (Google, Microsoft)
-- ✅ JWT Token Validation & Refresh
-- ✅ Token Revocation on Logout
-- ✅ Account Lockout Protection
-- ✅ User Data Isolation
+### Cosmos DB schema
 
-## Technology Stack
+Seven containers. Aggregates are embedded rather than joined, because **the EF Core Cosmos provider cannot join across containers** — so every read is a single-partition query.
 
-- **.NET 8**
-- **Blazor WebAssembly**
-- **ASP.NET Core Web API** (NOT Azure Functions)
-- **Entity Framework Core**
-- **Azure Cosmos DB** (or Cosmos DB Emulator for local development)
-- **Custom JWT Authentication** (NOT Microsoft Entra)
-- **Google.Apis.Auth** (Google OAuth)
-- **Microsoft.Identity.Client** (Microsoft OAuth)
-- **BCrypt.Net-Next** (Password Hashing)
-- **xUnit** (Testing Framework)
-- **Moq** (Mocking Framework)
+| Container | Partition key | Embedded |
+|---|---|---|
+| `Users` | `/Email` | — |
+| `Applicants` | `/UserId` | `CVVersions`, `PastJobReferences` |
+| `JobApplications` | `/ApplicantId` | `InterviewSteps`, `Company` snapshot, `Notes`, `Labels`, `RecruiterIds` |
+| `Meetings` | `/ApplicantId` | `RecruiterIds` |
+| `ApplicantTasks` | `/ApplicantId` | — |
+| `Companies` | `/UserId` | `Labels` |
+| `Recruiters` | `/UserId` | — |
 
-## Database Entities
+The `Company` snapshot on a job application is a deliberate denormalisation: the board needs a company name on every card and Cosmos cannot join. A company rename fans out across that user's applications, bounded by one single-partition query.
 
-The application manages 12 entities:
+### Job application statuses
 
-1. **User** - Authentication and user accounts
-2. **Applicant** - User profile information
-3. **Company** - Companies where jobs are applied
-4. **Recruiter** - Recruiter contacts
-5. **JobApplication** - Job applications with status tracking
-6. **Meeting** - Interviews and meetings
-7. **ApplicantTask** - Tasks and follow-ups
-8. **CVVersion** - Multiple CV versions per applicant
-9. **JobReference** - Past job references
-10. **InterviewStep** - Interview process stages
-11. **JobApplicationRecruiter** - Many-to-many relationship
-12. **MeetingRecruiter** - Many-to-many relationship
+`NotApplied` · `Applied` · `FirstInterview` · `Meetings` · `Rejected` · `Offer` · `Completed` · `NoResponse`
 
-## Getting Started
+---
+
+## Running locally
 
 ### Prerequisites
 
 - .NET 8 SDK
-- Visual Studio 2022 or VS Code
-- Azure Cosmos DB Emulator (for local development) OR Azure Cosmos DB account
-- Node.js (for Blazor dev server)
+- [Azurite](https://github.com/Azure/Azurite) for blob storage — `npx azurite`
+- No Cosmos emulator needed: local development uses the EF InMemory provider by default
 
 ### Configuration
 
-#### 1. API Backend
-
-Update `MiFuturoTrabajo.Api/appsettings.Development.json`:
-
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "CosmosDb": {
-    "ConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
-    "DatabaseName": "MiFuturoTrabajo"
-  },
-  "Jwt": {
-    "SecretKey": "YourVeryLongSecretKeyHere-MinimumOf32Characters!",
-    "Issuer": "MiFuturoTrabajo",
-    "Audience": "MiFuturoTrabajo.Client",
-    "AccessTokenExpiryMinutes": 60,
-    "RefreshTokenExpiryDays": 7
-  },
-  "OAuth": {
-    "Google": {
-      "ClientId": "your-google-client-id.apps.googleusercontent.com"
-    },
-    "Microsoft": {
-      "ClientId": "your-microsoft-client-id"
-    }
-  },
-  "AzureCommunicationServices": {
-    "ConnectionString": "endpoint=https://your-acs.communication.azure.com/;accesskey=your-key",
-    "SenderAddress": "DoNotReply@your-domain.com"
-  },
-  "AllowedHosts": "*"
-}
-```
-
-#### 2. Blazor Client
-
-Update `MiFuturoTrabajo.Client/wwwroot/appsettings.json`:
-
-```json
-{
-  "ApiBaseUrl": "https://localhost:5011/api/"
-}
-```
-
-### Running Locally
-
-#### 1. Start Cosmos DB Emulator
-Download and run the [Azure Cosmos DB Emulator](https://aka.ms/cosmosdb-emulator)
-
-#### 2. Start API Backend
-```bash
-cd MiFuturoTrabajo.Api
-dotnet run
-```
-
-The API will be available at `https://localhost:5011`
-Swagger UI: `https://localhost:5011/swagger`
-
-#### 3. Start Blazor Client
-```bash
-cd MiFuturoTrabajo.Client
-dotnet run
-```
-
-The app will be available at `https://localhost:5001`
-
-### Running Tests
-
-#### Unit Tests
-```bash
-cd MiFuturoTrabajo.Tests.Unit
-dotnet test
-```
-
-#### Integration Tests
-```bash
-cd MiFuturoTrabajo.Tests.Integration
-dotnet test
-```
-
-#### All Tests
-```bash
-dotnet test
-```
-
-### Building for Production
+Secrets go in user-secrets, not in a file:
 
 ```bash
-dotnet build -c Release
+dotnet user-secrets --project MiFuturoTrabajo.Api set "Jwt:SecretKey" "$(openssl rand -base64 48)"
 ```
 
-## API Endpoints
+`appsettings.Development.json` holds the non-secret defaults and is committed. It sets `Persistence:Provider` to `InMemory`; set it to `Cosmos` and supply `CosmosDb:ConnectionString` to run against a real account.
 
-All endpoints require JWT Bearer token authentication (except auth endpoints).
+With no `AzureCommunicationServices` configured, email is not sent — instead the verification and reset **links are written to the API log**, which is where to look when testing those flows locally.
 
-### Authentication (`/api/auth`)
-- `POST /api/auth/register` - Register new user (Email/Password)
-- `POST /api/auth/login` - Login (Email/Password)
-- `POST /api/auth/logout` - Logout and revoke refresh token (NEW!)
-- `POST /api/auth/oauth-login` - OAuth login (Google/Microsoft)
-- `POST /api/auth/refresh` - Refresh access token
-- `GET /api/auth/me` - Get current user profile
-- `POST /api/auth/change-password` - Change password
-- `POST /api/auth/forgot-password` - Request password reset
-- `POST /api/auth/reset-password` - Reset password with token
-- `POST /api/auth/send-verification` - Send email verification
-- `POST /api/auth/verify-email` - Verify email with token
+### Run
 
-### Companies (`/api/companies`)
-- `GET /api/companies` - Get all companies
-- `GET /api/companies/{id}` - Get company by ID
-- `POST /api/companies` - Create company
-- `PUT /api/companies/{id}` - Update company
-- `DELETE /api/companies/{id}` - Delete company
-
-### Recruiters (`/api/recruiters`)
-- `GET /api/recruiters` - Get all recruiters
-- `GET /api/recruiters/{id}` - Get recruiter by ID
-- `POST /api/recruiters` - Create recruiter
-- `PUT /api/recruiters/{id}` - Update recruiter
-- `DELETE /api/recruiters/{id}` - Delete recruiter
-
-### Job Applications (`/api/jobapplications`)
-- `GET /api/jobapplications` - Get all job applications
-- `GET /api/jobapplications/{id}` - Get application by ID
-- `GET /api/jobapplications/board` - Get Kanban board view
-- `POST /api/jobapplications` - Create application
-- `PUT /api/jobapplications/{id}` - Update application
-- `PUT /api/jobapplications/{id}/status` - Update application status (for Kanban)
-- `DELETE /api/jobapplications/{id}` - Delete application
-
-### Meetings (`/api/meetings`)
-- `GET /api/meetings` - Get all meetings
-- `GET /api/meetings/{id}` - Get meeting by ID
-- `POST /api/meetings` - Create meeting
-- `PUT /api/meetings/{id}` - Update meeting
-- `DELETE /api/meetings/{id}` - Delete meeting
-
-### Applicant Tasks (`/api/applicanttasks`)
-- `GET /api/applicanttasks` - Get all tasks
-- `GET /api/applicanttasks/{id}` - Get task by ID
-- `POST /api/applicanttasks` - Create task
-- `PUT /api/applicanttasks/{id}` - Update task
-- `DELETE /api/applicanttasks/{id}` - Delete task
-
-### CV Versions (`/api/cvversions`)
-- `GET /api/cvversions` - Get all CV versions
-- `GET /api/cvversions/{id}` - Get CV version by ID
-- `POST /api/cvversions` - Create CV version
-- `PUT /api/cvversions/{id}` - Update CV version
-- `PUT /api/cvversions/{id}/default` - Set as default CV
-- `DELETE /api/cvversions/{id}` - Delete CV version
-
-### Applicant (`/api/applicant`)
-- `GET /api/applicant` - Get applicant profile
-- `POST /api/applicant` - Create/Update applicant profile
-- `POST /api/applicant/cv` - Upload CV (Note: Currently accepts URL string)
-- `POST /api/applicant/reference` - Add job reference
-- `DELETE /api/applicant/reference/{id}` - Delete job reference
-
-## Job Application Statuses (Kanban Columns)
-
-1. **NotApplied** - Job saved but not yet applied
-2. **Applied** - Application submitted
-3. **FirstInterview** - First round interview
-4. **Meetings** - Additional interview rounds
-5. **Rejected** - Application rejected
-6. **Offer** - Job offer received
-7. **Completed** - Process completed (accepted/declined)
-8. **NoResponse** - No response from company
-
-## Database Schema (Cosmos DB)
-
-The application uses Azure Cosmos DB with the following containers:
-
-- **Users** (Partition Key: id) - Authentication
-- **Applicants** (Partition Key: UserId)
-- **Companies** (Partition Key: UserId)
-- **Recruiters** (Partition Key: UserId)
-- **JobApplications** (Partition Key: ApplicantId)
-- **Meetings** (Partition Key: ApplicantId)
-- **ApplicantTasks** (Partition Key: ApplicantId)
-- **CVVersions** (Partition Key: ApplicantId)
-- **JobReferences** (Partition Key: ApplicantId)
-- **InterviewSteps** (Partition Key: JobApplicationId)
-- **JobApplicationRecruiters** (Partition Key: JobApplicationId)
-- **MeetingRecruiters** (Partition Key: MeetingId)
-
-## OAuth Setup
-
-For detailed OAuth setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md)
-
-### Quick OAuth Setup
-
-1. **Google OAuth:**
-   - Create project at [Google Cloud Console](https://console.cloud.google.com)
-   - Enable Google+ API
-   - Create OAuth 2.0 Client ID
-   - Add authorized redirect URIs
-   - Copy Client ID to appsettings.json
-
-2. **Microsoft OAuth:**
-   - Register app at [Azure Portal](https://portal.azure.com)
-   - Add redirect URIs
-   - Copy Application (client) ID to appsettings.json
-
-## Deployment
-
-### API Backend
-Deploy to Azure App Service:
 ```bash
-cd MiFuturoTrabajo.Api
-dotnet publish -c Release
+npx azurite
 ```
 
-### Blazor WebAssembly
-Deploy to Azure Static Web Apps or any static hosting:
 ```bash
-cd MiFuturoTrabajo.Client
-dotnet publish -c Release
+dotnet run --project MiFuturoTrabajo.Api
 ```
-Deploy the `bin/Release/net8.0/publish/wwwroot` folder.
 
-## Development Notes
+```bash
+dotnet run --project MiFuturoTrabajo.Client
+```
 
-### Recent Updates (Current Version)
-- ✅ Added logout endpoint with token revocation
-- ✅ Created comprehensive unit test suite (3 test files, 50+ tests)
-- ✅ Created comprehensive integration test suite (3 test files, 30+ tests)
-- ✅ Added WebApplicationFactory for integration testing
-- ✅ All CRUD operations fully tested
-- ✅ Authentication flows fully tested
-- ✅ Kanban board functionality fully tested
+| | |
+|---|---|
+| API | `https://localhost:7071` |
+| Swagger | `https://localhost:7071/swagger` |
+| Client | `https://localhost:5011` |
 
-### Architecture Highlights
-- **Clean Architecture**: Separation of concerns across layers
-- **Direct EF Core usage**: No repository pattern for simplicity
-- **JWT-based authentication**: Custom implementation with refresh tokens
-- **OAuth Integration**: Google and Microsoft sign-in
-- **User Isolation**: All data scoped to authenticated user
-- **Cosmos DB NoSQL**: Cloud-native scalability
+### Reminder functions
 
-### Known Limitations
-- Email reminder services exist but are currently disabled (commented out in Program.cs)
-- CV file upload accepts URL strings only (no actual file storage implementation yet)
-- Email verification implemented as skeleton (emails not actually sent)
+```bash
+cd MiFuturoTrabajo.Functions
+cp local.settings.json.example local.settings.json
+func start
+```
 
-## Testing Coverage
-
-### Unit Tests
-- **PasswordHasherTests**: BCrypt hashing and verification (7 tests)
-- **JwtServiceTests**: Token generation and validation (14 tests)
-- **MappingServiceTests**: DTO-Entity mappings (15 tests)
-- **AuthControllerTests**: Authentication endpoints (12 tests)
-
-### Integration Tests
-- **AuthenticationFlowTests**: Complete auth flows (12 tests)
-- **JobApplicationCrudTests**: All entity CRUD operations (8 tests)
-- **KanbanBoardTests**: Board view and status updates (12 tests)
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for new features
-4. Ensure all tests pass: `dotnet test`
-5. Commit your changes
-6. Push to the branch
-7. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see [LICENSE.txt](LICENSE.txt)
-
-## Changelog
-
-### Current Version
-- ASP.NET Core Web API (NOT Azure Functions)
-- Custom JWT Authentication (NOT Microsoft Entra)
-- OAuth support (Google, Microsoft)
-- Comprehensive test suite
-- Token revocation on logout
-- Kanban board with drag-and-drop
-- Complete CRUD for all entities
+`local.settings.json` is gitignored — it holds connection strings. The Functions app has no InMemory option: pointed at an empty throwaway database it would read nothing and mail nobody, which looks exactly like working correctly.
 
 ---
 
-**Built with ❤️ using Blazor WebAssembly and ASP.NET Core**
+## Tests
+
+```bash
+dotnet test
+```
+
+**196 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, and a capturing mail service.
+
+| Unit (104) | | Integration (92) | |
+|---|---|---|---|
+| `ReminderServiceTests` | 19 | `EmailAndTokenSecurityTests` | 19 |
+| `CvFileValidatorTests` | 17 | `OAuthSecurityTests` | 13 |
+| `JwtServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
+| `MappingServiceTests` | 15 | `AuthenticationFlowTests` | 12 |
+| `AuthControllerTests` | 14 | `CvUploadTests` | 11 |
+| `SecurityTokensTests` | 14 | `JobApplicationCrudTests` | 10 |
+| `PasswordHasherTests` | 10 | `KanbanBoardTests` | 10 |
+| | | `QuotaEnforcementTests` | 2 |
+| | | `RateLimiterTests` | 2 |
+
+Several of these exist because they caught something real: `EmailAndTokenSecurityTests` reproduces an account-takeover path that used to work, and `OAuthSecurityTests` forges Microsoft tokens against a validator that used to accept them.
+
+---
+
+## API
+
+Routes follow the controller names, which are a mix of REST and RPC-style actions. This is what the code does, not what a tidier design would do.
+
+### Auth — `/api/Auth`
+
+| | |
+|---|---|
+| `POST /register` | Create an account; sends a verification email |
+| `POST /login` | Email and password |
+| `POST /logout` | Revokes the refresh token |
+| `POST /refresh` | New access token |
+| `GET /me` | Current user |
+| `POST /oauth-login` | Google or Microsoft ID token |
+| `POST /change-password` | |
+| `POST /forgot-password` | Always returns the same neutral message |
+| `POST /reset-password` | Email + token + new password |
+| `POST /send-verification` | Resend |
+| `POST /verify-email` | Email + token |
+
+Rate limited to 10 requests per minute per client address.
+
+### Everything else
+
+All limited to 120 requests per minute per user.
+
+| Area | Base | Notable routes |
+|---|---|---|
+| Job applications | `/api/JobApplication` | `GET /board`, `PATCH /{id}/status`, `POST /JobApplicationAdd` |
+| Companies | `/api/Companies` | `POST /CompanyAdd`, `GET /CompanyGetById/{id}` |
+| Recruiters | `/api/Recruiters` | `POST /RecruiterAdd` |
+| Meetings | `/api/Meeting` | `POST /MeetingAdd` |
+| Tasks | `/api/ApplicantTask` | `POST /ApplicantTaskAdd` |
+| CV versions | `/api/CVVersion` | `POST /upload` (multipart), `GET /{id}/download` |
+| Applicant | `/api/Applicant` | `GET /current`, `POST /UploadCV`, `GET /CV/{cvId}/download` |
+| Health | `/health` | Anonymous |
+
+Updates are `PATCH`, not `PUT`. A CV download returns a **short-lived link**, not the file — the blob container is private and the URL expires in 15 minutes.
+
+### Quotas
+
+Per account: 200 job applications · 100 companies · 100 recruiters · 300 meetings · 300 tasks · 10 CV versions. Exceeding one returns `429` with a message naming the limit.
+
+---
+
+## Deployment
+
+Infrastructure is Bicep, in [`infra/`](infra/). See [`infra/README.md`](infra/README.md) for what it costs, what has to be set by hand, and why.
+
+```bash
+az deployment group create -g <rg> -f infra/main.bicep -p infra/main.bicepparam
+```
+
+Everything sits on a free tier or a consumption grant except Blob Storage and Communication Services, which cost cents per month at demo volume. A $5 budget alert is part of the template and should never fire.
+
+The Function App deploys into a **separate resource group**: Azure will not create a Linux Consumption plan in a group that already holds a Linux Free/Basic plan.
+
+---
+
+## OAuth setup
+
+See [`OAUTH_SETUP.md`](OAUTH_SETUP.md). The short version: client IDs are public and live in `MiFuturoTrabajo.Client/wwwroot/appsettings.json`; what protects the registration is the redirect-URI allowlist plus signature validation on the API side.
+
+Microsoft redirect URIs must be registered under **SPA**, not **Web**.
+
+---
+
+## License
+
+MIT — see [LICENSE.txt](LICENSE.txt).

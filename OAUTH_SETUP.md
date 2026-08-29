@@ -1,394 +1,156 @@
-# OAuth Hybrid Authentication Setup Guide
+# OAuth setup
 
-## Overview
+Google and Microsoft sign-in, hybrid: the provider proves who you are, this API issues its own JWT. Provider tokens are never used as session tokens.
 
-MiFuturoTrabajo.Api implements a hybrid authentication system that combines:
-- **External OAuth Providers** (Google, Microsoft) for user login
-- **Internal JWT Tokens** for API authentication
+> **If you have read an older version of this file, re-read the redirect URIs below.** The previous version specified `https://localhost:5001/authentication/login-callback` — the wrong port *and* the wrong path. Registering that is why Microsoft sign-in currently fails.
 
-This approach allows users to login with their existing Google/Microsoft accounts while the API uses its own JWT tokens for authorization, eliminating the need for Microsoft Entra B2C or other external authentication infrastructure.
+---
 
-## Architecture
+## The flow
 
 ```
-┌─────────────┐      OAuth Token       ┌──────────────┐
-│   Browser   │ ──────────────────────> │   Google/    │
-│   (Blazor)  │ <────────────────────── │  Microsoft   │
-└─────────────┘      ID Token           └──────────────┘
-       │
-       │ POST /api/auth/oauth-login
-       │ { provider, idToken }
-       ▼
-┌─────────────┐                        ┌──────────────┐
-│  API Server │ ───── Validate ──────> │ OAuthService │
-│             │ <──── User Info ────── │              │
-└─────────────┘                        └──────────────┘
-       │
-       │ Find/Create User
-       │ Generate Internal JWT
-       ▼
-┌─────────────┐
-│  Client     │ ◄──── Access Token ────┐
-│ (Stored JWT)│       Refresh Token     │
-└─────────────┘                         │
-       │                                │
-       │ All subsequent API calls       │
-       │ Authorization: Bearer <JWT>    │
-       └────────────────────────────────┘
+Browser ──> Google / Entra          user signs in
+        <── ID token
+        ──> POST /api/Auth/oauth-login  { idToken, provider }
+                    │
+                    ├─ verify the signature against the provider's published keys
+                    ├─ check audience, issuer, expiry
+                    ├─ find or create the user
+        <───────────┴─ this API's own access + refresh token
 ```
 
-## Configuration
+The provider's token is validated and discarded. Everything afterwards uses this application's JWT, exactly as email/password sign-in does.
 
-### 1. API Configuration (appsettings.json)
+---
 
-Add the following OAuth configuration section:
+## The redirect URIs, which are the part people get wrong
+
+The Blazor client calls `window.location.origin + '/login-callback'`. So the URIs to register are:
+
+| Environment | URI |
+|---|---|
+| Local | `http://localhost:5011/login-callback` |
+| Deployed | `https://ambitious-coast-084594d03.7.azurestaticapps.net/login-callback` |
+
+Two mistakes to avoid, both of which have already been made in this project:
+
+- **Not `/authentication/login-callback`.** That is the path from the Blazor WASM MSAL project template. This app does not use it.
+- **Not port 5001.** The client's HTTPS profile is **5011**; 5001 is its HTTP fallback.
+
+### Microsoft: SPA, not Web
+
+The app uses `msal.PublicClientApplication` — MSAL.js v2 — which redeems the authorization code **cross-origin with PKCE**. That requires the redirect URI to be registered under the **Single-page application** platform.
+
+Registered under **Web**, sign-in fails with:
+
+```
+AADSTS9002326: Cross-origin token redemption is permitted only for the
+'Single-Page Application' client-type.
+```
+
+```bash
+az ad app update --id <client-id> --set spa.redirectUris="['http://localhost:5011/login-callback','https://<your-static-web-app>/login-callback']"
+```
+
+---
+
+## Google
+
+1. [Google Cloud Console](https://console.cloud.google.com) → new project.
+2. **APIs & Services → OAuth consent screen.** External. Add your email as a test user while it is unpublished.
+3. **Credentials → Create credentials → OAuth client ID → Web application.**
+4. **Authorised JavaScript origins** — the origin only, no path:
+   - `http://localhost:5011`
+   - `https://<your-static-web-app>.azurestaticapps.net`
+5. **Authorised redirect URIs** — the two from the table above.
+6. Copy the client ID.
+
+## Microsoft
+
+1. [Azure Portal](https://portal.azure.com) → **Microsoft Entra ID → App registrations → New registration**.
+2. Supported account types: *Accounts in any organizational directory and personal Microsoft accounts* — this is what makes it work for any Microsoft account, and it has a security consequence (see below).
+3. **Authentication → Add a platform → Single-page application.** Add both URIs.
+4. Copy the Application (client) ID.
+
+---
+
+## Where the client IDs go
+
+They are **public values** — half of a pair whose other half never leaves Google or Entra. What protects the registration is the redirect-URI allowlist plus signature validation on the API side, not the secrecy of the ID.
+
+**Client** — `MiFuturoTrabajo.Client/wwwroot/appsettings.json`, fetched at runtime before OAuth initialises, so localhost and the deployed origin differ by configuration rather than by editing markup:
 
 ```json
 {
   "OAuth": {
-    "Google": {
-      "ClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-    },
-    "Microsoft": {
-      "ClientId": "YOUR_MICROSOFT_CLIENT_ID",
-      "TenantId": "common"
-    }
+    "Google":    { "ClientId": "…apps.googleusercontent.com" },
+    "Microsoft": { "ClientId": "…", "Authority": "https://login.microsoftonline.com/common" }
   }
 }
 ```
 
-### 2. Google OAuth Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Navigate to **APIs & Services** > **Credentials**
-4. Click **Create Credentials** > **OAuth 2.0 Client ID**
-5. Configure OAuth consent screen if needed
-6. Application type: **Web application**
-7. Add authorized JavaScript origins:
-   - `https://localhost:5001` (local development)
-   - `https://your-production-domain.com`
-8. Add authorized redirect URIs (for client-side OAuth flow):
-   - `https://localhost:5001/authentication/login-callback`
-   - `https://your-production-domain.com/authentication/login-callback`
-9. Copy the **Client ID** and add to `appsettings.json`
-
-**Important**: You only need the Client ID. The client secret is NOT needed because token validation happens server-side using Google's public keys.
-
-### 3. Microsoft OAuth Setup
-
-1. Go to [Azure Portal](https://portal.azure.com/)
-2. Navigate to **Microsoft Entra ID** (formerly Azure Active Directory)
-3. Go to **App registrations** > **New registration**
-4. Configure:
-   - Name: "MiFuturoTrabajo Client"
-   - Supported account types: **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant) and personal Microsoft accounts**
-   - Redirect URI: **Single-page application (SPA)** - `https://localhost:5001/authentication/login-callback`
-5. After registration, copy the **Application (client) ID**
-6. Under **Authentication**, add additional redirect URIs for production
-7. Under **API permissions**, ensure these are added:
-   - `User.Read` (Microsoft Graph)
-   - `openid`
-   - `profile`
-   - `email`
-8. Add the Client ID to `appsettings.json`
-
-**TenantId Configuration**:
-- Use `"common"` to allow both personal Microsoft accounts and work/school accounts
-- Use specific tenant ID to restrict to a single organization
-
-## Frontend Integration (Blazor)
-
-### 1. Install OAuth Libraries
-
-For Blazor WebAssembly, you'll need to add OAuth libraries:
+**API** — the same IDs, because it validates the `aud` claim against them:
 
 ```bash
-# For Google OAuth
-dotnet add package Microsoft.AspNetCore.Components.WebAssembly.Authentication
-
-# You might also use a JavaScript library via JSInterop
+az webapp config appsettings set -g <rg> -n <api> --settings \
+  "OAuth__Google__ClientId=<id>" \
+  "OAuth__Microsoft__ClientId=<id>" \
+  "OAuth__Microsoft__TenantId=common"
 ```
 
-### 2. Client-Side OAuth Flow
+Locally, put them in `appsettings.Development.json` — they are not secrets.
 
-```csharp
-// Example using Google Sign-In JavaScript library
-// Add to index.html:
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+---
 
-// In your Login.razor component:
-@inject HttpClient Http
-@inject NavigationManager Navigation
+## How tokens are validated
 
-<div id="g_id_onload"
-     data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-     data-callback="handleGoogleResponse">
-</div>
+**Google** — `GoogleJsonWebSignature.ValidateAsync` fetches Google's keys and verifies signature, audience, issuer and lifetime.
 
-@code {
-    [JSInvokable]
-    public async Task HandleGoogleResponse(string idToken)
-    {
-        var request = new OAuthLoginRequest
-        {
-            Provider = OAuthProvider.Google,
-            IdToken = idToken
-        };
+**Microsoft** — OIDC discovery to Entra's JWKS, then `ValidateToken` with `RequireSignedTokens`, audience, lifetime, and a custom issuer validator. The custom validator is necessary because Entra's metadata returns a *templated* issuer (`https://login.microsoftonline.com/{tenantid}/v2.0`), which the stock comparison cannot match for a multi-tenant app. It parses the token's issuer and requires HTTPS, a Microsoft host, and a GUID tenant id in the path.
 
-        var response = await Http.PostAsJsonAsync("/api/auth/oauth-login", request);
+If the keys cannot be fetched, the sign-in is **refused**. An authentication check must fail closed.
 
-        if (response.IsSuccessStatusCode)
-        {
-            var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
-            // Store authResponse.AccessToken and RefreshToken
-            // Redirect to dashboard
-            Navigation.NavigateTo("/dashboard");
-        }
-    }
-}
-```
+> An earlier implementation called `JwtSecurityTokenHandler.ReadJwtToken`, which decodes and verifies **nothing**, then inspected `aud`, `iss` and `exp` from those decoded — that is, caller-supplied — claims. Anyone could mint a token naming any address and sign in as them. `OAuthSecurityTests` forges tokens against the current validator so that cannot return.
 
-### 3. Microsoft OAuth Flow
+---
 
-For Microsoft, you can use MSAL.js:
+## Account linking
 
-```html
-<!-- Add to index.html -->
-<script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+| Case | Result |
+|---|---|
+| New address | Account created |
+| Returning social user | Same account |
+| Different casing of the same address | Same account |
+| Existing password account, provider **verified** the address | Linked; password still works; notification email sent |
+| Existing password account, address **not verified** | **Refused** |
 
-<script>
-const msalConfig = {
-    auth: {
-        clientId: 'YOUR_MICROSOFT_CLIENT_ID',
-        authority: 'https://login.microsoftonline.com/common',
-        redirectUri: window.location.origin + '/authentication/login-callback'
-    }
-};
+That last row is the important one. With `signInAudience` set to any organizational directory plus personal accounts, **anyone can create a tenant, set a user's mail attribute to someone else's address, and obtain a genuinely Microsoft-signed token naming it** — the "nOAuth" pattern. Linking that onto an existing account would be a takeover with a valid signature.
 
-const msalInstance = new msal.PublicClientApplication(msalConfig);
+So Entra's `email` claim is treated as verified only when `xms_edov` says so, or when the app is pinned to a single tenant. Otherwise an unverified address may create a *new* account — nothing to steal — but is refused when one already exists.
 
-async function loginWithMicrosoft() {
-    const loginResponse = await msalInstance.loginPopup({
-        scopes: ['openid', 'profile', 'email']
-    });
+---
 
-    // Send the ID token to your API
-    const idToken = loginResponse.idToken;
+## Testing locally
 
-    // Call your API
-    await fetch('/api/auth/oauth-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            provider: 1, // Microsoft = 2, Google = 1
-            idToken: idToken
-        })
-    });
-}
-</script>
-```
+1. Register both localhost URIs as above.
+2. Run the API and client (see [`docs/local-setup.md`](docs/local-setup.md)).
+3. Sign in with each provider.
 
-## API Endpoints
+Cases worth walking, since they are the ones that break:
 
-### OAuth Login
-
-**POST** `/api/auth/oauth-login`
-
-Request:
-```json
-{
-  "provider": 1,  // 1 = Google, 2 = Microsoft
-  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6..." // ID token from OAuth provider
-}
-```
-
-Response (Success - 200 OK):
-```json
-{
-  "userId": "abc123",
-  "email": "user@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",  // Internal JWT
-  "refreshToken": "def456...",
-  "tokenExpiry": "2025-01-02T14:30:00Z",
-  "applicantId": "xyz789"
-}
-```
-
-Response (Error - 401 Unauthorized):
-```json
-{
-  "error": "Invalid OAuth token or provider"
-}
-```
-
-## How It Works
-
-### OAuth Login Flow
-
-1. **Client-Side OAuth**: User clicks "Sign in with Google/Microsoft" button in Blazor app
-2. **OAuth Provider Authentication**: OAuth provider (Google/Microsoft) handles authentication
-3. **ID Token Received**: Client receives an ID token from the OAuth provider
-4. **Token Sent to API**: Client sends the ID token to `/api/auth/oauth-login`
-5. **Server-Side Validation**: API validates the ID token with the OAuth provider
-6. **User Creation/Lookup**: API finds existing user by email or creates new user
-7. **Internal JWT Generation**: API generates its own JWT access and refresh tokens
-8. **Response**: Client receives internal JWT tokens
-9. **Subsequent Requests**: Client uses internal JWT for all API calls
-
-### Token Validation
-
-#### Google Token Validation
-- Uses `Google.Apis.Auth` library
-- Validates token signature using Google's public keys
-- Verifies audience matches configured Client ID
-- Checks token expiration
-- Extracts user info (email, name, picture, etc.)
-
-#### Microsoft Token Validation
-- Parses JWT token manually
-- Validates audience claim
-- Validates issuer (must be from login.microsoftonline.com)
-- Checks token expiration
-- Extracts user claims (email, name, oid, etc.)
-
-### User Account Linking
-
-The system supports users with multiple authentication methods:
-
-1. **OAuth-Only User**: User created via OAuth, `PasswordHash` is `null`
-2. **Password-Only User**: User created via email/password registration
-3. **Hybrid User**: User can login with both OAuth and password
-   - If OAuth user later sets a password, they can use both methods
-   - If password user later uses OAuth with same email, OAuth info is added
-
-## Security Considerations
-
-### Token Security
-
-- **ID Token Lifetime**: OAuth ID tokens are short-lived (typically 1 hour)
-- **Internal JWT Lifetime**: Access tokens expire in 60 minutes, refresh tokens in 30 days for OAuth users
-- **HTTPS Required**: All OAuth flows must use HTTPS in production
-- **Token Storage**: Store JWT tokens securely (not in localStorage - use secure cookies or sessionStorage)
-
-### Validation
-
-- **Audience Validation**: Ensures tokens are intended for your application
-- **Issuer Validation**: Ensures tokens come from legitimate OAuth providers
-- **Expiration Checking**: Rejects expired tokens
-- **Email Verification**: OAuth providers pre-verify emails, `EmailConfirmed` set to `true`
-
-### Account Security
-
-- **Account Linking**: Accounts are linked by email address
-- **No Password Required**: OAuth-only users don't need passwords
-- **Failed Login Attempts**: Account lockout doesn't apply to OAuth logins
-- **Active Status**: Deactivated accounts cannot login via OAuth
-
-## Testing
-
-### Local Development
-
-1. Configure OAuth providers as described above
-2. Add `https://localhost:5001` to authorized origins/redirect URIs
-3. Update `appsettings.json` with Client IDs
-4. Run the API: `dotnet run --project MiFuturoTrabajo.Api`
-5. Test OAuth login from Blazor client
-
-### Testing with Postman
-
-You can test the OAuth endpoint by:
-
-1. Get a valid ID token from OAuth provider (use their OAuth playground)
-2. Send POST request to `/api/auth/oauth-login`:
-```json
-{
-  "provider": 1,
-  "idToken": "PASTE_VALID_ID_TOKEN_HERE"
-}
-```
-3. Verify you receive internal JWT tokens in response
+- A brand-new address via each provider.
+- The same provider twice — one account, not two.
+- An address that already has a password account — links, password still works.
+- The same address in different casing — one account.
 
 ## Troubleshooting
 
-### "Invalid OAuth token or provider"
+**`AADSTS9002326`** — redirect URI is on the Web platform. It must be SPA.
 
-- Verify the ID token is not expired
-- Check Client ID matches in appsettings.json and OAuth provider configuration
-- Ensure token is for the correct audience
+**`redirect_uri_mismatch`** — the registered URI does not match `origin + /login-callback` exactly. Check the port (5011, not 5001) and the path (no `/authentication` prefix).
 
-### "Account is locked"
+**"Invalid OAuth token or provider"** — the API refused the token. Its log says why: signature, audience, issuer, expiry, or metadata that could not be fetched.
 
-- OAuth login respects account lockout status
-- Check `User.IsLocked` and `User.LockoutEnd` in database
+**Google button does nothing** — `OAuth:Google:ClientId` is empty in the client's `appsettings.json`; the console logs a warning and initialisation stops.
 
-### "Account is deactivated"
-
-- OAuth login respects active status
-- Check `User.IsActive` in database
-
-### CORS Errors
-
-- Ensure Blazor client URL is configured in `BlazorClient:Url`
-- Verify CORS policy in Program.cs allows your frontend origin
-
-## Migration Notes
-
-### Existing Users
-
-If you already have users with email/password authentication:
-
-- They can continue using email/password login
-- If they login via OAuth with the same email, their account will be updated with OAuth info
-- They can then use either method to login
-
-### Database Schema
-
-The following fields were added to the `User` entity:
-
-```csharp
-public string? OAuthProvider { get; set; }      // "Google" or "Microsoft"
-public string? OAuthProviderId { get; set; }    // Provider's unique user ID
-public string? ProfilePictureUrl { get; set; }  // From OAuth profile
-public string? PasswordHash { get; set; }       // Now nullable
-```
-
-No migration required for Cosmos DB - fields are automatically added when users login.
-
-## Production Deployment
-
-### Azure App Service
-
-1. Add OAuth Client IDs to **Application Settings**:
-   - `OAuth__Google__ClientId`
-   - `OAuth__Microsoft__ClientId`
-   - `OAuth__Microsoft__TenantId`
-
-2. Update OAuth provider redirect URIs to production domain
-
-3. Ensure HTTPS is enforced
-
-4. Update CORS policy with production Blazor URL
-
-### Environment Variables
-
-```bash
-OAuth__Google__ClientId=YOUR_GOOGLE_CLIENT_ID
-OAuth__Microsoft__ClientId=YOUR_MICROSOFT_CLIENT_ID
-OAuth__Microsoft__TenantId=common
-```
-
-## Additional Resources
-
-- [Google OAuth Documentation](https://developers.google.com/identity/protocols/oauth2)
-- [Microsoft Identity Platform](https://learn.microsoft.com/en-us/entra/identity-platform/)
-- [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
-
-## Support
-
-For issues or questions:
-- Check application logs for detailed error messages
-- Review OAuth provider documentation
-- Verify all configuration values match between client and server
+**Sign-in succeeds but a second account appears** — an email-normalisation bug. All email handling goes through one normalizer precisely because email is the Cosmos partition key and Cosmos enforces no unique index.
