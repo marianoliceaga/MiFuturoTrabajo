@@ -225,6 +225,65 @@ Phase 6 asked me to *verify* OAuth end to end. Verifying it meant finding that *
 
 **The demo account** is a plausible three-month job hunt across every board column, dated relative to now so it never looks abandoned. It is the most-seen code path in the project.
 
+---
+
+### ✅ Phase 8 complete — [docs/phase8-results.md](docs/phase8-results.md)
+
+**The original brief named this as the central risk: "the README describes a finished product that does not exist yet."** Eight phases later the product mostly does exist — but the README had drifted further, because seven phases of change landed underneath it.
+
+| Claimed | Actually |
+|---|---|
+| 12 entities, 12 containers | 7 containers, five sets embedded |
+| `Users` partitioned by `id` | by `/Email` |
+| `PUT /api/jobapplications/{id}` | `PATCH /api/JobApplication/{id}` |
+| API on `localhost:5011` | `7071` — 5011 is the *client* |
+| "CV upload accepts URL strings only" | real Blob Storage, expiring links |
+| "Reminder services disabled (commented out)" | Azure Functions timer triggers |
+| "50+ unit, 30+ integration" | **196**, counted |
+
+The route table was wrong for **every controller** — it described a plural REST API that does not exist.
+
+**Verified, not restated.** Every table was generated from the code, and a script now checks the README against it: *24 advertised routes, none missing; 28/28 claims verified*. A clean clone was built and tested from scratch (196 passing), because `docs/local-setup.md` claims a fresh clone works and that is not a claim to make untested.
+
+**`OAUTH_SETUP.md` was causing the Phase 6 bug.** It instructed registering `https://localhost:5001/authentication/login-callback` — the wrong port, and the Blazor MSAL *template's* path rather than this app's. That is exactly what is in your Entra registration and exactly why Microsoft sign-in fails. The misconfiguration was not carelessness; the documentation told you to do it.
+
+**Known Limitations are now true.** The old section listed three that had all since been fixed. The new one lists five that are real — email DNS, the Entra platform, Google's origin, serverless Cosmos, unconnected CI.
+
+Added `docs/architecture.md` and three ADRs, each recording the options rejected and where the choice hurts.
+
+---
+
+## All eight phases complete
+
+| Phase | | Tests |
+|---|---|---|
+| 0 | Baseline and Cosmos spike | 51 / 52 |
+| 1 | Structure, config, validation | 84 |
+| 2 | Cosmos aggregate redesign | 84 |
+| 3 | CV storage with expiring links | 114 |
+| 4 | Email and auth hardening | 147 |
+| 5 | Reminders as Functions | 166 |
+| 6 | OAuth — bypass fixed | 192 |
+| 7 | Deployment, CI/CD, hardening | 196 |
+| 8 | Documentation | 196 |
+
+**Live:** https://ambitious-coast-084594d03.7.azurestaticapps.net · `demo@mifuturotrabajo.app` / `DemoAccount2026!`
+
+### The three things still needing you
+
+1. **DNS for `ideapixel.com.ar`** — records are in [docs/phase7-results.md](docs/phase7-results.md). Until they are added, no email sends.
+2. **Entra redirect URIs** — one `az ad app update`, moving them to the SPA platform. Changing an app registration is a change to your account configuration, so it was not done unilaterally.
+3. **Connect CI/CD** — the variables, secrets and OIDC credential in [infra/README.md](../infra/README.md).
+
+### Three defects found that the plan had not anticipated
+
+- **An OAuth authentication bypass** (Phase 6). Microsoft tokens were never signature-verified — anyone could sign in as anyone. Proven with a forged token before it was fixed.
+- **Google sign-in could never have worked** (Phase 6). `GOOGLE_CLIENT_ID` was referenced twice and assigned nowhere.
+- **CV download could never have worked** (Phase 3). Uploads stored a URL into a private container; every download was a 403.
+
+Each was found by trying to verify something rather than by reading it.
+
+
 
 
 
@@ -512,7 +571,9 @@ You chose **App Service + Static Web Apps**, and also **near-zero cost**. These 
 
 ---
 
-## Phase 8 — Documentation that matches reality
+## ✅ Phase 8 — Documentation that matches reality — **DONE**
+
+*Delivered on `claude/phase-8-docs`. Full record: [docs/phase8-results.md](docs/phase8-results.md).*
 
 **Objective:** The README is the first thing a reviewer reads. Right now it claims things that are not true, which is worse than claiming less.
 
