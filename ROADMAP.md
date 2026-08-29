@@ -1,5 +1,20 @@
 # MiFuturoTrabajo — Roadmap to Completion
 
+> **This is a historical record, not a description of the project today.**
+>
+> It was written before any of the work started, then rebaselined as each
+> phase landed. The opening sections describe the state at **Phase 0** in the
+> present tense — including "nothing is deployed", which has not been true
+> since Phase 7. The per-phase result blocks below, and the
+> [phase records](docs/) they link to, are what actually happened.
+>
+> The 34 code references carrying `#L` line anchors point at line numbers as
+> they were at Phase 0. Most of those files have since been rewritten.
+>
+> For the project as it stands, read the [README](README.md); for the
+> reasoning, [docs/architecture.md](docs/architecture.md) and the
+> [ADRs](docs/decisions/).
+
 ## Context
 
 MiFuturoTrabajo is a job-application tracker: Blazor WebAssembly client, ASP.NET Core Web API, EF Core over Azure Cosmos DB, custom JWT auth with Google/Microsoft OAuth. The code is substantial (~11,800 lines across 8 controllers, 14 Razor pages, 12 entities) and the app builds and runs locally today.
@@ -273,7 +288,7 @@ Added `docs/architecture.md` and three ADRs, each recording the options rejected
 
 1. **DNS for `ideapixel.com.ar`** — records are in [docs/phase7-results.md](docs/phase7-results.md). Until they are added, no email sends.
 2. **Entra redirect URIs** — one `az ad app update`, moving them to the SPA platform. Changing an app registration is a change to your account configuration, so it was not done unilaterally.
-3. **Connect CI/CD** — the variables, secrets and OIDC credential in [infra/README.md](../infra/README.md).
+3. **Connect CI/CD** — the variables, secrets and OIDC credential in [infra/README.md](infra/README.md).
 
 ### Three defects found that the plan had not anticipated
 
