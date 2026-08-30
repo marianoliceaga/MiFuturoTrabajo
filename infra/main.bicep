@@ -183,11 +183,16 @@ resource cvContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@
 // Communication Services - transactional email
 // ---------------------------------------------------------------------------
 
+// Declared after the domains below, because linkedDomains references one.
+// Without that link the resource provisions cleanly and every send fails at
+// runtime - the domain can be fully DNS-verified and still not be usable,
+// which is exactly what happened the first time.
 resource communication 'Microsoft.Communication/communicationServices@2023-04-01' = {
   name: communicationName
   location: 'global'
   properties: {
     dataLocation: 'Europe'
+    linkedDomains: [ linkedDomainId ]
   }
 }
 
@@ -225,6 +230,8 @@ resource customDomain 'Microsoft.Communication/emailServices/domains@2023-04-01'
 // Resolved once, after the domain resources: the managed-domain resource only
 // exists when emailDomain is empty, so the reference sits behind that same
 // condition.
+var linkedDomainId = empty(emailDomain) ? azureManagedDomain!.id : customDomain!.id
+
 var senderAddress = empty(emailDomain)
   ? 'DoNotReply@${azureManagedDomain!.properties.mailFromSenderDomain}'
   : 'DoNotReply@${emailDomain}'

@@ -76,7 +76,7 @@ az ad app update --id <client-id> --set spa.redirectUris="['https://<static-web-
 
 They must be **SPA**, not **Web**: MSAL.js v2 redeems tokens cross-origin with PKCE, and a Web redirect URI fails with `AADSTS9002326`. Add the same two origins to the Google console as authorised JavaScript origins.
 
-**3. Verify the email domain.** With an Azure-managed domain, mail sends immediately but often lands in spam. With your own domain, ACS generates DKIM and SPF records to add at your registrar, and mail lands in the inbox. Set `emailDomain` in the parameter file to use it.
+**3. Verify the email domain.** The template links the domain to the Communication Services resource for you (`linkedDomains`) — without that link every send fails at runtime even when DNS is fully verified, which is a failure with no obvious cause. With an Azure-managed domain, mail sends immediately but often lands in spam. With your own domain, ACS generates DKIM and SPF records to add at your registrar, and mail lands in the inbox. Set `emailDomain` in the parameter file to use it.
 
 **4. Point CI at the deployment.** The workflow needs these repository variables and secrets:
 
