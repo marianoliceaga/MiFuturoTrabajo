@@ -85,6 +85,7 @@ They must be **SPA**, not **Web**: MSAL.js v2 redeems tokens cross-origin with P
 | `API_APP_NAME` | variable | `apiAppName` output |
 | `FUNCTIONS_APP_NAME` | variable | `functionsName` output |
 | `API_BASE_URL` | variable | `apiUrl` output + `/api/` |
+| `CLIENT_BASE_URL` | variable | `clientUrl` output (no trailing slash) |
 | `GOOGLE_CLIENT_ID` | variable | from the Google console |
 | `MICROSOFT_CLIENT_ID` | variable | from the Entra registration |
 | `AZURE_CLIENT_ID` | secret | federated identity for OIDC login |

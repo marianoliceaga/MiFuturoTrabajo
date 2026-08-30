@@ -112,18 +112,74 @@ jobs:
       # A deploy that reports success while the site returns 500 is worse than a
       # failed one, because nobody looks. On F1 the first request also has to
       # wake the site, hence the retries.
+      # A deploy that reports success while the site is broken is worse than a
+      # failed one, because nobody looks. This probes what actually broke
+      # before rather than only what is easy to check:
+      #
+      #   - the API answers at all (retried: F1 has no Always On, so the first
+      #     request after a deploy has to wake the site)
+      #   - a client DEEP LINK returns 200, not just the root. Blazor routes on
+      #     the client, so without navigationFallback every refresh and every
+      #     shared link 404s while the landing page looks perfectly fine. That
+      #     shipped once, and the old smoke test passed anyway because it only
+      #     checked the API.
+      #   - appsettings.json is still served as JSON. If the fallback ever
+      #     rewrites it, the client parses index.html as its configuration and
+      #     loses its API URL - a silent breakage, which is worse than a 404.
+      #   - a missing asset still 404s, proving the fallback is not swallowing
+      #     everything and turning absent files into fake successes.
       - name: Smoke test
         run: |
-          url="${{ vars.API_BASE_URL }}"
-          url="${url%/api/}"
-          echo "Probing $url/health"
+          api="${{ vars.API_BASE_URL }}"
+          api="${api%/api/}"
+          client="${{ vars.CLIENT_BASE_URL }}"
+          client="${client%/}"
 
+          failed=0
+
+          check() {
+            local label="$1" url="$2" want_code="$3" want_type="$4"
+            local out code type
+            out=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' --max-time 30 "$url" || echo "000 none")
+            code="${out%% *}"
+            type="${out#* }"
+
+            if [ "$code" != "$want_code" ]; then
+              echo "  FAIL  $label -> $code (wanted $want_code)  $url"
+              failed=1
+              return
+            fi
+
+            if [ -n "$want_type" ]; then
+              case "$type" in
+                *"$want_type"*) ;;
+                *)
+                  echo "  FAIL  $label -> content-type '$type' (wanted $want_type)  $url"
+                  failed=1
+                  return
+                  ;;
+              esac
+            fi
+
+            echo "  ok    $label -> $code${want_type:+ $type}"
+          }
+
+          echo "API, with retries for the F1 cold start:"
           for attempt in 1 2 3 4 5 6; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url/health" || echo 000)
-            echo "attempt $attempt: $code"
-            [ "$code" = "200" ] && exit 0
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$api/health" || echo 000)
+            echo "  attempt $attempt: $code"
+            [ "$code" = "200" ] && break
+            [ "$attempt" = "6" ] && { echo "  FAIL  API never became healthy"; failed=1; }
             sleep 15
           done
 
-          echo "API did not become healthy"
-          exit 1
+          echo "Client:"
+          check "root"              "$client/"                   200 "text/html"
+          check "deep link /board"  "$client/board"              200 "text/html"
+          check "deep link /tasks"  "$client/tasks"              200 "text/html"
+          check "runtime config"    "$client/appsettings.json"   200 "application/json"
+          check "missing asset"     "$client/no-such-file.png"   404 ""
+
+          [ "$failed" = "0" ] || { echo; echo "Smoke test failed."; exit 1; }
+          echo
+          echo "Smoke test passed."
