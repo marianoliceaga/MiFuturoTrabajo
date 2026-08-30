@@ -30,11 +30,10 @@ Everything listed here has been exercised against the deployed environment, not 
 
 Stated plainly, because a README that hides these is worse than one that admits them.
 
-- **Transactional email does not send yet.** The ACS domain `ideapixel.com.ar` is provisioned but its DNS records (DKIM, SPF, domain verification) have not been added at the registrar, so every check reads `NotStarted`. Registration and password reset both succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives.
-- **Microsoft sign-in will fail in the browser.** The Entra app registration has its redirect URIs on the `Web` platform; MSAL.js v2 redeems tokens cross-origin with PKCE and requires the `SPA` platform, so it returns `AADSTS9002326`. Server-side token validation is implemented and tested; the registration needs one change.
-- **Google sign-in is untested against the deployed origin.** It needs that origin added as an authorised JavaScript origin in the Google console.
+- **Transactional email does not send.** The ACS domain `ideapixel.com.ar` is provisioned, but its DKIM, SPF and domain-verification records have not been added at Cloudflare, so all five checks read `NotStarted`. Registration and password reset both still succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives. This is the one limitation that stops a listed feature from working.
+- **Microsoft sign-in is not verified end to end.** The Entra registration was wrong and is now fixed: the redirect URIs sit on the `SPA` platform (MSAL.js v2 redeems cross-origin with PKCE, so `Web` returns `AADSTS9002326`) with the correct `/login-callback` path. Server-side token validation is implemented and covered by 13 tests including forged-token attacks. What has not happened is a human completing an actual Microsoft sign-in against the deployed site.
+- **Google sign-in needs its origins registered.** The deployed origin has not been added to the OAuth client's authorised JavaScript origins in the Google Cloud console. Server-side validation was always sound — `GoogleJsonWebSignature.ValidateAsync` verifies against Google's keys — and the client-side bug that made it impossible is fixed, so this is the only thing left for it.
 - **Cosmos runs on serverless, not the free tier.** The free-tier slot in this subscription had not released when the deployment ran. Serverless costs cents per month at this volume; switching means creating a new account, since billing mode cannot be changed in place.
-- **CI/CD is written but not connected.** The workflows exist and pass locally; the repository variables, secrets and OIDC federated credential described in [`infra/README.md`](infra/README.md) have not been set, so deployment is currently manual.
 
 ---
 
@@ -211,6 +210,8 @@ Per account: 200 job applications · 100 companies · 100 recruiters · 300 meet
 ---
 
 ## Deployment
+
+**Pushing to `main` deploys.** `deploy.yml` runs the full build-and-test gate, then publishes the API, the Functions app and the client, and finishes by smoke-testing `/health` — a deploy that reports success while the site returns 500 is worse than a failed one. It authenticates with an OIDC federated credential scoped to the `production` environment, so there is no publish profile or long-lived secret in the repository.
 
 Infrastructure is Bicep, in [`infra/`](infra/). See [`infra/README.md`](infra/README.md) for what it costs, what has to be set by hand, and why.
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/_framework/*",
+      "/css/*",
+      "/js/*",
+      "/lib/*",
+      "/*.{png,jpg,jpeg,gif,svg,ico,webp}",
+      "/*.{json,wasm,dll,pdb,dat,blat,br,gz}",
+      "/*.{woff,woff2,ttf,eot}"
+    ]
+  },
+
+  "mimeTypes": {
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".dll": "application/octet-stream",
+    ".blat": "application/octet-stream",
+    ".dat": "application/octet-stream"
+  },
+
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  }
+}
