@@ -2,7 +2,10 @@
 
 Google and Microsoft sign-in, hybrid: the provider proves who you are, this API issues its own JWT. Provider tokens are never used as session tokens.
 
-> **If you have read an older version of this file, re-read the redirect URIs below.** The previous version specified `https://localhost:5001/authentication/login-callback` — the wrong port *and* the wrong path. Registering that is why Microsoft sign-in currently fails.
+> **If you have read an older version of this file, re-read the tables below.** Two earlier versions were wrong, and each caused a real misconfiguration:
+>
+> - The original specified `https://localhost:5001/authentication/login-callback` — the template's path, on the wrong port.
+> - The revision after it said `http://localhost:5011` — **port 5011 is HTTPS**, so that scheme is wrong too, and it told you to add redirect URIs to Google, which this app's Google flow never uses.
 
 ---
 
@@ -29,13 +32,17 @@ The Blazor client calls `window.location.origin + '/login-callback'`. So the URI
 
 | Environment | URI |
 |---|---|
-| Local | `http://localhost:5011/login-callback` |
 | Deployed | `https://ambitious-coast-084594d03.7.azurestaticapps.net/login-callback` |
+| Local, HTTPS | `https://localhost:5011/login-callback` |
+| Local, HTTP | `http://localhost:5001/login-callback` |
 
-Two mistakes to avoid, both of which have already been made in this project:
+The client's own `launchSettings.json` is the source of truth for the local ones — it serves `https://localhost:5011;http://localhost:5001`. Read it rather than trusting this table if they ever disagree.
+
+Three mistakes to avoid, all of which have already been made in this project:
 
 - **Not `/authentication/login-callback`.** That is the path from the Blazor WASM MSAL project template. This app does not use it.
-- **Not port 5001.** The client's HTTPS profile is **5011**; 5001 is its HTTP fallback.
+- **Not `http://localhost:5011`.** Port 5011 is served over **HTTPS**. The HTTP endpoint is 5001. Mixing the two gives `redirect_uri_mismatch`, which does not say which half is wrong.
+- **Not port 5001 with the template path**, which is the original error the first version of this file caused.
 
 ### Microsoft: SPA, not Web
 
@@ -49,7 +56,7 @@ AADSTS9002326: Cross-origin token redemption is permitted only for the
 ```
 
 ```bash
-az ad app update --id <client-id> --set spa.redirectUris="['http://localhost:5011/login-callback','https://<your-static-web-app>/login-callback']"
+az ad app update --id <client-id> --set spa.redirectUris="['https://<your-static-web-app>/login-callback','https://localhost:5011/login-callback','http://localhost:5001/login-callback']"
 ```
 
 ---
@@ -59,11 +66,20 @@ az ad app update --id <client-id> --set spa.redirectUris="['http://localhost:501
 1. [Google Cloud Console](https://console.cloud.google.com) → new project.
 2. **APIs & Services → OAuth consent screen.** External. Add your email as a test user while it is unpublished.
 3. **Credentials → Create credentials → OAuth client ID → Web application.**
-4. **Authorised JavaScript origins** — the origin only, no path:
-   - `http://localhost:5011`
+4. **Authorised JavaScript origins** — origins only: no path, no trailing slash.
    - `https://<your-static-web-app>.azurestaticapps.net`
-5. **Authorised redirect URIs** — the two from the table above.
+   - `https://localhost:5011`
+   - `http://localhost:5001`
+5. **Authorised redirect URIs — leave empty.** See below.
 6. Copy the client ID.
+
+### Why Google needs no redirect URI
+
+`index.html` uses **Google Identity Services** — `google.accounts.id.initialize`, `prompt()` and `renderButton`. That flow hands the ID token to a JavaScript callback in the page; the browser never navigates away, so there is no redirect to register.
+
+Redirect URIs belong to the OAuth 2.0 authorization-code flow, which this app does not use for Google. Adding them is harmless but does nothing, and looking for them when sign-in breaks wastes time on the wrong field. **The origin allowlist is the whole control** — Google refuses to initialise for a page served from an origin that is not on it.
+
+Microsoft is different: MSAL.js *does* redirect, which is why it needs the URIs in the table above.
 
 ## Microsoft
 

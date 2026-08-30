@@ -208,7 +208,7 @@ Registration currently succeeds and simply logs that it could not send. That is 
 **The Entra redirect URIs**, blocked since Phase 6 and now unblocked because the hostname exists:
 
 ```bash
-az ad app update --id 017e3aea-92a7-4724-94ed-fae35fba5131 --set spa.redirectUris="['http://localhost:5011/login-callback','https://ambitious-coast-084594d03.7.azurestaticapps.net/login-callback']"
+az ad app update --id 017e3aea-92a7-4724-94ed-fae35fba5131 --set spa.redirectUris="['https://ambitious-coast-084594d03.7.azurestaticapps.net/login-callback','https://localhost:5011/login-callback','http://localhost:5001/login-callback']"
 ```
 
 They must be **SPA**, not **Web** — MSAL.js v2 redeems cross-origin with PKCE, and a Web URI fails with `AADSTS9002326`. I have not run it: changing an app registration is a change to your account configuration.

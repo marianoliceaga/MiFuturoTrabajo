@@ -30,7 +30,7 @@ function Write-OK    ($msg)         { Write-Host "  OK  $msg"     -ForegroundCol
 function Write-Info  ($msg)         { Write-Host "  ..  $msg"     -ForegroundColor Cyan   }
 function Write-Warn  ($msg)         { Write-Host "  !!  $msg"     -ForegroundColor DarkYellow }
 
-$totalSteps = 7
+$totalSteps = 8
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -172,8 +172,15 @@ Start-Process -FilePath "dotnet" -ArgumentList "run" `
 
 Write-OK "API and Functions launched."
 
-# --- STEP 7: Start Blazor Client ----------------------------------------------
-Write-Step 7 $totalSteps "Starting Blazor Client..."
+# --- STEP 7: Wait for Shared project to compile before starting Client --------
+Write-Step 7 $totalSteps "Waiting for MiFuturoTrabajo.Shared to compile..."
+Write-Info "Pausing 15 s so VBCSCompiler finishes writing the Shared DLL"
+Write-Info "(prevents 'file locked' build error in the Client)"
+Start-Sleep -Seconds 15
+Write-OK "Ready to start Client."
+
+# --- STEP 8: Start Blazor Client ----------------------------------------------
+Write-Step 8 $totalSteps "Starting Blazor Client..."
 
 $clientLog    = Join-Path $scriptPath "client.log"
 $clientLogErr = Join-Path $scriptPath "client_err.log"

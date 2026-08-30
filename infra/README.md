@@ -71,7 +71,7 @@ az webapp config appsettings set -g rg-mifuturotrabajo -n <api-app-name> --setti
 **2. Register the redirect URIs.** The hostnames do not exist until the deployment finishes.
 
 ```bash
-az ad app update --id <client-id> --set spa.redirectUris="['http://localhost:5011/login-callback','https://<static-web-app-hostname>/login-callback']"
+az ad app update --id <client-id> --set spa.redirectUris="['https://<static-web-app-hostname>/login-callback','https://localhost:5011/login-callback','http://localhost:5001/login-callback']"
 ```
 
 They must be **SPA**, not **Web**: MSAL.js v2 redeems tokens cross-origin with PKCE, and a Web redirect URI fails with `AADSTS9002326`. Add the same two origins to the Google console as authorised JavaScript origins.

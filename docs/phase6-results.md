@@ -131,7 +131,9 @@ Three problems:
 2. **The one SPA entry has the wrong path** — `/authentication/login-callback` (the Blazor MSAL template's path). The app uses `window.location.origin + '/login-callback'`.
 3. **The production URI points at a Static Web App that does not exist** in this subscription. Phase 7 creates the real one, and its hostname is not knowable until then.
 
-The fix is to register, as **SPA** redirect URIs, `http://localhost:5011/login-callback` plus the Phase 7 hostname. I can run the `az ad app update` for it whenever you say so — it is one command, and it makes most sense once Phase 7 has produced the domain.
+The fix is to register, as **SPA** redirect URIs, `http://localhost:5011/login-callback` plus the Phase 7 hostname.
+
+> **Correction, added later.** That local URI is wrong: port 5011 is served over **HTTPS**, and 5001 is the HTTP endpoint. The registration now holds `https://localhost:5011/login-callback`, `http://localhost:5001/login-callback` and the deployed origin. `launchSettings.json` was the authority all along; I did not read it. I can run the `az ad app update` for it whenever you say so — it is one command, and it makes most sense once Phase 7 has produced the domain.
 
 **Google's console I cannot reach at all.** A client ID is not queryable without console access, so I cannot tell you whether `762382995830-…` is still valid or which origins it authorises. Its authorised JavaScript origins need the same two entries.
 
