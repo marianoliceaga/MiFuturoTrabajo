@@ -1,21 +1,34 @@
+using Microsoft.Extensions.Localization;
+using MiFuturoTrabajo.Client.Resources;
 using MiFuturoTrabajo.Shared.Models;
 
 namespace MiFuturoTrabajo.Client.Services
 {
+    /// <summary>
+    /// Folds applications, meetings and tasks into one list of dated events.
+    ///
+    /// The event titles are composed here rather than in the page, so this
+    /// service needs the string table too - the alternative would be returning
+    /// English fragments for a Razor file to translate back, which is how
+    /// half-translated screens happen.
+    /// </summary>
     public class CalendarService : ICalendarService
     {
         private readonly IJobApplicationService _jobApplicationService;
         private readonly IMeetingService _meetingService;
         private readonly IApplicantTaskService _taskService;
+        private readonly IStringLocalizer<Strings> _localizer;
 
         public CalendarService(
             IJobApplicationService jobApplicationService,
             IMeetingService meetingService,
-            IApplicantTaskService taskService)
+            IApplicantTaskService taskService,
+            IStringLocalizer<Strings> localizer)
         {
             _jobApplicationService = jobApplicationService;
             _meetingService = meetingService;
             _taskService = taskService;
+            _localizer = localizer;
         }
 
         public async Task<List<CalendarEvent>> GetEventsAsync()
@@ -44,8 +57,8 @@ namespace MiFuturoTrabajo.Client.Services
                         events.Add(new CalendarEvent
                         {
                             Id = $"app_deadline_{app.Id}",
-                            Title = $"Deadline: {app.JobTitle} at {app.Company?.Name}",
-                            Description = $"Application deadline for {app.JobTitle}",
+                            Title = _localizer["Calendar_DeadlineTitle", app.JobTitle, app.Company?.Name ?? string.Empty],
+                            Description = _localizer["Calendar_DeadlineDescription", app.JobTitle],
                             Start = app.DeadLine,
                             End = app.DeadLine,
                             Type = CalendarEventType.ApplicationDeadline,
@@ -63,8 +76,8 @@ namespace MiFuturoTrabajo.Client.Services
                             events.Add(new CalendarEvent
                             {
                                 Id = $"interview_{step.Id}",
-                                Title = $"Interview: {step.StepName} - {app.Company?.Name}",
-                                Description = $"{step.StepName} for {app.JobTitle}",
+                                Title = _localizer["Calendar_InterviewStepTitle", step.StepName, app.Company?.Name ?? string.Empty],
+                                Description = _localizer["Calendar_InterviewStepDescription", step.StepName, app.JobTitle],
                                 Start = step.ScheduledDate.Value,
                                 End = step.ScheduledDate.Value.AddHours(1), // Default duration 1h
                                 Type = CalendarEventType.InterviewStep,
@@ -83,7 +96,7 @@ namespace MiFuturoTrabajo.Client.Services
                     events.Add(new CalendarEvent
                     {
                         Id = $"meeting_{meeting.Id}",
-                        Title = $"Meeting: {meeting.Title}",
+                        Title = _localizer["Calendar_MeetingTitle", meeting.Title],
                         Description = meeting.Description,
                         Start = meeting.StartDateTime,
                         End = meeting.EndDateTime,
@@ -99,10 +112,17 @@ namespace MiFuturoTrabajo.Client.Services
                 {
                     if (task.Deadline != DateTime.MinValue)
                     {
+                        // A task with no title of its own falls back to its
+                        // type, which is an enum and so needs looking up rather
+                        // than calling ToString().
+                        var label = string.IsNullOrWhiteSpace(task.Title)
+                            ? _localizer.Enum(task.Type)
+                            : task.Title;
+
                         events.Add(new CalendarEvent
                         {
                             Id = $"task_{task.Id}",
-                            Title = $"Task: {task.Title ?? task.Type.ToString()}",
+                            Title = _localizer["Calendar_TaskTitle", label],
                             Description = task.Note,
                             Start = task.Deadline,
                             End = task.Deadline,

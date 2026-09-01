@@ -1,4 +1,4 @@
-@using MiFuturoTrabajo.Shared.Models
+﻿@using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @inject ICompanyService CompanyService
 
@@ -8,7 +8,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(IsEditMode ? "Edit Company" : "Add Company")</h5>
+                    <h5 class="modal-title">@(IsEditMode ? L["Companies_EditTitle"] : L["Companies_AddTitle"])</h5>
                     <button type="button" class="btn-close" @onclick="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -20,47 +20,47 @@
                         </div>
                     }
                     <div class="mb-3">
-                        <label class="form-label">Company Name *</label>
-                        <input type="text" class="form-control" @bind="currentCompany.Name" placeholder="e.g., Microsoft" />
+                        <label class="form-label">@L["Companies_NameLabel"]</label>
+                        <input type="text" class="form-control" @bind="currentCompany.Name" placeholder="@L["Companies_NamePlaceholder"]" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="3" @bind="currentCompany.Description" placeholder="Brief description of the company..."></textarea>
+                        <label class="form-label">@L["Common_Description"]</label>
+                        <textarea class="form-control" rows="3" @bind="currentCompany.Description" placeholder="@L["Companies_DescriptionPlaceholder"]"></textarea>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Website</label>
+                            <label class="form-label">@L["Common_Website"]</label>
                             <input type="url" class="form-control" @bind="currentCompany.Website" placeholder="https://..." />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Telephone</label>
-                            <input type="tel" class="form-control" @bind="currentCompany.Telephone" placeholder="+1 234 567 8900" />
+                            <label class="form-label">@L["Common_Telephone"]</label>
+                            <input type="tel" class="form-control" @bind="currentCompany.Telephone" placeholder="@L["Companies_TelephonePlaceholder"]" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-8 mb-3">
-                            <label class="form-label">Address</label>
-                            <input type="text" class="form-control" @bind="currentCompany.Address" placeholder="Street address" />
+                            <label class="form-label">@L["Common_Address"]</label>
+                            <input type="text" class="form-control" @bind="currentCompany.Address" placeholder="@L["Companies_AddressPlaceholder"]" />
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label">Country</label>
-                            <input type="text" class="form-control" @bind="currentCompany.Country" placeholder="Country" />
+                            <label class="form-label">@L["Common_Country"]</label>
+                            <input type="text" class="form-control" @bind="currentCompany.Country" placeholder="@L["Common_Country"]" />
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Labels (comma-separated)</label>
-                        <input type="text" class="form-control" @bind="labelsInput" placeholder="e.g., Tech, Remote, Startup" />
-                        <small class="form-text text-muted">Enter tags separated by commas</small>
+                        <label class="form-label">@L["Companies_LabelsLabel"]</label>
+                        <input type="text" class="form-control" @bind="labelsInput" placeholder="@L["Companies_LabelsPlaceholder"]" />
+                        <small class="form-text text-muted">@L["Companies_LabelsHint"]</small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                    <button type="button" class="btn btn-secondary" @onclick="Close">@L["Common_Cancel"]</button>
                     <button type="button" class="btn btn-primary" @onclick="SaveCompany" disabled="@isSaving">
                         @if (isSaving)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
-                        @(IsEditMode ? "Update" : "Add") Company
+                        @(IsEditMode ? L["Companies_UpdateAction"] : L["Companies_AddAction"])
                     </button>
                 </div>
             </div>
@@ -141,7 +141,7 @@
 
         if (string.IsNullOrWhiteSpace(currentCompany.Name))
         {
-            errorMessage = "Company name is required.";
+            errorMessage = L["Companies_NameRequired"];
             return;
         }
 
@@ -178,18 +178,18 @@
             }
             else
             {
-                errorMessage = "Failed to save company. Please try again.";
+                errorMessage = L["Companies_SaveFailedRetry"];
             }
         }
         catch (HttpRequestException httpEx)
         {
-            errorMessage = $"Network error: {httpEx.Message}";
+            errorMessage = L["Common_NetworkError", httpEx.Message];
             Console.WriteLine($"HTTP Error saving company: {httpEx.Message}");
             Console.WriteLine($"Stack trace: {httpEx.StackTrace}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error saving company: {ex.Message}";
+            errorMessage = L["Companies_SaveError", ex.Message];
             Console.WriteLine($"Error saving company: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
@@ -207,17 +207,3 @@
         OnCancel.InvokeAsync();
     }
 }
-
-<style>
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1050;
-    }
-</style>

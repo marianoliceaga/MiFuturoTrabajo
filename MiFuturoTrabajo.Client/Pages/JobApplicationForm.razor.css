@@ -1,0 +1,184 @@
+.form-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--mft-border);
+}
+
+.form-section {
+    background: var(--mft-surface);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.form-section h4 {
+    margin-bottom: 20px;
+    color: var(--mft-text-secondary);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.suggestions-list {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0 0;
+    background: var(--mft-surface);
+    border: 1px solid var(--mft-border-strong);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    z-index: 1000;
+    width: calc(100% - 30px);
+}
+
+.suggestions-list li {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--mft-border);
+}
+
+.suggestions-list li:hover {
+    background: var(--mft-surface-2);
+}
+
+.suggestion-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.suggestion-name {
+    flex: 1;
+}
+
+.suggestion-edit {
+    padding: 0 5px;
+    color: var(--mft-text-muted);
+}
+
+.suggestion-edit:hover {
+    color: var(--mft-primary);
+}
+
+.selected-company {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--mft-primary-subtle-2);
+    border: 1px solid var(--mft-primary-subtle-3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.selected-company i {
+    color: var(--mft-primary);
+}
+
+.selected-company .btn-link {
+    margin-left: auto;
+    padding: 0 5px;
+    color: var(--mft-text-muted);
+}
+
+.selected-company .btn-link:hover {
+    color: var(--mft-primary);
+}
+
+.interview-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.interview-step-card {
+    border: 1px solid var(--mft-border);
+    border-radius: 6px;
+    padding: 12px;
+    background: var(--mft-surface-2);
+}
+
+.step-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.step-header input {
+    flex: 1;
+}
+
+.step-body {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.step-body input[type="datetime-local"] {
+    flex: 1;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid var(--mft-border);
+}
+
+/* Job Offer Details Section */
+.offer-section {
+    background: linear-gradient(135deg, var(--mft-warning-subtle-2) 0%, var(--mft-warning-subtle) 100%);
+    border: 2px solid var(--mft-warning);
+    box-shadow: 0 4px 12px var(--mft-warning-ring);
+}
+
+.offer-section h4 {
+    color: var(--mft-warning-subtle-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.offer-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, var(--mft-success), var(--mft-teal));
+    color: white;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.offer-banner i {
+    font-size: 32px;
+    color: var(--mft-gold);
+    flex-shrink: 0;
+}
+
+.offer-banner h5 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.offer-banner p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 14px;
+}

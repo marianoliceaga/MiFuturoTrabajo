@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
@@ -249,7 +249,10 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
 
             var message = _factory.Emails.LastTo(email);
             Assert.NotNull(message);
-            Assert.Contains("Verify", message!.Subject, StringComparison.OrdinalIgnoreCase);
+
+            // Spanish is the application default, and the request carried no
+            // Accept-Language, so this is the fallback path.
+            Assert.Contains("Verific", message!.Subject, StringComparison.OrdinalIgnoreCase);
 
             var token = message.LinkParameter("token");
             var linkEmail = message.LinkParameter("email");
@@ -268,6 +271,38 @@ namespace MiFuturoTrabajo.Tests.Integration.Tests
             var user = await LoadUserAsync(email);
             Assert.True(user!.EmailConfirmed);
             Assert.Null(user.EmailConfirmationTokenHash);
+        }
+
+        [Fact]
+        public async Task Register_WritesTheVerificationEmailInTheRequestedLanguage()
+        {
+            var email = $"lang{Guid.NewGuid()}@example.com";
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/register")
+            {
+                Content = JsonContent.Create(new RegisterRequest
+                {
+                    Email = email,
+                    Password = "OriginalPassword123!",
+                    ConfirmPassword = "OriginalPassword123!",
+                    FirstName = "Lang",
+                    LastName = "Tester"
+                })
+            };
+
+            request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("en"));
+
+            var response = await _client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            var message = _factory.Emails.LastTo(email);
+            Assert.NotNull(message);
+            Assert.Contains("Verify", message!.Subject, StringComparison.OrdinalIgnoreCase);
+
+            // Stored, not just used once: the reminder timers run with no
+            // request in flight and have nowhere else to read this from.
+            var user = await LoadUserAsync(email);
+            Assert.Equal("en", user!.PreferredLanguage);
         }
 
         [Fact]

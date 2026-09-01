@@ -1,0 +1,178 @@
+/*
+ * `::deep` appears wherever a rule has to reach output that this component did
+ * not emit itself. Scoped CSS stamps its attribute onto elements written in
+ * this file's markup, and a <NavLink> is a component, so its <a> never gets
+ * that attribute - `.nav-item` alone would match nothing.
+ */
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    background: var(--mft-bg);
+}
+
+.sidebar {
+    width: 260px;
+    background: var(--mft-sidebar-bg);
+    color: var(--mft-sidebar-text-strong);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+}
+
+.sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid var(--mft-sidebar-border);
+}
+
+.sidebar-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.tagline {
+    font-size: 12px;
+    color: var(--mft-sidebar-text-muted);
+}
+
+.nav-menu {
+    flex: 1;
+    padding: 12px 0;
+    overflow-y: auto;
+}
+
+.nav-menu ::deep .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--mft-sidebar-text);
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.nav-menu ::deep .nav-item:hover {
+    background: var(--mft-sidebar-hover);
+    color: var(--mft-sidebar-text-strong);
+}
+
+.nav-menu ::deep .nav-item.active {
+    background: var(--mft-primary);
+    color: var(--mft-primary-contrast);
+    border-right: 3px solid var(--mft-primary-strong);
+}
+
+.nav-menu ::deep .nav-item i {
+    font-size: 18px;
+    width: 24px;
+}
+
+.nav-divider {
+    height: 1px;
+    background: var(--mft-sidebar-border);
+    margin: 12px 20px;
+}
+
+.sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--mft-sidebar-border);
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.topbar {
+    height: 64px;
+    background: var(--mft-surface);
+    border-bottom: 1px solid var(--mft-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+}
+
+.topbar-left,
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-menu {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--mft-text-secondary);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--mft-text);
+    margin-bottom: 0;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--mft-text-muted);
+    padding: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.btn-icon:hover {
+    color: var(--mft-text);
+}
+
+.btn-icon .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--mft-danger);
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.page-content {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--mft-bg);
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transform: translateX(-100%);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* The two switchers stay; the decorative buttons are what gets dropped when
+       the bar runs out of room. */
+    .topbar-right .btn-icon {
+        display: none;
+    }
+}

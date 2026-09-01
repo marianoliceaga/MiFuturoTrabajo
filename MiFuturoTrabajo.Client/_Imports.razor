@@ -8,7 +8,14 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.JSInterop
 @using MiFuturoTrabajo.Client
-@using MiFuturoTrabajo.Client.Layout
 @using MiFuturoTrabajo.Client.Shared
 @using MiFuturoTrabajo.Client.Services
 @using MiFuturoTrabajo.Shared.Models
+@using Microsoft.Extensions.Localization
+@using MiFuturoTrabajo.Client.Resources
+
+@* Every component gets the shared string table as `L`. Declaring it here
+   rather than page by page keeps fourteen identical @inject lines out of the
+   markup - and means a page can never accidentally bind to a different
+   resource file. *@
+@inject IStringLocalizer<Strings> L

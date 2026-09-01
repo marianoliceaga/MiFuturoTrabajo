@@ -1,0 +1,159 @@
+/*
+ * Colour tokens.
+ *
+ * Every colour the application draws itself with is declared here twice: once
+ * for the light theme and once for the dark one. Component CSS references the
+ * tokens and never a literal, which is what lets `data-theme` on <html> repaint
+ * the whole app without any component knowing a theme exists.
+ *
+ * The light values are the ones the app already used - this file did not
+ * redesign anything, it named what was there. The dark values were then chosen
+ * against those names, keeping body text at or above WCAG AA contrast on its
+ * own surface.
+ *
+ * Naming: `surface` is something you put content on, `bg` is the page behind
+ * everything, `border` separates, `text` sits on a surface, and `-subtle`
+ * variants are the tinted backgrounds that pair with a matching `-subtle-text`.
+ */
+
+:root,
+[data-theme="light"] {
+    /* Structure */
+    --mft-bg: #f8f9fa;
+    --mft-surface: #ffffff;
+    --mft-surface-2: #f8f9fa;
+    --mft-surface-3: #f0f0f0;
+    --mft-surface-hover: #f5f5f5;
+    --mft-border: #dee2e6;
+    --mft-border-strong: #ced4da;
+
+    /* Type */
+    --mft-text: #212529;
+    --mft-text-secondary: #495057;
+    --mft-text-muted: #6c757d;
+    --mft-text-disabled: #adb5bd;
+
+    /* Depth */
+    --mft-shadow-sm: rgba(0, 0, 0, 0.1);
+    --mft-shadow-md: rgba(0, 0, 0, 0.15);
+
+    /* The sidebar is dark in both themes - it is the one surface that does not
+       invert, because it already reads as a dark rail in the light theme. */
+    --mft-sidebar-bg: #212529;
+    --mft-sidebar-text: rgba(255, 255, 255, 0.8);
+    --mft-sidebar-text-strong: #ffffff;
+    --mft-sidebar-text-muted: rgba(255, 255, 255, 0.6);
+    --mft-sidebar-hover: rgba(255, 255, 255, 0.1);
+    --mft-sidebar-control: rgba(255, 255, 255, 0.1);
+    --mft-sidebar-control-hover: rgba(255, 255, 255, 0.2);
+    --mft-sidebar-border: rgba(255, 255, 255, 0.1);
+
+    /* Accents */
+    --mft-primary: #0d6efd;
+    --mft-primary-strong: #0a58ca;
+    --mft-primary-contrast: #ffffff;
+    --mft-primary-subtle: #cfe2ff;
+    --mft-primary-subtle-2: #e7f3ff;
+    --mft-primary-subtle-3: #b3d9ff;
+    --mft-primary-subtle-text: #0a58ca;
+
+    --mft-success: #198754;
+    --mft-success-subtle: #d1e7dd;
+    --mft-success-subtle-2: #f8fffe;
+    --mft-success-subtle-text: #0f5132;
+
+    --mft-danger: #dc3545;
+    --mft-danger-subtle: #f8d7da;
+    --mft-danger-subtle-text: #842029;
+
+    --mft-warning: #ffc107;
+    --mft-warning-subtle: #fff3cd;
+    --mft-warning-subtle-2: #fff9e6;
+    --mft-warning-subtle-3: #fffbf0;
+    --mft-warning-subtle-text: #856404;
+    --mft-warning-ring: rgba(255, 193, 7, 0.2);
+
+    --mft-info: #0dcaf0;
+    /* Neutral status chips - grey rather than semantic. */
+    --mft-neutral: #6c757d;
+    --mft-neutral-subtle: #adb5bd;
+    --mft-orange: #fd7e14;
+    --mft-purple: #6f42c1;
+    --mft-indigo: #6610f2;
+    --mft-indigo-subtle: #ebebff;
+    --mft-teal: #20c997;
+    --mft-pink: #d63384;
+    --mft-gold: #ffd700;
+}
+
+[data-theme="dark"] {
+    /* Not pure black: a near-black with a blue cast sits better under the same
+       accent hues, and pure black against white text is needlessly harsh. */
+    --mft-bg: #0f1214;
+    --mft-surface: #1a1e21;
+    --mft-surface-2: #22272b;
+    --mft-surface-3: #272c31;
+    --mft-surface-hover: #2b3136;
+    --mft-border: #343a40;
+    --mft-border-strong: #454d55;
+
+    --mft-text: #e9ecef;
+    --mft-text-secondary: #ced4da;
+    --mft-text-muted: #9aa4ae;
+    --mft-text-disabled: #6c757d;
+
+    /* Shadows do almost nothing on a dark ground, so they are deepened to stay
+       perceptible rather than kept at their light-theme opacity. */
+    --mft-shadow-sm: rgba(0, 0, 0, 0.4);
+    --mft-shadow-md: rgba(0, 0, 0, 0.55);
+
+    /* Darker than the page so the rail still separates from the content. */
+    --mft-sidebar-bg: #0a0c0e;
+    --mft-sidebar-text: rgba(255, 255, 255, 0.75);
+    --mft-sidebar-text-strong: #ffffff;
+    --mft-sidebar-text-muted: rgba(255, 255, 255, 0.55);
+    --mft-sidebar-hover: rgba(255, 255, 255, 0.08);
+    --mft-sidebar-control: rgba(255, 255, 255, 0.08);
+    --mft-sidebar-control-hover: rgba(255, 255, 255, 0.16);
+    --mft-sidebar-border: rgba(255, 255, 255, 0.08);
+
+    /* Accents are lightened, not just reused: #0d6efd on #1a1e21 is too dark to
+       read as an accent, and #ffc107 text on a dark tint loses its warning
+       colour entirely. The subtle backgrounds become low-opacity washes of
+       their own hue instead of the pastel tints that only work on white. */
+    --mft-primary: #4d94ff;
+    --mft-primary-strong: #7bb0ff;
+    --mft-primary-contrast: #08121f;
+    --mft-primary-subtle: #12294a;
+    --mft-primary-subtle-2: #16233a;
+    --mft-primary-subtle-3: #1d3a63;
+    --mft-primary-subtle-text: #a8ccff;
+
+    --mft-success: #3ddc97;
+    --mft-success-subtle: #10301f;
+    --mft-success-subtle-2: #12241c;
+    --mft-success-subtle-text: #9ae6c1;
+
+    --mft-danger: #ff6b78;
+    --mft-danger-subtle: #3d1418;
+    --mft-danger-subtle-text: #ffb3ba;
+
+    --mft-warning: #ffca2c;
+    --mft-warning-subtle: #3a2f0d;
+    --mft-warning-subtle-2: #2e2710;
+    --mft-warning-subtle-3: #262111;
+    --mft-warning-subtle-text: #ffdf7e;
+    --mft-warning-ring: rgba(255, 202, 44, 0.25);
+
+    --mft-info: #4dd8ef;
+    /* Kept dark enough for the white chip text to stay legible. */
+    --mft-neutral: #5a6570;
+    --mft-neutral-subtle: #49535d;
+    --mft-orange: #ff964d;
+    --mft-purple: #a98eda;
+    --mft-indigo: #9b7bff;
+    --mft-indigo-subtle: #211b3d;
+    --mft-teal: #4fddb4;
+    --mft-pink: #f06fa8;
+    --mft-gold: #ffd700;
+}

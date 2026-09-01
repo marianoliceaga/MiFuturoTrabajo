@@ -27,7 +27,6 @@ The intended outcome: every feature the project advertises genuinely works, runn
 
 | Question | Decision |
 | --- | --- |
-| Purpose | Portfolio / showcase piece |
 | Definition of done | Every listed feature really works |
 | Current state | Builds and runs, mostly works |
 | Hosting | Azure — App Service + Static Web Apps |

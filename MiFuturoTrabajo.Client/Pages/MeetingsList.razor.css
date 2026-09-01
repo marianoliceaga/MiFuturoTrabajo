@@ -1,0 +1,419 @@
+.meetings-container {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-left h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    width: 300px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--mft-text-muted);
+}
+
+.search-box input {
+    padding-left: 36px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 8px;
+}
+
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.stat-content p {
+    margin: 0;
+    color: var(--mft-text-muted);
+    font-size: 14px;
+}
+
+.view-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--mft-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.view-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.sort-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.meetings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.meeting-card {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    border-left: 4px solid var(--mft-primary);
+}
+
+.meeting-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--mft-shadow-md);
+}
+
+.meeting-card.past {
+    opacity: 0.8;
+    border-left-color: var(--mft-text-muted);
+}
+
+.meeting-card.today {
+    border-left-color: var(--mft-warning);
+    background: var(--mft-warning-subtle-3);
+}
+
+.meeting-card.upcoming {
+    border-left-color: var(--mft-primary);
+}
+
+.meeting-date {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.date-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--mft-surface-2);
+    padding: 12px;
+    border-radius: 8px;
+    min-width: 80px;
+}
+
+.date-box .month {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mft-text-muted);
+    text-transform: uppercase;
+}
+
+.date-box .day {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--mft-text);
+    line-height: 1;
+}
+
+.date-box .year {
+    font-size: 12px;
+    color: var(--mft-text-muted);
+}
+
+.time-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+}
+
+.time-info .time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.time-info .duration {
+    color: var(--mft-text-muted);
+    font-size: 12px;
+}
+
+.meeting-content {
+    flex: 1;
+}
+
+.meeting-header {
+    margin-bottom: 12px;
+}
+
+.meeting-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.meeting-title h5 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.meeting-description {
+    color: var(--mft-text-muted);
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.meeting-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--mft-text-secondary);
+}
+
+.detail-item i {
+    color: var(--mft-text-muted);
+    width: 16px;
+}
+
+.detail-item a {
+    color: var(--mft-primary);
+    text-decoration: none;
+}
+
+.detail-item a:hover {
+    text-decoration: underline;
+}
+
+.meeting-outcome {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--mft-success-subtle);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.follow-ups {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--mft-primary-subtle);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.meeting-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.meetings-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.timeline-date-group {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.date-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--mft-border);
+}
+
+.date-header h4 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.timeline-items {
+    position: relative;
+    padding-left: 32px;
+}
+
+.timeline-items::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--mft-border);
+}
+
+.timeline-item {
+    position: relative;
+    padding: 16px 0;
+    cursor: pointer;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -28px;
+    top: 20px;
+    width: 16px;
+    height: 16px;
+    background: var(--mft-primary);
+    /* Punches the dot out of the card behind it, so it follows the surface
+       rather than staying white on a dark background. */
+    border: 3px solid var(--mft-surface);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--mft-primary);
+}
+
+.timeline-content {
+    background: var(--mft-surface-2);
+    padding: 16px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.timeline-item:hover .timeline-content {
+    background: var(--mft-surface-3);
+}
+
+.timeline-time {
+    font-weight: 600;
+    color: var(--mft-primary);
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.timeline-details h6 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+}
+
+.timeline-details .company-info {
+    margin: 8px 0;
+    font-size: 14px;
+    color: var(--mft-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.meeting-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.meeting-tags .badge {
+    font-size: 11px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--mft-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: var(--mft-border);
+    margin-bottom: 16px;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+@media (max-width: 768px) {
+    .meeting-card {
+        flex-direction: column;
+    }
+
+    .meeting-actions {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+}

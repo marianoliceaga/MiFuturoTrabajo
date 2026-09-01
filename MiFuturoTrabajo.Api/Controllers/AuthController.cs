@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiFuturoTrabajo.Infrastructure;
@@ -111,7 +111,11 @@ namespace MiFuturoTrabajo.Api.Controllers
                     LastName = registerRequest.LastName,
                     CreatedAt = DateTime.UtcNow,
                     IsActive = true,
-                    EmailConfirmed = false
+                    EmailConfirmed = false,
+                    // So the verification email that follows, and every reminder
+                    // after it, is written in the language this person is
+                    // actually reading the site in.
+                    PreferredLanguage = RequestedLanguage()
                 };
 
                 _context.Users.Add(newUser);
@@ -498,9 +502,81 @@ namespace MiFuturoTrabajo.Api.Controllers
 
             await TrySendAsync(
                 user.Email,
-                EmailTemplates.Verification(user.FirstName, link, VerificationTokenLifetimeHours),
+                EmailTemplates.Verification(LanguageFor(user), user.FirstName, link, VerificationTokenLifetimeHours),
                 "email verification");
         }
+
+        /// <summary>
+        /// Stores the caller's language preference on their own account.
+        /// PUT /api/auth/preferences
+        ///
+        /// The browser keeps its own copy in localStorage and does not need
+        /// this to render; the server copy exists so the reminder timer
+        /// triggers, which run with no request in flight, know which language
+        /// to write in.
+        /// </summary>
+        [HttpPut("preferences")]
+        [Authorize]
+        public async Task<IActionResult> UpdatePreferences([FromBody] UpdatePreferencesRequest request)
+        {
+            try
+            {
+                var userId = Helpers.AuthHelper.GetUserIdFromClaims(User);
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Invalid token" });
+                }
+
+                // Rejected rather than coerced: this value selects an email
+                // template, and silently storing something unrecognised would
+                // turn a client bug into a wrong-language email months later.
+                if (request?.PreferredLanguage is not (EmailLanguage.Spanish or EmailLanguage.English))
+                {
+                    return BadRequest(new { error = "PreferredLanguage must be \"es\" or \"en\"" });
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null)
+                {
+                    return NotFound(new { error = "User not found" });
+                }
+
+                user.PreferredLanguage = request.PreferredLanguage;
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update preferences");
+                return StatusCode(500, new { error = "Failed to update preferences" });
+            }
+        }
+
+        /// <summary>
+        /// The language to write this account's mail in: what the account has
+        /// stored, or - for an account that predates the setting - whatever the
+        /// browser making this request asked for.
+        /// </summary>
+        private string LanguageFor(User user) =>
+            string.IsNullOrWhiteSpace(user.PreferredLanguage)
+                ? RequestedLanguage()
+                : EmailLanguage.Resolve(user.PreferredLanguage);
+
+        /// <summary>
+        /// The language the caller's browser asked for, via Accept-Language.
+        /// The Blazor client sets it explicitly from the stored preference, so
+        /// this is the choice the person made rather than a browser default.
+        ///
+        /// Null-safe on the request: this runs from paths that may have no
+        /// HttpContext at all, and "no header" is a perfectly good answer that
+        /// resolves to the default. Reading Request directly threw instead.
+        /// </summary>
+        private string RequestedLanguage() =>
+            EmailLanguage.Resolve(HttpContext?.Request?.Headers.AcceptLanguage.ToString());
 
         /// <summary>
         /// Builds a link into the Blazor client. The email rides along with the
@@ -623,7 +699,7 @@ namespace MiFuturoTrabajo.Api.Controllers
                 // a way to tell real accounts from imaginary ones.
                 await TrySendAsync(
                     user.Email,
-                    EmailTemplates.PasswordReset(user.FirstName, resetLink, PasswordResetTokenLifetimeHours),
+                    EmailTemplates.PasswordReset(LanguageFor(user), user.FirstName, resetLink, PasswordResetTokenLifetimeHours),
                     "password reset");
 
                 return Ok(new { message = NeutralForgotPasswordMessage });
@@ -864,7 +940,8 @@ namespace MiFuturoTrabajo.Api.Controllers
                         ProfilePictureUrl = oauthUserInfo.ProfilePictureUrl,
                         PasswordHash = null, // OAuth users don't have passwords initially
                         CreatedAt = DateTime.UtcNow,
-                        IsActive = true
+                        IsActive = true,
+                        PreferredLanguage = RequestedLanguage()
                     };
 
                     _context.Users.Add(user);
@@ -926,7 +1003,7 @@ namespace MiFuturoTrabajo.Api.Controllers
 
                         await TrySendAsync(
                             user.Email,
-                            EmailTemplates.ProviderLinked(user.FirstName, provider),
+                            EmailTemplates.ProviderLinked(LanguageFor(user), user.FirstName, provider),
                             "provider linked");
                     }
 

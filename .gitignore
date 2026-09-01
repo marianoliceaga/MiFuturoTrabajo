@@ -373,3 +373,9 @@ local.settings.json
 # The published WASM fetches it at runtime for ApiBaseUrl and the public OAuth
 # client IDs; without it the deployed site calls https://localhost:7071.
 !MiFuturoTrabajo.Client/wwwroot/appsettings.json
+
+# Claude Code's local run configuration. Machine-specific by nature, and the
+# usual way to make `dotnet run` work locally is to pass Jwt:SecretKey and
+# Demo:Password as arguments in here - which is exactly the kind of thing that,
+# committed once, is in history forever.
+.claude/launch.json

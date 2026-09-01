@@ -55,16 +55,20 @@ namespace MiFuturoTrabajo.Client.Services
         {
             var applications = await GetAllAsync();
             
+            // Status and order only. The column heading used to be an English
+            // literal here; it is now looked up from the resource file when the
+            // board renders, because a service has no business deciding which
+            // language the UI is drawn in.
             var boardColumns = new List<BoardColumnDto>
             {
-                new BoardColumnDto { Status = JobApplicationStatus.NotApplied, Title = "Applying" },
-                new BoardColumnDto { Status = JobApplicationStatus.Applied, Title = "Applied" },
-                new BoardColumnDto { Status = JobApplicationStatus.FirstInterview, Title = "First Interview" },
-                new BoardColumnDto { Status = JobApplicationStatus.Meetings, Title = "Interviewing" },
-                new BoardColumnDto { Status = JobApplicationStatus.Offer, Title = "Accepted" },
-                new BoardColumnDto { Status = JobApplicationStatus.Rejected, Title = "Declined" },
-                new BoardColumnDto { Status = JobApplicationStatus.Completed, Title = "Not Selected" },
-                new BoardColumnDto { Status = JobApplicationStatus.NoResponse, Title = "No Response (Ghosting)" }
+                new BoardColumnDto { Status = JobApplicationStatus.NotApplied },
+                new BoardColumnDto { Status = JobApplicationStatus.Applied },
+                new BoardColumnDto { Status = JobApplicationStatus.FirstInterview },
+                new BoardColumnDto { Status = JobApplicationStatus.Meetings },
+                new BoardColumnDto { Status = JobApplicationStatus.Offer },
+                new BoardColumnDto { Status = JobApplicationStatus.Rejected },
+                new BoardColumnDto { Status = JobApplicationStatus.Completed },
+                new BoardColumnDto { Status = JobApplicationStatus.NoResponse }
             };
 
             foreach (var column in boardColumns)

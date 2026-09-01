@@ -1,4 +1,4 @@
-namespace MiFuturoTrabajo.Infrastructure.Entities
+﻿namespace MiFuturoTrabajo.Infrastructure.Entities
 {
     /// <summary>
     /// User entity for proprietary authentication system
@@ -119,5 +119,21 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         /// Profile picture URL from OAuth provider
         /// </summary>
         public string? ProfilePictureUrl { get; set; }
+
+        /// <summary>
+        /// Language the account's email is written in: "es" or "en".
+        ///
+        /// The browser is the source of truth for what the UI renders in - that
+        /// preference lives in localStorage and never needs the server. This
+        /// copy exists for the one path that has no browser to ask: the Azure
+        /// Functions timer triggers compose reminder emails with no request in
+        /// flight, so without a stored preference every digest would go out in
+        /// the default language regardless of what the recipient reads.
+        ///
+        /// Nullable on purpose. Accounts created before this field existed have
+        /// no value, and null is honestly "not stated" rather than a guess;
+        /// EmailLanguage.Resolve turns it into the default at send time.
+        /// </summary>
+        public string? PreferredLanguage { get; set; }
     }
 }

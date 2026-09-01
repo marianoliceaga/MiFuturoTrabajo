@@ -1,4 +1,4 @@
-@page "/board"
+﻿@page "/board"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
@@ -9,11 +9,13 @@
 @inject NavigationManager NavigationManager
 @inject IToastService ToastService
 
+<PageTitle>@L["PageTitle_Board"]</PageTitle>
+
 <div class="kanban-container">
     <div class="header">
-        <h2>Job Applications Board</h2>
+        <h2>@L["PageTitle_Board"]</h2>
         <button class="btn btn-primary" @onclick="CreateNewApplication">
-            <i class="bi bi-plus-circle"></i> New Application
+            <i class="bi bi-plus-circle"></i> @L["Board_NewApplication"]
         </button>
     </div>
 
@@ -21,7 +23,7 @@
     {
         <div class="loading-spinner">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@L["Common_Loading"]</span>
             </div>
         </div>
     }
@@ -34,14 +36,14 @@
                      @ondragover:preventDefault
                      @ondragenter="() => HandleDragEnter(column.Status)">
                     <div class="column-header">
-                        <h4>@column.Title</h4>
+                        <h4>@L.BoardColumn(column.Status)</h4>
                         <span class="badge bg-secondary">@column.Applications.Count</span>
                     </div>
                     <div class="column-body">
                         @foreach (var app in column.Applications)
                         {
-                            <div class="kanban-card" 
-                                 draggable="true" 
+                            <div class="kanban-card"
+                                 draggable="true"
                                  @ondragstart="() => HandleDragStart(app)"
                                  @onclick="() => ViewApplication(app.Id)">
                                 <div class="card-header-small">
@@ -55,10 +57,10 @@
                                         <p class="salary"><i class="bi bi-currency-dollar"></i> @app.Salary.ToString("N0")</p>
                                     }
                                     <div class="card-footer-small">
-                                        <span class="badge bg-info">@app.Source</span>
+                                        <span class="badge bg-info">@L.Enum(app.Source)</span>
                                         @if (app.InterviewSteps.Any())
                                         {
-                                            <span class="badge bg-warning">@app.InterviewSteps.Count steps</span>
+                                            <span class="badge bg-warning">@L.Plural("Board_Step", app.InterviewSteps.Count)</span>
                                         }
                                     </div>
                                 </div>
@@ -92,7 +94,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading board: {ex.Message}");
-            ToastService.ShowError("Failed to load board data.");
+            ToastService.ShowError(L["Board_LoadFailed"]);
         }
         finally
         {
@@ -122,7 +124,7 @@
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating status: {ex.Message}");
-                ToastService.ShowError("Failed to move application.");
+                ToastService.ShowError(L["Board_MoveFailed"]);
             }
         }
         draggedApplication = null;
@@ -139,112 +141,3 @@
         NavigationManager.NavigateTo("/applications/new");
     }
 }
-
-<style>
-    .kanban-container {
-        padding: 20px;
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .kanban-board {
-        display: flex;
-        gap: 16px;
-        overflow-x: auto;
-        height: calc(100vh - 120px);
-        padding-bottom: 20px;
-    }
-
-    .kanban-column {
-        background: #f8f9fa;
-        border-radius: 8px;
-        min-width: 300px;
-        max-width: 300px;
-        display: flex;
-        flex-direction: column;
-        transition: background-color 0.2s;
-    }
-
-    .column-header {
-        padding: 16px;
-        background: #fff;
-        border-radius: 8px 8px 0 0;
-        border-bottom: 2px solid #dee2e6;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .column-header h4 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-    }
-
-    .column-body {
-        padding: 12px;
-        overflow-y: auto;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .kanban-card {
-        background: white;
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        cursor: move;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .kanban-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .card-header-small strong {
-        color: #212529;
-        font-size: 14px;
-        display: block;
-        margin-bottom: 8px;
-    }
-
-    .card-body-small p {
-        margin: 4px 0;
-        font-size: 12px;
-        color: #6c757d;
-    }
-
-    .company-name {
-        font-weight: 500;
-        color: #495057 !important;
-    }
-
-    .card-footer-small {
-        margin-top: 8px;
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-    }
-
-    .badge {
-        font-size: 10px;
-        padding: 4px 8px;
-    }
-
-    .loading-spinner {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 400px;
-    }
-</style>

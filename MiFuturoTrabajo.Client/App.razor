@@ -13,7 +13,7 @@
                     {
                         <LayoutView Layout="@typeof(MainLayout)">
                             <div class="alert alert-danger" role="alert">
-                                <p>You are not authorized to access this resource.</p>
+                                <p>@L["Auth_NotAuthorized"]</p>
                             </div>
                         </LayoutView>
                     }
@@ -22,21 +22,11 @@
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <PageTitle>Not found</PageTitle>
+            <PageTitle>@L["Auth_NotFoundTitle"]</PageTitle>
             <CascadingAuthenticationState>
                 <LayoutView Layout="@typeof(MainLayout)">
-                    <p role="alert">Sorry, there's nothing at this address.</p>
+                    <p role="alert">@L["Auth_NotFound"]</p>
                 </LayoutView>
-                @*<AuthorizeView>
-                        <Authorized>
-                            <LayoutView Layout="@typeof(MainLayout)">
-                                <p role="alert">Sorry, there's nothing at this address.</p>
-                            </LayoutView>
-                        </Authorized>
-                        <NotAuthorized>
-                            <RedirectToLogin />
-                        </NotAuthorized>
-                    </AuthorizeView>*@
             </CascadingAuthenticationState>
         </NotFound>
     </Router>
