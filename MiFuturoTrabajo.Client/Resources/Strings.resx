@@ -154,9 +154,6 @@
   <data name="Auth_LoggedOut" xml:space="preserve">
     <value>Logged out successfully</value>
   </data>
-  <data name="Nav_Settings" xml:space="preserve">
-    <value>Settings</value>
-  </data>
   <data name="JobApplicationStatus_NotApplied" xml:space="preserve">
     <value>Not applied</value>
   </data>

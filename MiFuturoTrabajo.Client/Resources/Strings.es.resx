@@ -154,9 +154,6 @@
   <data name="Auth_LoggedOut" xml:space="preserve">
     <value>Sesión cerrada correctamente</value>
   </data>
-  <data name="Nav_Settings" xml:space="preserve">
-    <value>Configuración</value>
-  </data>
   <data name="JobApplicationStatus_NotApplied" xml:space="preserve">
     <value>Sin postular</value>
   </data>
