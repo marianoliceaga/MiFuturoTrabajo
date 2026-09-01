@@ -1,0 +1,125 @@
+.recruiters-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.recruiters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.recruiters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.recruiter-card {
+    background: var(--mft-surface);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.recruiter-card:hover {
+    box-shadow: 0 4px 8px var(--mft-shadow-md);
+}
+
+.recruiter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.recruiter-name {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.recruiter-name h5 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--mft-text);
+}
+
+.recruiter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.company-name {
+    font-weight: 500;
+    color: var(--mft-text-secondary);
+    margin-bottom: 12px;
+}
+
+.contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.contact-info p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contact-info a {
+    color: var(--mft-primary);
+    text-decoration: none;
+}
+
+.contact-info a:hover {
+    text-decoration: underline;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--mft-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: var(--mft-border);
+    margin-bottom: 20px;
+}
+
+.empty-state h4 {
+    color: var(--mft-text-secondary);
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    color: var(--mft-text-muted);
+    margin-bottom: 24px;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--mft-text-muted);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+}

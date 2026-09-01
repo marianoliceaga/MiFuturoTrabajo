@@ -1,0 +1,262 @@
+.applications-container {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-left h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    width: 300px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--mft-text-muted);
+}
+
+.search-box input {
+    padding-left: 36px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 8px;
+}
+
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.stat-content p {
+    margin: 0;
+    color: var(--mft-text-muted);
+    font-size: 14px;
+}
+
+.view-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--mft-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.view-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.sort-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.results-count {
+    color: var(--mft-text-muted);
+    font-size: 14px;
+}
+
+.applications-table {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.application-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.application-row:hover {
+    background-color: var(--mft-surface-2);
+}
+
+.company-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.job-title-cell strong {
+    display: block;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+.applications-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.application-card {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.application-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px var(--mft-shadow-md);
+}
+
+.application-card .card-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--mft-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+}
+
+.card-title {
+    flex: 1;
+}
+
+.card-title h5 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+}
+
+.application-card .card-body {
+    padding: 16px;
+}
+
+.company-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 15px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--mft-text-muted);
+}
+
+.salary-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    color: var(--mft-success);
+    font-size: 16px;
+}
+
+.tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tags .badge {
+    font-size: 11px;
+}
+
+.status-notapplied { background-color: var(--mft-neutral); }
+.status-applied { background-color: var(--mft-info); }
+.status-firstinterview { background-color: var(--mft-warning); }
+.status-meetings { background-color: var(--mft-orange); }
+.status-rejected { background-color: var(--mft-danger); }
+.status-offer { background-color: var(--mft-success); }
+.status-completed { background-color: var(--mft-neutral); }
+.status-noresponse { background-color: var(--mft-neutral-subtle); }
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--mft-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: var(--mft-border);
+    margin-bottom: 16px;
+}
+
+.empty-state h4 {
+    margin-bottom: 8px;
+    color: var(--mft-text-secondary);
+}
+
+.empty-state p {
+    color: var(--mft-text-muted);
+    margin-bottom: 24px;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+}

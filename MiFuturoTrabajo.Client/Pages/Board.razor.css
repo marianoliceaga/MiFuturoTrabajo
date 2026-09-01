@@ -1,0 +1,111 @@
+.kanban-container {
+    padding: 20px;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header h2 {
+    color: var(--mft-text);
+}
+
+.kanban-board {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    height: calc(100vh - 120px);
+    padding-bottom: 20px;
+}
+
+.kanban-column {
+    background: var(--mft-surface-2);
+    border-radius: 8px;
+    min-width: 300px;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.2s;
+}
+
+.column-header {
+    padding: 16px;
+    background: var(--mft-surface);
+    border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid var(--mft-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.column-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--mft-text);
+}
+
+.column-body {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kanban-card {
+    background: var(--mft-surface);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px var(--mft-shadow-sm);
+    cursor: move;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.kanban-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--mft-shadow-md);
+}
+
+.card-header-small strong {
+    color: var(--mft-text);
+    font-size: 14px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.card-body-small p {
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--mft-text-muted);
+}
+
+.company-name {
+    font-weight: 500;
+    color: var(--mft-text-secondary) !important;
+}
+
+.card-footer-small {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    font-size: 10px;
+    padding: 4px 8px;
+}
+
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+}

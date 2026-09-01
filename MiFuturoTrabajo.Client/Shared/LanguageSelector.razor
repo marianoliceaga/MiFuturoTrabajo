@@ -1,0 +1,21 @@
+@inject ICultureService Culture
+
+@* A segmented control rather than a dropdown: with exactly two languages a
+   dropdown hides one option behind a click for no benefit, and this page does
+   not load Bootstrap's JavaScript, so a dropdown would need building by hand
+   anyway. *@
+<div class="language-selector" role="group" aria-label="@L["Topbar_Language"]">
+    @foreach (var option in Culture.Supported)
+    {
+        var isCurrent = option.Code == Culture.CurrentCode;
+
+        <button type="button"
+                class="language-option @(isCurrent ? "active" : null)"
+                aria-pressed="@isCurrent"
+                title="@option.NativeName"
+                disabled="@isCurrent"
+                @onclick="() => Culture.SetCultureAsync(option.Code)">
+            @option.Code.ToUpperInvariant()
+        </button>
+    }
+</div>

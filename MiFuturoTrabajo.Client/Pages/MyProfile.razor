@@ -1,4 +1,4 @@
-@page "/profile"
+﻿@page "/profile"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
@@ -13,48 +13,48 @@
 
 <div class="profile-container">
     <div class="profile-header">
-        <h2>My Profile</h2>
+        <h2>@L["Nav_MyProfile"]</h2>
         <button class="btn btn-primary" @onclick="ToggleEditMode">
-            <i class="bi bi-pencil"></i> @(isEditing ? "Cancel" : "Edit Profile")
+            <i class="bi bi-pencil"></i> @(isEditing ? L["Common_Cancel"] : L["Profile_Edit"])
         </button>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading">Loading profile...</div>
+        <div class="loading">@L["Common_Loading"]</div>
     }
     else if (applicant != null)
     {
         <div class="profile-content">
             <div class="profile-section">
-                <h4>Personal Information</h4>
+                <h4>@L["Profile_PersonalInformation"]</h4>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">First Name</label>
+                        <label class="form-label">@L["Common_FirstName"]</label>
                         <input type="text" class="form-control" @bind="applicant.Name" disabled="@(!isEditing)" />
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">Last Name</label>
+                        <label class="form-label">@L["Common_LastName"]</label>
                         <input type="text" class="form-control" @bind="applicant.Lastname" disabled="@(!isEditing)" />
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">Email</label>
+                        <label class="form-label">@L["Common_Email"]</label>
                         <input type="email" class="form-control" @bind="applicant.ContactEmail" disabled="@(!isEditing)" />
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">Phone</label>
+                        <label class="form-label">@L["Common_Cellphone"]</label>
                         <input type="tel" class="form-control" @bind="applicant.Cellphone" disabled="@(!isEditing)" />
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">Current Job</label>
+                        <label class="form-label">@L["Profile_CurrentJob"]</label>
                         <input type="text" class="form-control" @bind="applicant.CurrentJob" disabled="@(!isEditing)" />
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">LinkedIn URL</label>
+                        <label class="form-label">@L["Common_LinkedInUrl"]</label>
                         <input type="url" class="form-control" @bind="applicant.LinkedInUrl" disabled="@(!isEditing)" />
                     </div>
                 </div>
@@ -62,16 +62,16 @@
                 @if (isEditing)
                 {
                     <button class="btn btn-success" @onclick="SaveProfile">
-                        <i class="bi bi-check"></i> Save Changes
+                        <i class="bi bi-check"></i> @L["Common_SaveChanges"]
                     </button>
                 }
             </div>
 
             <div class="profile-section">
                 <div class="section-header">
-                    <h4>CV Versions</h4>
+                    <h4>@L["Nav_CvVersions"]</h4>
                     <button class="btn btn-sm btn-primary" @onclick="ShowUploadCVModal">
-                        <i class="bi bi-upload"></i> Upload CV
+                        <i class="bi bi-upload"></i> @L["Profile_UploadCv"]
                     </button>
                 </div>
 
@@ -83,10 +83,10 @@
                             <div class="cv-item">
                                 <div class="cv-info">
                                     <strong>@cv.Name</strong>
-                                    <small class="text-muted">Uploaded: @cv.UploadedDate.ToShortDateString()</small>
+                                    <small class="text-muted">@L["Cv_Uploaded", cv.UploadedDate.ShortDate()]</small>
                                     @if (cv.IsDefault)
                                     {
-                                        <span class="badge bg-primary">Default</span>
+                                        <span class="badge bg-primary">@L["Cv_Default"]</span>
                                     }
                                 </div>
                                 <div class="cv-actions">
@@ -94,7 +94,7 @@
                                         <i class="bi bi-download"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => SetDefaultCV(cv)">
-                                        <i class="bi bi-star"></i> Set Default
+                                        <i class="bi bi-star"></i> @L["Cv_SetDefault"]
                                     </button>
                                 </div>
                             </div>
@@ -103,15 +103,15 @@
                 }
                 else
                 {
-                    <p class="text-muted">No CV versions uploaded yet.</p>
+                    <p class="text-muted">@L["Profile_NoCvVersions"]</p>
                 }
             </div>
 
             <div class="profile-section">
                 <div class="section-header">
-                    <h4>Past Job References</h4>
+                    <h4>@L["Profile_References"]</h4>
                     <button class="btn btn-sm btn-primary" @onclick="ShowAddReferenceModal">
-                        <i class="bi bi-plus"></i> Add Reference
+                        <i class="bi bi-plus"></i> @L["Profile_AddReference"]
                     </button>
                 </div>
 
@@ -129,11 +129,11 @@
                                 </div>
                                 <p class="company-name">@reference.CompanyName</p>
                                 <p class="date-range">
-                                    @reference.StartDate.ToShortDateString() - 
-                                    @(reference.EndDate?.ToShortDateString() ?? "Present")
+                                    @reference.StartDate.ShortDate() -
+                                    @(reference.EndDate.HasValue ? reference.EndDate.Value.ShortDate() : L["Profile_Present"].Value)
                                 </p>
                                 <div class="contact-info">
-                                    <p><strong>Contact:</strong> @reference.ContactName</p>
+                                    <p><strong>@L["Profile_ContactLabel"]</strong> @reference.ContactName</p>
                                     <p><i class="bi bi-envelope"></i> @reference.ContactEmail</p>
                                     @if (!string.IsNullOrEmpty(reference.ContactPhone))
                                     {
@@ -146,7 +146,7 @@
                 }
                 else
                 {
-                    <p class="text-muted">No job references added yet.</p>
+                    <p class="text-muted">@L["Profile_NoReferences"]</p>
                 }
             </div>
         </div>
@@ -159,27 +159,27 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Upload CV</h5>
+                    <h5 class="modal-title">@L["Profile_UploadCv"]</h5>
                     <button type="button" class="btn-close" @onclick="() => showCVUploadModal = false"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">CV Name</label>
-                        <input type="text" class="form-control" @bind="newCVName" placeholder="e.g., Software Developer CV" />
+                        <label class="form-label">@L["Profile_CvNameLabel"]</label>
+                        <input type="text" class="form-control" @bind="newCVName" placeholder="@L["Profile_CvNamePlaceholder"]" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">File</label>
+                        <label class="form-label">@L["Profile_FileLabel"]</label>
                         <InputFile class="form-control" OnChange="HandleCVUpload" accept=".pdf,.doc,.docx" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showCVUploadModal = false">Cancel</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showCVUploadModal = false">@L["Common_Cancel"]</button>
                     <button type="button" class="btn btn-primary" @onclick="UploadCV" disabled="@isUploading">
                         @if (isUploading)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
-                        Upload
+                        @L["Profile_UploadAction"]
                     </button>
                 </div>
             </div>
@@ -193,48 +193,48 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add Job Reference</h5>
+                    <h5 class="modal-title">@L["Profile_AddReferenceTitle"]</h5>
                     <button type="button" class="btn-close" @onclick="() => showReferenceModal = false"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Company Name</label>
+                            <label class="form-label">@L["Common_CompanyName"]</label>
                             <input type="text" class="form-control" @bind="newReference.CompanyName" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Job Title</label>
+                            <label class="form-label">@L["Common_JobTitle"]</label>
                             <input type="text" class="form-control" @bind="newReference.JobTitle" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Start Date</label>
+                            <label class="form-label">@L["Common_StartDate"]</label>
                             <input type="date" class="form-control" @bind="newReference.StartDate" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">End Date (leave empty if current)</label>
+                            <label class="form-label">@L["Profile_EndDateLabel"]</label>
                             <input type="date" class="form-control" @bind="newReference.EndDate" />
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Contact Name</label>
+                        <label class="form-label">@L["Profile_ContactName"]</label>
                         <input type="text" class="form-control" @bind="newReference.ContactName" />
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Contact Email</label>
+                            <label class="form-label">@L["Profile_ContactEmail"]</label>
                             <input type="email" class="form-control" @bind="newReference.ContactEmail" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Contact Phone</label>
+                            <label class="form-label">@L["Profile_ContactPhone"]</label>
                             <input type="tel" class="form-control" @bind="newReference.ContactPhone" />
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="() => showReferenceModal = false">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="AddReference">Add Reference</button>
+                    <button type="button" class="btn btn-secondary" @onclick="() => showReferenceModal = false">@L["Common_Cancel"]</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddReference">@L["Profile_AddReference"]</button>
                 </div>
             </div>
         </div>
@@ -267,7 +267,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading profile: {ex.Message}");
-            ToastService.ShowError("Failed to load profile.");
+            ToastService.ShowError(L["Profile_LoadFailed"]);
         }
         finally
         {
@@ -286,12 +286,12 @@
         {
             await ApplicantService.UpdateProfileAsync(applicant);
             isEditing = false;
-            ToastService.ShowSuccess("Profile updated successfully.");
+            ToastService.ShowSuccess(L["Profile_Saved"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving profile: {ex.Message}");
-            ToastService.ShowError("Failed to save profile.");
+            ToastService.ShowError(L["Profile_SaveFailed"]);
         }
     }
 
@@ -323,7 +323,7 @@
                 newCVName, selectedFile.Name, selectedFile.ContentType, stream);
             applicant.CVVersions.Add(cv);
             showCVUploadModal = false;
-            ToastService.ShowSuccess("CV uploaded successfully.");
+            ToastService.ShowSuccess(L["Profile_CvUploaded"]);
         }
         catch (HttpRequestException ex)
         {
@@ -335,7 +335,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error uploading CV: {ex.Message}");
-            ToastService.ShowError("Failed to upload CV.");
+            ToastService.ShowError(L["Profile_CvUploadFailed"]);
         }
         finally
         {
@@ -350,7 +350,7 @@
     {
         if (!cv.HasFile)
         {
-            ToastService.ShowError("This CV version has no file attached.");
+            ToastService.ShowError(L["Profile_CvNoFile"]);
             return;
         }
 
@@ -364,7 +364,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error downloading CV: {ex.Message}");
-            ToastService.ShowError("Could not open that CV.");
+            ToastService.ShowError(L["Cv_OpenFailed"]);
         }
     }
 
@@ -377,12 +377,12 @@
             {
                 c.IsDefault = c.Id == cv.Id;
             }
-            ToastService.ShowSuccess("Default CV set.");
+            ToastService.ShowSuccess(L["Cv_DefaultUpdated"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error setting default CV: {ex.Message}");
-            ToastService.ShowError("Failed to set default CV.");
+            ToastService.ShowError(L["Cv_SetDefaultFailed"]);
         }
     }
 
@@ -399,12 +399,12 @@
             var added = await ApplicantService.AddReferenceAsync(newReference);
             applicant.PastJobReferences.Add(added);
             showReferenceModal = false;
-            ToastService.ShowSuccess("Reference added successfully.");
+            ToastService.ShowSuccess(L["Profile_ReferenceAdded"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error adding reference: {ex.Message}");
-            ToastService.ShowError("Failed to add reference.");
+            ToastService.ShowError(L["Profile_ReferenceAddFailed"]);
         }
     }
 
@@ -414,122 +414,12 @@
         {
             await ApplicantService.DeleteReferenceAsync(id);
             applicant.PastJobReferences.RemoveAll(r => r.Id == id);
-            ToastService.ShowSuccess("Reference deleted successfully.");
+            ToastService.ShowSuccess(L["Profile_ReferenceDeleted"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting reference: {ex.Message}");
-            ToastService.ShowError("Failed to delete reference.");
+            ToastService.ShowError(L["Profile_ReferenceDeleteFailed"]);
         }
     }
 }
-
-<style>
-    .profile-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .profile-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-    }
-
-    .profile-section {
-        background: white;
-        padding: 24px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .profile-section h4 {
-        margin-bottom: 20px;
-        color: #495057;
-    }
-
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .cv-list, .references-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .cv-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px;
-        background: #f8f9fa;
-        border-radius: 6px;
-        border: 1px solid #dee2e6;
-    }
-
-    .cv-info {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .cv-actions {
-        display: flex;
-        gap: 8px;
-    }
-
-    .reference-card {
-        padding: 16px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-    }
-
-    .reference-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 12px;
-    }
-
-    .reference-header h5 {
-        margin: 0;
-        font-size: 18px;
-    }
-
-    .company-name {
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-    }
-
-    .date-range {
-        color: #6c757d;
-        font-size: 14px;
-        margin-bottom: 12px;
-    }
-
-    .contact-info p {
-        margin: 4px 0;
-        font-size: 14px;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1050;
-    }
-</style>

@@ -1,0 +1,107 @@
+.profile-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.profile-section {
+    background: var(--mft-surface);
+    padding: 24px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px var(--mft-shadow-sm);
+}
+
+.profile-section h4 {
+    margin-bottom: 20px;
+    color: var(--mft-text-secondary);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.cv-list, .references-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cv-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--mft-surface-2);
+    border-radius: 6px;
+    border: 1px solid var(--mft-border);
+}
+
+.cv-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cv-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.reference-card {
+    padding: 16px;
+    background: var(--mft-surface-2);
+    border-radius: 8px;
+    border: 1px solid var(--mft-border);
+}
+
+.reference-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.reference-header h5 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.company-name {
+    font-weight: 600;
+    color: var(--mft-text-secondary);
+    margin-bottom: 8px;
+}
+
+.date-range {
+    color: var(--mft-text-muted);
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.contact-info p {
+    margin: 4px 0;
+    font-size: 14px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+}

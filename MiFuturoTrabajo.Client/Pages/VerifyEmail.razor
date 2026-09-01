@@ -5,7 +5,7 @@
 @inject IToastService ToastService
 @inject NavigationManager Navigation
 
-<PageTitle>Verify Email - MiFuturoTrabajo</PageTitle>
+<PageTitle>@L["Verify_PageTitle"]</PageTitle>
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -15,24 +15,24 @@
                     @if (isVerifying)
                     {
                         <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Verifying...</span>
+                            <span class="visually-hidden">@L["Verify_InProgressShort"]</span>
                         </div>
-                        <h4 class="mb-3">Verifying your email...</h4>
-                        <p class="text-muted">Please wait while we verify your email address.</p>
+                        <h4 class="mb-3">@L["Verify_InProgress"]</h4>
+                        <p class="text-muted">@L["Verify_PleaseWait"]</p>
                     }
                     else if (isSuccess)
                     {
                         <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                        <h4 class="mt-3 mb-3">Email Verified!</h4>
-                        <p class="text-muted">Your email address has been successfully verified.</p>
-                        <a href="/login" class="btn btn-primary mt-3 w-100">Proceed to Login</a>
+                        <h4 class="mt-3 mb-3">@L["Verify_SuccessHeading"]</h4>
+                        <p class="text-muted">@L["Verify_SuccessBody"]</p>
+                        <a href="/login" class="btn btn-primary mt-3 w-100">@L["Verify_ProceedToLogin"]</a>
                     }
                     else
                     {
                         <i class="bi bi-x-circle-fill text-danger" style="font-size: 3rem;"></i>
-                        <h4 class="mt-3 mb-3">Verification Failed</h4>
+                        <h4 class="mt-3 mb-3">@L["Verify_FailedHeading"]</h4>
                         <p class="text-muted">@errorMessage</p>
-                        <a href="/login" class="btn btn-outline-primary mt-3 w-100">Back to Login</a>
+                        <a href="/login" class="btn btn-outline-primary mt-3 w-100">@L["Auth_BackToLogin"]</a>
                     }
                 </div>
             </div>
@@ -53,10 +53,14 @@
 
     private bool isVerifying = true;
     private bool isSuccess = false;
-    private string errorMessage = "The verification link is invalid or has expired.";
+    private string errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
+        // Assigned here rather than in the field initialiser: a field
+        // initialiser runs before the injected localiser is available.
+        errorMessage = L["Verify_LinkInvalid"];
+
         if (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(Email))
         {
             isVerifying = false;
@@ -68,17 +72,17 @@
             isSuccess = await AuthService.VerifyEmailAsync(Email, Token);
             if (isSuccess)
             {
-                ToastService.ShowSuccess("Email verified successfully!");
+                ToastService.ShowSuccess(L["Verify_Success"]);
             }
             else
             {
-                ToastService.ShowError("Email verification failed. The link may have expired.");
+                ToastService.ShowError(L["Verify_Failed"]);
             }
         }
         catch (Exception)
         {
             isSuccess = false;
-            ToastService.ShowError("An error occurred during verification.");
+            ToastService.ShowError(L["Verify_Error"]);
         }
         finally
         {

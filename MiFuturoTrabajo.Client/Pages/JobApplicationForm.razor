@@ -1,4 +1,4 @@
-@page "/applications/new"
+﻿@page "/applications/new"
 @page "/applications/{Id}"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
@@ -15,9 +15,9 @@
 
 <div class="form-container">
     <div class="form-header">
-        <h2>@(IsNew ? "New Job Application" : "Edit Job Application")</h2>
+        <h2>@(IsNew ? L["JobForm_NewHeading"] : L["JobForm_EditHeading"])</h2>
         <button class="btn btn-outline-secondary" @onclick="Cancel">
-            <i class="bi bi-x"></i> Cancel
+            <i class="bi bi-x"></i> @L["Common_Cancel"]
         </button>
     </div>
 
@@ -26,20 +26,20 @@
         <ValidationSummary />
 
         <div class="form-section">
-            <h4>Basic Information</h4>
+            <h4>@L["JobForm_BasicInformation"]</h4>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Job Title *</label>
+                    <label class="form-label">@L["JobForm_JobTitleLabel"]</label>
                     <InputText class="form-control" @bind-Value="application.JobTitle" />
                 </div>
                 
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Company *</label>
+                    <label class="form-label">@L["JobForm_CompanyLabel"]</label>
                     <div class="input-group">
                         <InputText class="form-control" @bind-Value="companySearch"
-                                   @oninput="SearchCompanies" placeholder="Search or create company" />
-                        <button class="btn btn-outline-secondary" type="button" @onclick="OpenCompanyModal" title="Create or manage company">
+                                   @oninput="SearchCompanies" placeholder="@L["JobForm_CompanySearchPlaceholder"]" />
+                        <button class="btn btn-outline-secondary" type="button" @onclick="OpenCompanyModal" title="@L["JobForm_ManageCompany"]">
                             <i class="bi bi-plus"></i>
                         </button>
                     </div>
@@ -75,39 +75,39 @@
 
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Location</label>
+                    <label class="form-label">@L["Applications_ColLocation"]</label>
                     <InputText class="form-control" @bind-Value="application.Location" />
                 </div>
                 
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Expected / Listed Salary</label>
+                    <label class="form-label">@L["JobForm_ExpectedSalary"]</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
                         <InputNumber class="form-control" @bind-Value="application.Salary" placeholder="0" />
                     </div>
-                    <div class="form-text">Salary mentioned in the job listing or your expectation.</div>
+                    <div class="form-text">@L["JobForm_ExpectedSalaryHint"]</div>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <label class="form-label">Job Source *</label>
+                    <label class="form-label">@L["JobForm_SourceLabel"]</label>
                     <InputSelect class="form-select" @bind-Value="application.Source">
                         @foreach (JobSource source in Enum.GetValues(typeof(JobSource)))
                         {
-                            <option value="@source">@SplitCaps(source.ToString())</option>
+                            <option value="@source">@L.Enum(source)</option>
                         }
                     </InputSelect>
                 </div>
                 
                 <div class="col-md-8 mb-3">
-                    <label class="form-label">Job URL</label>
+                    <label class="form-label">@L["JobForm_UrlLabel"]</label>
                     <InputText class="form-control" @bind-Value="application.URL" type="url" />
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Job Description</label>
+                <label class="form-label">@L["JobForm_DescriptionLabel"]</label>
                 <InputTextArea class="form-control" @bind-Value="application.JobDescription" rows="4" />
             </div>
 
@@ -115,56 +115,56 @@
                 <div class="col-md-4 mb-3">
                     <div class="form-check">
                         <InputCheckbox class="form-check-input" @bind-Value="application.IsDirect" id="isDirect" />
-                        <label class="form-check-label" for="isDirect">Direct Application</label>
+                        <label class="form-check-label" for="isDirect">@L["JobForm_DirectApplication"]</label>
                     </div>
                 </div>
                 
                 <div class="col-md-4 mb-3">
                     <div class="form-check">
                         <InputCheckbox class="form-check-input" @bind-Value="application.IsConsultancy" id="isConsultancy" />
-                        <label class="form-check-label" for="isConsultancy">Through Consultancy</label>
+                        <label class="form-check-label" for="isConsultancy">@L["JobForm_ThroughConsultancy"]</label>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="form-section">
-            <h4>CV Version Used</h4>
+            <h4>@L["JobForm_CvSection"]</h4>
             <div class="mb-3">
-                <label class="form-label">Select CV</label>
+                <label class="form-label">@L["JobForm_SelectCvLabel"]</label>
                 <select class="form-select" @bind="application.CVUsedId">
-                    <option value="">-- Select CV --</option>
+                    <option value="">@L["JobForm_SelectCvOption"]</option>
                     @foreach (var cv in cvVersions)
                     {
-                        <option value="@cv.Id">@cv.Name (@cv.UploadedDate.ToShortDateString())</option>
+                        <option value="@cv.Id">@cv.Name (@cv.UploadedDate.ShortDate())</option>
                     }
                 </select>
             </div>
         </div>
 
         <div class="form-section">
-            <h4>Main Recruiter Contact</h4>
+            <h4>@L["JobForm_RecruiterSection"]</h4>
             <div class="mb-3">
-                <label class="form-label">Recruiter</label>
+                <label class="form-label">@L["JobSource_Recruiter"]</label>
                 <div class="input-group">
                     <select class="form-select" @bind="application.MainRecruiterContactId">
-                        <option value="">-- Select Recruiter --</option>
+                        <option value="">@L["JobForm_SelectRecruiterOption"]</option>
                         @foreach (var recruiter in recruiters)
                         {
                             <option value="@recruiter.Id">@recruiter.Name @recruiter.Lastname</option>
                         }
                     </select>
                     <button class="btn btn-outline-secondary" type="button" @onclick="AddNewRecruiter">
-                        <i class="bi bi-plus"></i> Add New
+                        <i class="bi bi-plus"></i> @L["JobForm_AddNew"]
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="form-section">
-            <h4>Interview Process</h4>
+            <h4>@L["JobForm_InterviewSection"]</h4>
             <button type="button" class="btn btn-sm btn-outline-primary mb-2" @onclick="AddInterviewStep">
-                <i class="bi bi-plus"></i> Add Interview Step
+                <i class="bi bi-plus"></i> @L["JobForm_AddStep"]
             </button>
             
             @if (application.InterviewSteps.Any())
@@ -175,7 +175,7 @@
                         <div class="interview-step-card">
                             <div class="step-header">
                                 <input type="text" class="form-control form-control-sm" 
-                                       @bind="step.StepName" placeholder="Step name" />
+                                       @bind="step.StepName" placeholder="@L["JobForm_StepNamePlaceholder"]" />
                                 <button type="button" class="btn btn-sm btn-outline-danger" 
                                         @onclick="() => RemoveInterviewStep(step)">
                                     <i class="bi bi-trash"></i>
@@ -187,7 +187,7 @@
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" 
                                            @bind="step.IsCompleted" id="completed-@step.Id" />
-                                    <label class="form-check-label" for="completed-@step.Id">Completed</label>
+                                    <label class="form-check-label" for="completed-@step.Id">@L["JobForm_StepCompleted"]</label>
                                 </div>
                             </div>
                         </div>
@@ -197,27 +197,27 @@
         </div>
 
         <div class="form-section">
-            <h4>Additional Information</h4>
+            <h4>@L["JobForm_AdditionalInformation"]</h4>
             
             <div class="mb-3">
-                <label class="form-label">Application Deadline</label>
+                <label class="form-label">@L["JobForm_DeadlineLabel"]</label>
                 <InputDate class="form-control" @bind-Value="application.DeadLine" />
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Status</label>
+                <label class="form-label">@L["Applications_ColStatus"]</label>
                 <InputSelect class="form-select" @bind-Value="application.Status">
                     @foreach (JobApplicationStatus status in Enum.GetValues(typeof(JobApplicationStatus)))
                     {
-                        <option value="@status">@SplitCaps(status.ToString())</option>
+                        <option value="@status">@L.Enum(status)</option>
                     }
                 </InputSelect>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Labels (comma separated)</label>
+                <label class="form-label">@L["Companies_LabelsLabel"]</label>
                 <input type="text" class="form-control" @bind="labelsString" 
-                       placeholder="remote, senior, full-time" />
+                       placeholder="@L["JobForm_LabelsPlaceholder"]" />
             </div>
         </div>
 
@@ -227,35 +227,35 @@
                 <div class="offer-banner">
                     <i class="bi bi-trophy-fill"></i>
                     <div>
-                        <h5>🎉 You received an offer!</h5>
-                        <p>Record the details of the job offer below.</p>
+                        <h5>🎉 @L["JobForm_OfferBannerHeading"]</h5>
+                        <p>@L["JobForm_OfferBannerBody"]</p>
                     </div>
                 </div>
 
-                <h4><i class="bi bi-file-earmark-text"></i> Job Offer Details</h4>
+                <h4><i class="bi bi-file-earmark-text"></i> @L["JobForm_OfferSection"]</h4>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Offered Salary</label>
+                        <label class="form-label fw-semibold">@L["JobForm_OfferedSalary"]</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
                             <InputNumber class="form-control" @bind-Value="application.Salary" placeholder="0" />
                         </div>
-                        <div class="form-text">The actual salary amount offered to you.</div>
+                        <div class="form-text">@L["JobForm_OfferedSalaryHint"]</div>
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-semibold">Offer Received Date</label>
+                        <label class="form-label fw-semibold">@L["JobForm_OfferDate"]</label>
                         <InputDate class="form-control" @bind-Value="application.DateApplied" />
-                        <div class="form-text">Date you received the formal offer.</div>
+                        <div class="form-text">@L["JobForm_OfferDateHint"]</div>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Offer Notes / Details</label>
+                    <label class="form-label fw-semibold">@L["JobForm_OfferNotes"]</label>
                     <InputTextArea class="form-control" @bind-Value="application.JobOffer" rows="5"
-                                   placeholder="e.g. Benefits package, stock options, start date, remote work policy, signing bonus, PTO days, flex schedule..." />
-                    <div class="form-text">Record any important details about the offer — compensation breakdown, benefits, conditions, negotiation notes, etc.</div>
+                                   placeholder="@L["JobForm_OfferNotesPlaceholder"]" />
+                    <div class="form-text">@L["JobForm_OfferNotesHint"]</div>
                 </div>
             </div>
         }
@@ -265,16 +265,16 @@
                 @if (isSaving)
                 {
                     <span class="spinner-border spinner-border-sm" role="status"></span>
-                    <span>Saving...</span>
+                    <span>@L["Common_Saving"]</span>
                 }
                 else
                 {
                     <i class="bi bi-save"></i>
-                    <span>Save Application</span>
+                    <span>@L["JobForm_Save"]</span>
                 }
             </button>
             <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">
-                Cancel
+                @L["Common_Cancel"]
             </button>
         </div>
     </EditForm>
@@ -330,7 +330,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading data: {ex.Message}");
-            ToastService.ShowError("Failed to load application data.");
+            ToastService.ShowError(L["JobForm_LoadFailed"]);
         }
     }
 
@@ -407,22 +407,13 @@
         {
             Id = Guid.NewGuid().ToString(),
             StepOrder = maxOrder + 1,
-            StepName = $"Interview Step {maxOrder + 1}"
+            StepName = L["JobForm_DefaultStepName", maxOrder + 1]
         });
     }
 
     private void RemoveInterviewStep(InterviewStepDto step)
     {
         application.InterviewSteps.Remove(step);
-    }
-
-    // Insert spaces before capital letters for nicer display of enum names
-    private string SplitCaps(string input)
-    {
-        if (string.IsNullOrEmpty(input))
-            return input;
-
-        return System.Text.RegularExpressions.Regex.Replace(input, "([a-z])([A-Z])", "$1 $2");
     }
 
     private async Task HandleSubmit()
@@ -445,13 +436,13 @@
                 await JobApplicationService.UpdateAsync(Id, application);
             }
 
-            ToastService.ShowSuccess(IsNew ? "Application created successfully." : "Application updated successfully.");
+            ToastService.ShowSuccess(IsNew ? L["JobForm_Created"] : L["JobForm_Updated"]);
             NavigationManager.NavigateTo("/board");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving application: {ex.Message}");
-            ToastService.ShowError("Failed to save application.");
+            ToastService.ShowError(L["JobForm_SaveFailed"]);
         }
         finally
         {
@@ -464,190 +455,3 @@
         NavigationManager.NavigateTo("/board");
     }
 }
-
-<style>
-    .form-container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .form-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #dee2e6;
-    }
-
-    .form-section {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .form-section h4 {
-        margin-bottom: 20px;
-        color: #495057;
-        font-size: 18px;
-        font-weight: 600;
-    }
-
-    .suggestions-list {
-        list-style: none;
-        padding: 0;
-        margin: 5px 0 0 0;
-        background: white;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        max-height: 200px;
-        overflow-y: auto;
-        position: absolute;
-        z-index: 1000;
-        width: calc(100% - 30px);
-    }
-
-    .suggestions-list li {
-        padding: 10px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .suggestions-list li:hover {
-        background: #f8f9fa;
-    }
-
-    .suggestion-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-    }
-
-    .suggestion-name {
-        flex: 1;
-    }
-
-    .suggestion-edit {
-        padding: 0 5px;
-        color: #6c757d;
-    }
-
-    .suggestion-edit:hover {
-        color: #0d6efd;
-    }
-
-    .selected-company {
-        margin-top: 8px;
-        padding: 8px 12px;
-        background: #e7f3ff;
-        border: 1px solid #b3d9ff;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
-    }
-
-    .selected-company i {
-        color: #0d6efd;
-    }
-
-    .selected-company .btn-link {
-        margin-left: auto;
-        padding: 0 5px;
-        color: #6c757d;
-    }
-
-    .selected-company .btn-link:hover {
-        color: #0d6efd;
-    }
-
-    .interview-steps {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .interview-step-card {
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        padding: 12px;
-        background: #f8f9fa;
-    }
-
-    .step-header {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 10px;
-    }
-
-    .step-header input {
-        flex: 1;
-    }
-
-    .step-body {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .step-body input[type="datetime-local"] {
-        flex: 1;
-    }
-
-    .form-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        margin-top: 30px;
-        padding-top: 20px;
-        border-top: 2px solid #dee2e6;
-    }
-
-    /* Job Offer Details Section */
-    .offer-section {
-        background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
-        border: 2px solid #ffc107;
-        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
-    }
-
-    .offer-section h4 {
-        color: #856404;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .offer-banner {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        background: linear-gradient(135deg, #198754, #20c997);
-        color: white;
-        padding: 16px 20px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .offer-banner i {
-        font-size: 32px;
-        color: #ffd700;
-        flex-shrink: 0;
-    }
-
-    .offer-banner h5 {
-        margin: 0 0 4px 0;
-        font-size: 18px;
-        font-weight: 700;
-    }
-
-    .offer-banner p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 14px;
-    }
-</style>

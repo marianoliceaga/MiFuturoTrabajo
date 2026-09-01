@@ -1,4 +1,4 @@
-@page "/cv-versions"
+﻿@page "/cv-versions"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
@@ -12,15 +12,15 @@
 
 <div class="cv-container">
     <div class="cv-header">
-        <h2>My CV Versions</h2>
+        <h2>@L["Cv_Heading"]</h2>
         <button class="btn btn-primary" @onclick="ShowAddCVModal">
-            <i class="bi bi-plus"></i> Add CV Version
+            <i class="bi bi-plus"></i> @L["Cv_Add"]
         </button>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading">Loading CV versions...</div>
+        <div class="loading">@L["Common_Loading"]</div>
     }
     else if (cvVersions.Any())
     {
@@ -35,12 +35,12 @@
                                 @if (cv.IsDefault)
                                 {
                                     <span class="badge bg-success">
-                                        <i class="bi bi-star-fill"></i> Default
+                                        <i class="bi bi-star-fill"></i> @L["Cv_Default"]
                                     </span>
                                 }
                             </div>
                             <p class="cv-date">
-                                <i class="bi bi-calendar"></i> Uploaded: @cv.UploadedDate.ToString("MMM dd, yyyy")
+                                <i class="bi bi-calendar"></i> @L["Cv_Uploaded", cv.UploadedDate.ShortDate()]
                             </p>
                             <p class="cv-url">
                                 @if (cv.HasFile)
@@ -52,27 +52,27 @@
                                 else
                                 {
                                     <i class="bi bi-file-earmark"></i>
-                                    <span class="text-muted">No file attached</span>
+                                    <span class="text-muted">@L["Cv_NoFile"]</span>
                                 }
                             </p>
                         </div>
                         <div class="cv-actions">
                             @if (cv.HasFile)
                             {
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadCV(cv)" title="Download">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => DownloadCV(cv)" title="@L["Cv_Download"]">
                                     <i class="bi bi-download"></i>
                                 </button>
                             }
                             @if (!cv.IsDefault)
                             {
-                                <button class="btn btn-sm btn-outline-success" @onclick="() => SetAsDefault(cv.Id)" title="Set as Default">
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => SetAsDefault(cv.Id)" title="@L["Cv_SetDefault"]">
                                     <i class="bi bi-star"></i>
                                 </button>
                             }
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditCVModal(cv)" title="Edit">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditCVModal(cv)" title="@L["Common_Edit"]">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCV(cv.Id)" title="Delete">
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCV(cv.Id)" title="@L["Common_Delete"]">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -85,10 +85,10 @@
     {
         <div class="empty-state">
             <i class="bi bi-file-earmark-text"></i>
-            <h4>No CV Versions</h4>
-            <p>Upload your first CV to get started with job applications.</p>
+            <h4>@L["Cv_EmptyHeading"]</h4>
+            <p>@L["Cv_EmptyBody"]</p>
             <button class="btn btn-primary" @onclick="ShowAddCVModal">
-                <i class="bi bi-plus"></i> Upload Your First CV
+                <i class="bi bi-plus"></i> @L["Cv_UploadFirst"]
             </button>
         </div>
     }
@@ -100,20 +100,20 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(isEditMode ? "Edit CV Version" : "Add CV Version")</h5>
+                    <h5 class="modal-title">@(isEditMode ? L["Cv_EditTitle"] : L["Cv_AddTitle"])</h5>
                     <button type="button" class="btn-close" @onclick="CloseCVModal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">CV Name *</label>
-                        <input type="text" class="form-control" @bind="currentCV.Name" placeholder="e.g., Software Developer CV - 2025" />
+                        <label class="form-label">@L["Cv_NameLabel"]</label>
+                        <input type="text" class="form-control" @bind="currentCV.Name" placeholder="@L["Cv_NamePlaceholder"]" />
                     </div>
                     @if (!isEditMode)
                     {
                         <div class="mb-3">
-                            <label class="form-label">CV File (Optional)</label>
+                            <label class="form-label">@L["Cv_FileLabel"]</label>
                             <InputFile class="form-control" OnChange="HandleFileSelected" accept=".pdf,.doc,.docx" />
-                            <small class="form-text text-muted">PDF, DOC or DOCX, up to 5 MB. Stored privately; downloads use expiring links.</small>
+                            <small class="form-text text-muted">@L["Cv_FileHint"]</small>
                         </div>
                     }
                     @if (!isEditMode)
@@ -122,20 +122,20 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="setAsDefault" @bind="currentCV.IsDefault" />
                                 <label class="form-check-label" for="setAsDefault">
-                                    Set as default CV
+                                    @L["Cv_SetAsDefaultCheckbox"]
                                 </label>
                             </div>
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseCVModal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseCVModal">@L["Common_Cancel"]</button>
                     <button type="button" class="btn btn-primary" @onclick="SaveCV" disabled="@isSaving">
                         @if (isSaving)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
-                        @(isEditMode ? "Update" : "Add") CV
+                        @(isEditMode ? L["Cv_UpdateAction"] : L["Cv_AddAction"])
                     </button>
                 </div>
             </div>
@@ -167,7 +167,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading CV versions: {ex.Message}");
-            ToastService.ShowError("Failed to load CV versions.");
+            ToastService.ShowError(L["Cv_LoadFailed"]);
         }
         finally
         {
@@ -268,7 +268,7 @@
                 cvVersions.Insert(0, created); // Add to top
             }
             CloseCVModal();
-            ToastService.ShowSuccess(isEditMode ? "CV updated successfully." : "CV added successfully.");
+            ToastService.ShowSuccess(isEditMode ? L["Cv_Updated"] : L["Cv_Added"]);
         }
         catch (HttpRequestException ex)
         {
@@ -280,7 +280,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving CV: {ex.Message}");
-            ToastService.ShowError("Failed to save CV.");
+            ToastService.ShowError(L["Cv_SaveFailed"]);
         }
         finally
         {
@@ -301,18 +301,18 @@
             }
 
             StateHasChanged();
-            ToastService.ShowSuccess("Default CV updated.");
+            ToastService.ShowSuccess(L["Cv_DefaultUpdated"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error setting default CV: {ex.Message}");
-            ToastService.ShowError("Failed to set default CV.");
+            ToastService.ShowError(L["Cv_SetDefaultFailed"]);
         }
     }
 
     private async Task DeleteCV(string id)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this CV version?"))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", L["Cv_ConfirmDelete"].Value))
         {
             return;
         }
@@ -321,12 +321,12 @@
         {
             await CVVersionService.DeleteAsync(id);
             cvVersions.RemoveAll(cv => cv.Id == id);
-            ToastService.ShowSuccess("CV deleted successfully.");
+            ToastService.ShowSuccess(L["Cv_Deleted"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting CV: {ex.Message}");
-            ToastService.ShowError("Failed to delete CV.");
+            ToastService.ShowError(L["Cv_DeleteFailed"]);
         }
     }
 
@@ -346,143 +346,12 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error downloading CV: {ex.Message}");
-            ToastService.ShowError("Could not open that CV.");
+            ToastService.ShowError(L["Cv_OpenFailed"]);
         }
     }
 
-    private static string FormatSize(long bytes) =>
+    private string FormatSize(long bytes) =>
         bytes >= 1024 * 1024
-            ? $"{bytes / (double)(1024 * 1024):0.#} MB"
-            : $"{bytes / 1024d:0.#} KB";
+            ? L["Cv_SizeMegabytes", (bytes / (double)(1024 * 1024)).ToString("0.#")]
+            : L["Cv_SizeKilobytes", (bytes / 1024d).ToString("0.#")];
 }
-
-<style>
-    .cv-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .cv-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-    }
-
-    .cv-list {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .cv-card {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        border: 2px solid transparent;
-    }
-
-    .cv-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .cv-card.default-cv {
-        border-color: #198754;
-        background: linear-gradient(to right, #f8fffe 0%, white 100%);
-    }
-
-    .cv-main {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px;
-    }
-
-    .cv-info {
-        flex: 1;
-    }
-
-    .cv-title {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-    }
-
-    .cv-title h5 {
-        margin: 0;
-        font-size: 18px;
-        color: #212529;
-    }
-
-    .cv-date,
-    .cv-url {
-        margin: 4px 0;
-        font-size: 14px;
-        color: #6c757d;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .cv-url a {
-        color: #0d6efd;
-        text-decoration: none;
-        word-break: break-all;
-    }
-
-    .cv-url a:hover {
-        text-decoration: underline;
-    }
-
-    .cv-actions {
-        display: flex;
-        gap: 8px;
-        flex-shrink: 0;
-        margin-left: 20px;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .empty-state i {
-        font-size: 64px;
-        color: #dee2e6;
-        margin-bottom: 20px;
-    }
-
-    .empty-state h4 {
-        color: #495057;
-        margin-bottom: 12px;
-    }
-
-    .empty-state p {
-        color: #6c757d;
-        margin-bottom: 24px;
-    }
-
-    .loading {
-        text-align: center;
-        padding: 40px;
-        color: #6c757d;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1050;
-    }
-</style>

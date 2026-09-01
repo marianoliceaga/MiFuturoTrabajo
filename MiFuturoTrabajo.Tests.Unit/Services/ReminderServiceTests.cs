@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using MiFuturoTrabajo.Infrastructure;
 using MiFuturoTrabajo.Infrastructure.Email;
@@ -400,7 +400,85 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             await Build(db, email).SendTaskRemindersAsync(Now);
 
             Assert.Contains("Call the recruiter", email.Sent.Single(m => m.To == "solo@example.com").Subject);
-            Assert.Contains("2 tasks", email.Sent.Single(m => m.To == "busy@example.com").Subject);
+            Assert.Contains("2 tareas", email.Sent.Single(m => m.To == "busy@example.com").Subject);
+        }
+
+        // ==============================================================
+        // Language
+        // ==============================================================
+
+        [Fact]
+        public async Task Reminders_AreWrittenInTheAccountsPreferredLanguage()
+        {
+            using var db = NewContext();
+
+            var applicant = AnApplicant("english@example.com");
+            db.Applicants.Add(applicant);
+            db.Users.Add(new User
+            {
+                Id = applicant.UserId,
+                Email = "english@example.com",
+                PreferredLanguage = "en"
+            });
+            db.ApplicantTasks.AddRange(
+                new ApplicantTask { ApplicantId = applicant.Id, Title = "A", Deadline = Now.AddHours(3) },
+                new ApplicantTask { ApplicantId = applicant.Id, Title = "B", Deadline = Now.AddHours(4) });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            await Build(db, email).SendTaskRemindersAsync(Now);
+
+            Assert.Contains("2 tasks", email.Sent.Single().Subject);
+        }
+
+        [Fact]
+        public async Task Reminders_FallBackToSpanishWhenTheAccountHasNoPreference()
+        {
+            using var db = NewContext();
+
+            var applicant = AnApplicant("silent@example.com");
+            db.Applicants.Add(applicant);
+
+            // A user row that predates the setting: present, but with nothing
+            // stored. This is the state every existing account is in.
+            db.Users.Add(new User
+            {
+                Id = applicant.UserId,
+                Email = "silent@example.com",
+                PreferredLanguage = null
+            });
+            db.ApplicantTasks.AddRange(
+                new ApplicantTask { ApplicantId = applicant.Id, Title = "A", Deadline = Now.AddHours(3) },
+                new ApplicantTask { ApplicantId = applicant.Id, Title = "B", Deadline = Now.AddHours(4) });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            await Build(db, email).SendTaskRemindersAsync(Now);
+
+            Assert.Contains("2 tareas", email.Sent.Single().Subject);
+        }
+
+        [Fact]
+        public async Task Reminders_StillSendWhenTheApplicantHasNoUserRow()
+        {
+            // The applicant and user documents live in different containers and
+            // nothing enforces the link. A missing user must degrade to the
+            // default language, not drop the reminder.
+            using var db = NewContext();
+
+            var applicant = AnApplicant("orphan@example.com");
+            db.Applicants.Add(applicant);
+            db.ApplicantTasks.Add(new ApplicantTask
+            {
+                ApplicantId = applicant.Id, Title = "Follow up", Deadline = Now.AddHours(3)
+            });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            var run = await Build(db, email).SendTaskRemindersAsync(Now);
+
+            Assert.Equal(1, run.Sent);
+            Assert.Contains("Follow up", email.Sent.Single().Subject);
         }
     }
 }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MiFuturoTrabajo.Infrastructure.Email;
 using MiFuturoTrabajo.Infrastructure.Entities;
@@ -98,7 +98,8 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
             return await DispatchAsync(
                 due,
                 t => t.ApplicantId,
-                (applicant, tasks) => EmailTemplates.TaskReminder(
+                (applicant, tasks, language) => EmailTemplates.TaskReminder(
+                    language,
                     applicant.Name,
                     tasks.OrderBy(t => t.Deadline)
                          .Select(t => (t.Title, t.Deadline))
@@ -117,10 +118,11 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
             return await DispatchAsync(
                 due,
                 m => m.ApplicantId,
-                (applicant, meetings) => EmailTemplates.InterviewReminder(
+                (applicant, meetings, language) => EmailTemplates.InterviewReminder(
+                    language,
                     applicant.Name,
                     meetings.OrderBy(m => m.StartDateTime)
-                            .Select(m => (m.Title, m.StartDateTime, LocationOf(m)))
+                            .Select(m => (m.Title, m.StartDateTime, LocationOf(m, language)))
                             .ToList()),
                 m => m.ReminderSent = true,
                 "interview",
@@ -131,11 +133,14 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
         /// Group by owner, mark as sent, save, then mail - once per recipient
         /// rather than once per row, so someone with four tasks due gets one
         /// message rather than four.
+        ///
+        /// <paramref name="compose"/> receives the recipient's language, which
+        /// is looked up once per run rather than per message.
         /// </summary>
         private async Task<ReminderRun> DispatchAsync<T>(
             List<T> due,
             Func<T, string> applicantIdOf,
-            Func<Applicant, List<T>, EmailMessageContent> compose,
+            Func<Applicant, List<T>, string, EmailMessageContent> compose,
             Action<T> markSent,
             string kind,
             CancellationToken ct)
@@ -151,6 +156,8 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
                 .Where(a => applicantIds.Contains(a.Id))
                 .ToListAsync(ct);
 
+            var languages = await LanguagesByUserAsync(applicants, ct);
+
             var sent = 0;
             var recipients = 0;
 
@@ -163,7 +170,11 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
                     continue;
                 }
 
-                var message = compose(applicant, items);
+                var language = languages.TryGetValue(applicant.UserId, out var stored)
+                    ? stored
+                    : EmailLanguage.Default;
+
+                var message = compose(applicant, items, language);
 
                 // Marked and committed BEFORE sending. A timer trigger can fire
                 // twice - overlapping executions, a retry after a transient
@@ -198,11 +209,48 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
             return new ReminderRun(due.Count, sent, recipients);
         }
 
-        private static string? LocationOf(Meeting meeting)
+        /// <summary>
+        /// The language each of these applicants' accounts reads in, keyed by
+        /// user id.
+        ///
+        /// One extra query per run, not one per message. It is cross-partition
+        /// - Users is partitioned by email and this looks up by id - which is
+        /// exactly the shape a scheduled job can afford and a per-request path
+        /// cannot. An applicant whose user row is missing, or who never chose a
+        /// language, is simply absent from the dictionary and falls back to the
+        /// default at the call site.
+        /// </summary>
+        private async Task<Dictionary<string, string>> LanguagesByUserAsync(
+            List<Applicant> applicants, CancellationToken ct)
+        {
+            var userIds = applicants
+                .Select(a => a.UserId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+
+            if (userIds.Count == 0)
+            {
+                return new Dictionary<string, string>();
+            }
+
+            var users = await _context.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToListAsync(ct);
+
+            return users.ToDictionary(u => u.Id, u => EmailLanguage.Resolve(u.PreferredLanguage));
+        }
+
+        private static string? LocationOf(Meeting meeting, string language)
         {
             if (!string.IsNullOrWhiteSpace(meeting.OnlineMeetingURL)) return meeting.OnlineMeetingURL;
             if (!string.IsNullOrWhiteSpace(meeting.PhysicalLocation)) return meeting.PhysicalLocation;
-            return meeting.IsPhonecall ? "Phone call" : null;
+
+            if (!meeting.IsPhonecall) return null;
+
+            return EmailLanguage.Resolve(language) == EmailLanguage.English
+                ? "Phone call"
+                : "Llamada telefónica";
         }
     }
 }

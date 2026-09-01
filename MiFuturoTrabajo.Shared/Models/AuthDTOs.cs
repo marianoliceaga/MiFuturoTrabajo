@@ -106,6 +106,24 @@ namespace MiFuturoTrabajo.Shared.Models
     }
 
     /// <summary>
+    /// Request DTO for updating the account's own preferences.
+    ///
+    /// Only the language is stored server-side. The theme is deliberately not:
+    /// nothing outside the browser ever needs to know it, so it stays in
+    /// localStorage where it costs no round trip.
+    /// </summary>
+    public class UpdatePreferencesRequest
+    {
+        /// <summary>
+        /// Two-letter language code, "es" or "en". Anything else is rejected by
+        /// the endpoint rather than stored - this value chooses which template
+        /// a reminder email is rendered from, so an unexpected value there
+        /// would surface as an email that fails to send.
+        /// </summary>
+        public string PreferredLanguage { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// OAuth provider types
     /// </summary>
     public enum OAuthProvider

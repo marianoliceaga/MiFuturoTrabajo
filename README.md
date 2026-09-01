@@ -25,6 +25,8 @@ Everything listed here has been exercised against the deployed environment, not 
 | Auth | Email/password with BCrypt, refresh tokens, account lockout, Google and Microsoft sign-in |
 | Email | Verification and password reset via Azure Communication Services |
 | Abuse control | Rate limiting on auth and per-user, plus per-user storage quotas |
+| Language | Full Spanish and English UI, including transactional email; Spanish by default |
+| Theme | Light and dark, applied before first paint so there is no flash |
 
 ### Known limitations
 
@@ -81,6 +83,45 @@ Seven containers. Aggregates are embedded rather than joined, because **the EF C
 | `Recruiters` | `/UserId` | — |
 
 The `Company` snapshot on a job application is a deliberate denormalisation: the board needs a company name on every card and Cosmos cannot join. A company rename fans out across that user's applications, bounded by one single-partition query.
+
+### Language and theme
+
+The UI ships in Spanish and English. Spanish is the default; a first visit with
+neither language in `navigator.languages` gets Spanish, and a browser asking for
+English gets English. Both are switchable from the top bar and remembered in
+`localStorage`.
+
+Strings live in `MiFuturoTrabajo.Client/Resources/Strings.resx` (English, the
+neutral fallback) and `Strings.es.resx`, reached through `IStringLocalizer` as
+`L` — injected once in `_Imports.razor` rather than page by page. Enum labels
+are looked up as `{EnumType}_{Member}`, so the enums themselves stay in English
+and keep their stored numeric values. Dates and numbers come from
+`CultureInfo.CurrentCulture`: the calendar starts its week on Monday in Spanish
+and Sunday in English, and times are 24-hour in Spanish.
+
+`index.html` starts Blazor with an explicit `applicationCulture`. That is what
+makes the runtime download the matching satellite assembly — setting the culture
+from C# after boot would change `CultureInfo` without fetching the translations,
+and every string would silently fall back to English.
+
+**Email is the exception to "the browser decides."** Reminder digests are sent by
+an Azure Functions timer trigger with no request in flight, so there is no
+browser to ask. The account therefore stores a `PreferredLanguage`, pushed by the
+client on sign-in and whenever the language changes, and read by
+`ReminderService` at send time. Verification and password-reset mail, which *is*
+triggered by a request, uses `Accept-Language` when the account has nothing
+stored.
+
+The theme is `localStorage`-only, because nothing outside the browser needs it.
+`wwwroot/js/preferences.js` is a blocking script in `<head>`: it resolves the
+theme and stamps `data-theme` on `<html>` before the first paint, so a dark-mode
+visitor never sees a light page repaint once WebAssembly finishes loading. It
+also honours `prefers-color-scheme` on a first visit.
+
+Colours are declared once in `wwwroot/css/tokens.css`, twice over — a light set
+and a dark set — and every component references the tokens rather than a literal.
+Component CSS lives in `.razor.css` files next to each component (Blazor's CSS
+isolation), not in `<style>` blocks in markup.
 
 ### Job application statuses
 

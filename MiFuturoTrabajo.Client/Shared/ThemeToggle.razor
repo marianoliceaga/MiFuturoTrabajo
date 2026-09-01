@@ -1,0 +1,41 @@
+@implements IDisposable
+@inject IThemeService Theme
+
+<button type="button"
+        class="theme-toggle"
+        title="@Label"
+        aria-label="@Label"
+        @onclick="Theme.ToggleAsync">
+    <i class="bi @(IsDark ? "bi-sun-fill" : "bi-moon-stars-fill")" aria-hidden="true"></i>
+</button>
+
+@code {
+    private bool IsDark => Theme.Current == AppTheme.Dark;
+
+    /// The label names where the click goes, not where the app is - a button
+    /// that says "Dark theme" while the app is already dark reads as a state,
+    /// and users click it expecting nothing to happen.
+    private string Label => IsDark ? L["Theme_SwitchToLight"] : L["Theme_SwitchToDark"];
+
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Not in OnInitialized: reading the stored theme needs JS interop,
+            // which is not available until the component has rendered once.
+            await Theme.InitialiseAsync();
+        }
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Theme.Changed -= OnThemeChanged;
+    }
+}

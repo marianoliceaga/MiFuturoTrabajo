@@ -1,0 +1,37 @@
+.language-selector {
+    display: inline-flex;
+    border: 1px solid var(--mft-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.language-option {
+    background: none;
+    border: none;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--mft-text-muted);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+}
+
+.language-option:hover:not(.active) {
+    color: var(--mft-text);
+    background: var(--mft-surface-hover);
+}
+
+.language-option.active {
+    background: var(--mft-primary);
+    color: var(--mft-primary-contrast);
+    /* Disabled because selecting the current language is a no-op, but it must
+       not look disabled - it is the selected state of a segmented control. */
+    opacity: 1;
+    cursor: default;
+}
+
+.language-option:focus-visible {
+    outline: 2px solid var(--mft-primary);
+    outline-offset: -2px;
+}

@@ -1,4 +1,4 @@
-@page "/tasks"
+﻿@page "/tasks"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
@@ -13,32 +13,32 @@
 <div class="tasks-container">
     <div class="page-header">
         <div class="header-left">
-            <h2><i class="bi bi-check-square"></i> Tasks</h2>
-            <p class="text-muted">Track your job application tasks</p>
+            <h2><i class="bi bi-check-square"></i> @L["Nav_Tasks"]</h2>
+            <p class="text-muted">@L["Tasks_Subheading"]</p>
         </div>
         <div class="header-actions">
             <div class="search-box">
                 <i class="bi bi-search"></i>
-                <input type="text" class="form-control" placeholder="Search tasks..." 
+                <input type="text" class="form-control" placeholder="@L["Tasks_SearchPlaceholder"]" 
                        @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
             </div>
             <div class="filter-group">
                 <select class="form-select" @bind="statusFilter" @bind:after="FilterTasks">
-                    <option value="">All Tasks</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
+                    <option value="">@L["Tasks_AllTasks"]</option>
+                    <option value="active">@L["Tasks_Active"]</option>
+                    <option value="completed">@L["Tasks_Completed"]</option>
+                    <option value="overdue">@L["Tasks_Overdue"]</option>
                 </select>
                 <select class="form-select" @bind="typeFilter" @bind:after="FilterTasks">
-                    <option value="">All Types</option>
+                    <option value="">@L["Tasks_AllTypes"]</option>
                     @foreach (TaskType type in Enum.GetValues(typeof(TaskType)))
                     {
-                        <option value="@type">@FormatTaskType(type)</option>
+                        <option value="@type">@L.Enum(type)</option>
                     }
                 </select>
             </div>
             <button class="btn btn-primary" @onclick="CreateNew">
-                <i class="bi bi-plus-lg"></i> New Task
+                <i class="bi bi-plus-lg"></i> @L["Tasks_New"]
             </button>
         </div>
     </div>
@@ -47,9 +47,9 @@
     {
         <div class="loading-state">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@L["Common_Loading"]</span>
             </div>
-            <p>Loading tasks...</p>
+            <p>@L["Common_Loading"]</p>
         </div>
     }
     else
@@ -59,28 +59,28 @@
                 <div class="stat-icon bg-primary"><i class="bi bi-list-task"></i></div>
                 <div class="stat-content">
                     <h3>@tasks.Count</h3>
-                    <p>Total Tasks</p>
+                    <p>@L["Tasks_StatTotal"]</p>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon bg-warning"><i class="bi bi-hourglass-split"></i></div>
                 <div class="stat-content">
                     <h3>@tasks.Count(t => !t.Completed)</h3>
-                    <p>Active</p>
+                    <p>@L["Tasks_Active"]</p>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon bg-danger"><i class="bi bi-exclamation-triangle"></i></div>
                 <div class="stat-content">
                     <h3>@tasks.Count(t => !t.Completed && t.Deadline < DateTime.Now)</h3>
-                    <p>Overdue</p>
+                    <p>@L["Tasks_Overdue"]</p>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon bg-success"><i class="bi bi-check-circle"></i></div>
                 <div class="stat-content">
                     <h3>@tasks.Count(t => t.Completed)</h3>
-                    <p>Completed</p>
+                    <p>@L["Tasks_Completed"]</p>
                 </div>
             </div>
         </div>
@@ -89,36 +89,36 @@
             <div class="view-toggle">
                 <button class="btn btn-sm @(viewMode == "list" ? "btn-primary" : "btn-outline-secondary")"
                         @onclick='() => viewMode = "list"'>
-                    <i class="bi bi-list-ul"></i> List
+                    <i class="bi bi-list-ul"></i> @L["Applications_ViewList"]
                 </button>
                 <button class="btn btn-sm @(viewMode == "kanban" ? "btn-primary" : "btn-outline-secondary")"
                         @onclick='() => viewMode = "kanban"'>
-                    <i class="bi bi-kanban"></i> Board
+                    <i class="bi bi-kanban"></i> @L["Nav_Board"]
                 </button>
             </div>
             <div class="sort-controls">
                 <select class="form-select form-select-sm" @bind="sortBy" @bind:after="SortTasks">
-                    <option value="deadline">Deadline</option>
-                    <option value="type">Type</option>
-                    <option value="created">Created Date</option>
+                    <option value="deadline">@L["Applications_ColDeadline"]</option>
+                    <option value="type">@L["Tasks_ColType"]</option>
+                    <option value="created">@L["Tasks_ColCreated"]</option>
                 </select>
                 <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleSortOrder">
                     <i class="bi bi-sort-@(sortAscending ? "down" : "up")"></i>
                 </button>
             </div>
-            <span class="results-count">Showing @filteredTasks.Count of @tasks.Count</span>
+            <span class="results-count">@L["Applications_ResultsCount", filteredTasks.Count, tasks.Count]</span>
         </div>
 
         @if (!filteredTasks.Any())
         {
             <div class="empty-state">
                 <i class="bi bi-inbox"></i>
-                <h4>No tasks found</h4>
-                <p>@(string.IsNullOrEmpty(searchTerm) ? "Create your first task to get started" : "Try adjusting your search or filters")</p>
+                <h4>@L["Tasks_EmptyHeading"]</h4>
+                <p>@(string.IsNullOrEmpty(searchTerm) ? L["Tasks_EmptyBody"] : L["Applications_NoMatches"])</p>
                 @if (string.IsNullOrEmpty(searchTerm))
                 {
                     <button class="btn btn-primary" @onclick="CreateNew">
-                        <i class="bi bi-plus-lg"></i> Create First Task
+                        <i class="bi bi-plus-lg"></i> @L["Tasks_CreateFirst"]
                     </button>
                 }
             </div>
@@ -136,26 +136,26 @@
                         <div class="task-content" @onclick="() => EditTask(task.Id)">
                             <div class="task-header">
                                 <div class="task-title">
-                                    <h5>@(task.Title ?? FormatTaskType(task.Type))</h5>
+                                    <h5>@(string.IsNullOrWhiteSpace(task.Title) ? L.Enum(task.Type) : task.Title)</h5>
                                     <span class="badge task-type-@task.Type.ToString().ToLower()">
-                                        @FormatTaskType(task.Type)
+                                        @L.Enum(task.Type)
                                     </span>
                                 </div>
                                 <div class="task-deadline">
                                     <i class="bi bi-calendar"></i>
                                     <span class="@(IsOverdue(task) && !task.Completed ? "text-danger" : "")">
-                                        @task.Deadline.ToString("MMM dd, yyyy")
+                                        @task.Deadline.ShortDate()
                                     </span>
                                     @if (!task.Completed)
                                     {
                                         var daysUntil = (task.Deadline - DateTime.Now).Days;
                                         if (daysUntil < 0)
                                         {
-                                            <small class="text-danger d-block">@Math.Abs(daysUntil) days overdue</small>
+                                            <small class="text-danger d-block">@L.Plural("Tasks_DaysOverdue", Math.Abs(daysUntil))</small>
                                         }
                                         else if (daysUntil <= 3)
                                         {
-                                            <small class="text-warning d-block">Due in @daysUntil day(s)</small>
+                                            <small class="text-warning d-block">@L.Plural("Tasks_DueInDays", daysUntil)</small>
                                         }
                                     }
                                 </div>
@@ -173,10 +173,10 @@
                             }
                         </div>
                         <div class="task-actions" @onclick:stopPropagation="true">
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTask(task.Id)" title="Edit">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTask(task.Id)" title="@L["Common_Edit"]">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTask(task.Id)" title="Delete">
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTask(task.Id)" title="@L["Common_Delete"]">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -189,7 +189,7 @@
             <div class="tasks-kanban">
                 <div class="kanban-column">
                     <div class="column-header bg-warning">
-                        <h5>To Do</h5>
+                        <h5>@L["Tasks_ColumnToDo"]</h5>
                         <span class="badge bg-white text-dark">@filteredTasks.Count(t => !t.Completed && !IsOverdue(t))</span>
                     </div>
                     <div class="column-body">
@@ -201,16 +201,16 @@
                                            @onchange="() => ToggleComplete(task)" 
                                            @onclick:stopPropagation="true" />
                                     <span class="badge task-type-@task.Type.ToString().ToLower()">
-                                        @FormatTaskType(task.Type)
+                                        @L.Enum(task.Type)
                                     </span>
                                 </div>
-                                <h6>@(task.Title ?? FormatTaskType(task.Type))</h6>
+                                <h6>@(string.IsNullOrWhiteSpace(task.Title) ? L.Enum(task.Type) : task.Title)</h6>
                                 @if (!string.IsNullOrEmpty(task.Note))
                                 {
                                     <p class="card-note">@task.Note</p>
                                 }
                                 <div class="card-footer">
-                                    <small><i class="bi bi-calendar"></i> @task.Deadline.ToString("MMM dd")</small>
+                                    <small><i class="bi bi-calendar"></i> @task.Deadline.ShortDate()</small>
                                 </div>
                             </div>
                         }
@@ -219,7 +219,7 @@
 
                 <div class="kanban-column">
                     <div class="column-header bg-danger">
-                        <h5>Overdue</h5>
+                        <h5>@L["Tasks_Overdue"]</h5>
                         <span class="badge bg-white text-dark">@filteredTasks.Count(t => !t.Completed && IsOverdue(t))</span>
                     </div>
                     <div class="column-body">
@@ -231,18 +231,18 @@
                                            @onchange="() => ToggleComplete(task)" 
                                            @onclick:stopPropagation="true" />
                                     <span class="badge task-type-@task.Type.ToString().ToLower()">
-                                        @FormatTaskType(task.Type)
+                                        @L.Enum(task.Type)
                                     </span>
                                 </div>
-                                <h6>@(task.Title ?? FormatTaskType(task.Type))</h6>
+                                <h6>@(string.IsNullOrWhiteSpace(task.Title) ? L.Enum(task.Type) : task.Title)</h6>
                                 @if (!string.IsNullOrEmpty(task.Note))
                                 {
                                     <p class="card-note">@task.Note</p>
                                 }
                                 <div class="card-footer">
                                     <small class="text-danger">
-                                        <i class="bi bi-exclamation-triangle"></i> 
-                                        @Math.Abs((task.Deadline - DateTime.Now).Days) days overdue
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        @L.Plural("Tasks_DaysOverdue", Math.Abs((task.Deadline - DateTime.Now).Days))
                                     </small>
                                 </div>
                             </div>
@@ -252,7 +252,7 @@
 
                 <div class="kanban-column">
                     <div class="column-header bg-success">
-                        <h5>Completed</h5>
+                        <h5>@L["Tasks_Completed"]</h5>
                         <span class="badge bg-white text-dark">@filteredTasks.Count(t => t.Completed)</span>
                     </div>
                     <div class="column-body">
@@ -264,16 +264,16 @@
                                            @onchange="() => ToggleComplete(task)" 
                                            @onclick:stopPropagation="true" />
                                     <span class="badge task-type-@task.Type.ToString().ToLower()">
-                                        @FormatTaskType(task.Type)
+                                        @L.Enum(task.Type)
                                     </span>
                                 </div>
-                                <h6>@(task.Title ?? FormatTaskType(task.Type))</h6>
+                                <h6>@(string.IsNullOrWhiteSpace(task.Title) ? L.Enum(task.Type) : task.Title)</h6>
                                 @if (!string.IsNullOrEmpty(task.Note))
                                 {
                                     <p class="card-note">@task.Note</p>
                                 }
                                 <div class="card-footer">
-                                    <small><i class="bi bi-check-circle"></i> Completed</small>
+                                    <small><i class="bi bi-check-circle"></i> @L["Tasks_Completed"]</small>
                                 </div>
                             </div>
                         }
@@ -314,7 +314,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading tasks: {ex.Message}");
-            ToastService.ShowError("Failed to load tasks.");
+            ToastService.ShowError(L["Tasks_LoadFailed"]);
         }
         finally
         {
@@ -331,7 +331,7 @@
             filteredTasks = filteredTasks.Where(t =>
                 (t.Title?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (t.Note?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                t.Type.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                L.Enum(t.Type).Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
             ).ToList();
         }
 
@@ -397,7 +397,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error toggling task: {ex.Message}");
-            ToastService.ShowError("Failed to update task status.");
+            ToastService.ShowError(L["Tasks_ToggleFailed"]);
         }
     }
 
@@ -408,18 +408,18 @@
 
     private async Task DeleteTask(string id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this task?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", L["Tasks_ConfirmDelete"].Value))
         {
             try
             {
                 await TaskService.DeleteAsync(id);
                 await LoadTasks();
-                ToastService.ShowSuccess("Task deleted successfully.");
+                ToastService.ShowSuccess(L["Tasks_Deleted"]);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting task: {ex.Message}");
-                ToastService.ShowError("Failed to delete task.");
+                ToastService.ShowError(L["Tasks_DeleteFailed"]);
             }
         }
     }
@@ -429,349 +429,5 @@
         NavigationManager.NavigateTo("/tasks/new");
     }
 
-    private string FormatTaskType(TaskType type)
-    {
-        return type switch
-        {
-            TaskType.FollowUp => "Follow Up",
-            TaskType.ReachOut => "Reach Out",
-            TaskType.SendAvailability => "Send Availability",
-            TaskType.PrepareCoverLetter => "Prepare Cover Letter",
-            TaskType.PrepareResume => "Prepare Resume",
-            TaskType.PrepareCVDetailed => "Prepare CV",
-            TaskType.PrepareForInterview => "Prepare for Interview",
-            TaskType.Apply => "Apply",
-            TaskType.CompleteExercise => "Complete Exercise",
-            TaskType.EnglishTest => "English Test",
-            TaskType.VideoIntroduction => "Video Introduction",
-            _ => type.ToString()
-        };
-    }
-
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 }
-
-<style>
-    .tasks-container {
-        padding: 24px;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .header-left h2 {
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .header-actions {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .search-box {
-        position: relative;
-        width: 300px;
-    }
-
-    .search-box i {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
-    }
-
-    .search-box input {
-        padding-left: 36px;
-    }
-
-    .filter-group {
-        display: flex;
-        gap: 8px;
-    }
-
-    .stats-bar {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
-    }
-
-    .stat-card {
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .stat-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 24px;
-    }
-
-    .stat-content h3 {
-        margin: 0;
-        font-size: 28px;
-        font-weight: 700;
-    }
-
-    .stat-content p {
-        margin: 0;
-        color: #6c757d;
-        font-size: 14px;
-    }
-
-    .view-controls {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding: 16px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .view-toggle {
-        display: flex;
-        gap: 4px;
-    }
-
-    .sort-controls {
-        display: flex;
-        gap: 8px;
-    }
-
-    .tasks-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .task-card {
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-        border-left: 4px solid #0d6efd;
-    }
-
-    .task-card:hover {
-        transform: translateX(4px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .task-card.completed {
-        opacity: 0.7;
-        border-left-color: #198754;
-    }
-
-    .task-card.overdue {
-        border-left-color: #dc3545;
-    }
-
-    .task-checkbox {
-        flex-shrink: 0;
-    }
-
-    .task-checkbox input[type="checkbox"] {
-        width: 24px;
-        height: 24px;
-        cursor: pointer;
-    }
-
-    .task-content {
-        flex: 1;
-        cursor: pointer;
-    }
-
-    .task-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 8px;
-    }
-
-    .task-title {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .task-title h5 {
-        margin: 0;
-        font-size: 16px;
-    }
-
-    .task-deadline {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 14px;
-        color: #6c757d;
-    }
-
-    .task-note {
-        margin: 8px 0;
-        color: #6c757d;
-        font-size: 14px;
-    }
-
-    .task-application {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        color: #6c757d;
-        margin-top: 8px;
-    }
-
-    .task-actions {
-        display: flex;
-        gap: 4px;
-    }
-
-    .tasks-kanban {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-    }
-
-    .kanban-column {
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .column-header {
-        padding: 16px;
-        color: white;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .column-header h5 {
-        margin: 0;
-        font-size: 16px;
-    }
-
-    .column-body {
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        min-height: 400px;
-    }
-
-    .kanban-card {
-        background: #f8f9fa;
-        border-radius: 6px;
-        padding: 12px;
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        border-left: 3px solid #0d6efd;
-    }
-
-    .kanban-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .kanban-card.completed {
-        opacity: 0.7;
-        border-left-color: #198754;
-    }
-
-    .kanban-card.overdue {
-        border-left-color: #dc3545;
-    }
-
-    .kanban-card .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-    }
-
-    .kanban-card h6 {
-        margin: 8px 0;
-        font-size: 14px;
-    }
-
-    .kanban-card .card-note {
-        font-size: 12px;
-        color: #6c757d;
-        margin: 8px 0;
-    }
-
-    .kanban-card .card-footer {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #6c757d;
-    }
-
-    .task-type-followup { background-color: #0dcaf0; }
-    .task-type-reachout { background-color: #6610f2; }
-    .task-type-sendavailability { background-color: #0d6efd; }
-    .task-type-preparecoverletter { background-color: #6f42c1; }
-    .task-type-prepareresume { background-color: #d63384; }
-    .task-type-preparecvdetailed { background-color: #fd7e14; }
-    .task-type-prepareforinterview { background-color: #ffc107; }
-    .task-type-apply { background-color: #198754; }
-    .task-type-completeexercise { background-color: #20c997; }
-    .task-type-englishtest { background-color: #0dcaf0; }
-    .task-type-videointroduction { background-color: #6610f2; }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .empty-state i {
-        font-size: 64px;
-        color: #dee2e6;
-        margin-bottom: 16px;
-    }
-
-    .loading-state {
-        text-align: center;
-        padding: 60px 20px;
-    }
-
-    @@media (max-width: 992px) {
-        .tasks-kanban {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>

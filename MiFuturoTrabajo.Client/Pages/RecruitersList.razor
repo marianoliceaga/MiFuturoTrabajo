@@ -1,4 +1,4 @@
-@page "/recruiters"
+﻿@page "/recruiters"
 @using MiFuturoTrabajo.Shared.Models
 @using MiFuturoTrabajo.Client.Services
 @using Microsoft.AspNetCore.Authorization
@@ -12,15 +12,15 @@
 
 <div class="recruiters-container">
     <div class="recruiters-header">
-        <h2>Recruiters</h2>
+        <h2>@L["Nav_Recruiters"]</h2>
         <button class="btn btn-primary" @onclick="ShowAddRecruiterModal">
-            <i class="bi bi-plus"></i> Add Recruiter
+            <i class="bi bi-plus"></i> @L["Recruiters_Add"]
         </button>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading">Loading recruiters...</div>
+        <div class="loading">@L["Common_Loading"]</div>
     }
     else if (recruiters.Any())
     {
@@ -33,7 +33,7 @@
                             <h5>@recruiter.Name @recruiter.Lastname</h5>
                             @if (recruiter.IsFromConsultancy)
                             {
-                                <span class="badge bg-info">Consultancy</span>
+                                <span class="badge bg-info">@L["Recruiters_Consultancy"]</span>
                             }
                         </div>
                         <div class="recruiter-actions">
@@ -79,7 +79,7 @@
                         {
                             <p>
                                 <i class="bi bi-linkedin"></i>
-                                <a href="@recruiter.LinkedInUrl" target="_blank">LinkedIn Profile</a>
+                                <a href="@recruiter.LinkedInUrl" target="_blank">@L["Recruiters_LinkedInProfile"]</a>
                             </p>
                         }
                     </div>
@@ -91,10 +91,10 @@
     {
         <div class="empty-state">
             <i class="bi bi-people"></i>
-            <h4>No Recruiters Yet</h4>
-            <p>Start by adding recruiters you've been in contact with.</p>
+            <h4>@L["Recruiters_EmptyHeading"]</h4>
+            <p>@L["Recruiters_EmptyBody"]</p>
             <button class="btn btn-primary" @onclick="ShowAddRecruiterModal">
-                <i class="bi bi-plus"></i> Add Your First Recruiter
+                <i class="bi bi-plus"></i> @L["Recruiters_AddFirst"]
             </button>
         </div>
     }
@@ -106,63 +106,63 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">@(isEditMode ? "Edit Recruiter" : "Add Recruiter")</h5>
+                    <h5 class="modal-title">@(isEditMode ? L["Recruiters_EditTitle"] : L["Recruiters_AddTitle"])</h5>
                     <button type="button" class="btn-close" @onclick="CloseRecruiterModal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">First Name *</label>
+                            <label class="form-label">@L["Recruiters_FirstNameLabel"]</label>
                             <input type="text" class="form-control" @bind="currentRecruiter.Name" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Last Name *</label>
+                            <label class="form-label">@L["Recruiters_LastNameLabel"]</label>
                             <input type="text" class="form-control" @bind="currentRecruiter.Lastname" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Email</label>
+                            <label class="form-label">@L["Common_Email"]</label>
                             <input type="email" class="form-control" @bind="currentRecruiter.ContactEmail" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Cellphone</label>
+                            <label class="form-label">@L["Common_Cellphone"]</label>
                             <input type="tel" class="form-control" @bind="currentRecruiter.Cellphone" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Landline</label>
+                            <label class="form-label">@L["Common_Landline"]</label>
                             <input type="tel" class="form-control" @bind="currentRecruiter.Landline" />
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">LinkedIn URL</label>
+                            <label class="form-label">@L["Common_LinkedInUrl"]</label>
                             <input type="url" class="form-control" @bind="currentRecruiter.LinkedInUrl" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Company Name</label>
+                            <label class="form-label">@L["Common_CompanyName"]</label>
                             <input type="text" class="form-control" @bind="currentRecruiter.CompanyName" />
                         </div>
                         <div class="col-md-6 mb-3">
                             <div class="form-check mt-4">
                                 <input class="form-check-input" type="checkbox" id="isConsultancy" @bind="currentRecruiter.IsFromConsultancy" />
                                 <label class="form-check-label" for="isConsultancy">
-                                    From Consultancy
+                                    @L["Recruiters_FromConsultancy"]
                                 </label>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseRecruiterModal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRecruiterModal">@L["Common_Cancel"]</button>
                     <button type="button" class="btn btn-primary" @onclick="SaveRecruiter" disabled="@isSaving">
                         @if (isSaving)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
-                        @(isEditMode ? "Update" : "Add") Recruiter
+                        @(isEditMode ? L["Recruiters_UpdateAction"] : L["Recruiters_AddAction"])
                     </button>
                 </div>
             </div>
@@ -199,7 +199,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading recruiters: {ex.Message}");
-            ToastService.ShowError("Failed to load recruiters.");
+            ToastService.ShowError(L["Recruiters_LoadFailed"]);
         }
         finally
         {
@@ -291,12 +291,12 @@
             }
             CloseRecruiterModal();
             StateHasChanged(); // Update UI after save
-            ToastService.ShowSuccess(isEditMode ? "Recruiter updated successfully." : "Recruiter added successfully.");
+            ToastService.ShowSuccess(isEditMode ? L["Recruiters_Updated"] : L["Recruiters_Added"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving recruiter: {ex.Message}");
-            ToastService.ShowError("Failed to save recruiter.");
+            ToastService.ShowError(L["Recruiters_SaveFailed"]);
         }
         finally
         {
@@ -307,7 +307,7 @@
 
     private async Task DeleteRecruiter(string id)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this recruiter?"))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", L["Recruiters_ConfirmDelete"].Value))
         {
             return;
         }
@@ -316,140 +316,12 @@
         {
             await RecruiterService.DeleteAsync(id);
             recruiters.RemoveAll(r => r.Id == id);
-            ToastService.ShowSuccess("Recruiter deleted successfully.");
+            ToastService.ShowSuccess(L["Recruiters_Deleted"]);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting recruiter: {ex.Message}");
-            ToastService.ShowError("Failed to delete recruiter.");
+            ToastService.ShowError(L["Recruiters_DeleteFailed"]);
         }
     }
 }
-
-<style>
-    .recruiters-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .recruiters-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-    }
-
-    .recruiters-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 20px;
-    }
-
-    .recruiter-card {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: box-shadow 0.3s ease;
-    }
-
-    .recruiter-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .recruiter-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 12px;
-    }
-
-    .recruiter-name {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .recruiter-name h5 {
-        margin: 0;
-        font-size: 18px;
-        color: #212529;
-    }
-
-    .recruiter-actions {
-        display: flex;
-        gap: 8px;
-    }
-
-    .company-name {
-        font-weight: 500;
-        color: #495057;
-        margin-bottom: 12px;
-    }
-
-    .contact-info {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 14px;
-    }
-
-    .contact-info p {
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .contact-info a {
-        color: #0d6efd;
-        text-decoration: none;
-    }
-
-    .contact-info a:hover {
-        text-decoration: underline;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .empty-state i {
-        font-size: 64px;
-        color: #dee2e6;
-        margin-bottom: 20px;
-    }
-
-    .empty-state h4 {
-        color: #495057;
-        margin-bottom: 12px;
-    }
-
-    .empty-state p {
-        color: #6c757d;
-        margin-bottom: 24px;
-    }
-
-    .loading {
-        text-align: center;
-        padding: 40px;
-        color: #6c757d;
-    }
-
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1050;
-    }
-</style>

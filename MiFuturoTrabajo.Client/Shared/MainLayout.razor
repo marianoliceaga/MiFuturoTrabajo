@@ -1,59 +1,62 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@inject ICultureService Culture
+@inject IUserPreferenceService Preferences
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="app-container">
     <nav class="sidebar">
         <div class="sidebar-header">
-            <h3>MiFuturoTrabajo</h3>
-            <p class="tagline">Job Application Tracker</p>
+            <h3>@L["App_Name"]</h3>
+            <p class="tagline">@L["App_Tagline"]</p>
         </div>
 
         <div class="nav-menu">
             <NavLink class="nav-item" href="/board" Match="NavLinkMatch.All">
                 <i class="bi bi-kanban"></i>
-                <span>Board</span>
+                <span>@L["Nav_Board"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/calendar">
                 <i class="bi bi-calendar"></i>
-                <span>Calendar</span>
+                <span>@L["Nav_Calendar"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/applications">
                 <i class="bi bi-briefcase"></i>
-                <span>Applications</span>
+                <span>@L["Nav_Applications"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/tasks">
                 <i class="bi bi-check-square"></i>
-                <span>Tasks</span>
+                <span>@L["Nav_Tasks"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/meetings">
                 <i class="bi bi-camera-video"></i>
-                <span>Meetings</span>
+                <span>@L["Nav_Meetings"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/companies">
                 <i class="bi bi-building"></i>
-                <span>Companies</span>
+                <span>@L["Nav_Companies"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/recruiters">
                 <i class="bi bi-people"></i>
-                <span>Recruiters</span>
+                <span>@L["Nav_Recruiters"]</span>
             </NavLink>
 
             <div class="nav-divider"></div>
 
             <NavLink class="nav-item" href="/profile">
                 <i class="bi bi-person-circle"></i>
-                <span>My Profile</span>
+                <span>@L["Nav_MyProfile"]</span>
             </NavLink>
 
             <NavLink class="nav-item" href="/settings">
                 <i class="bi bi-gear"></i>
-                <span>Settings</span>
+                <span>@L["Nav_Settings"]</span>
             </NavLink>
         </div>
 
@@ -65,7 +68,7 @@
     <main class="main-content">
         <div class="topbar">
             <div class="topbar-left">
-                <button class="btn-menu" @onclick="ToggleSidebar">
+                <button class="btn-menu" @onclick="ToggleSidebar" aria-label="@L["Nav_Menu"]">
                     <i class="bi bi-list"></i>
                 </button>
                 <div class="breadcrumb">
@@ -73,11 +76,13 @@
                 </div>
             </div>
             <div class="topbar-right">
-                <button class="btn btn-icon" title="Notifications">
+                <LanguageSelector />
+                <ThemeToggle />
+                <button class="btn btn-icon" title="@L["Topbar_Notifications"]">
                     <i class="bi bi-bell"></i>
                     <span class="badge">3</span>
                 </button>
-                <button class="btn btn-icon" title="Help">
+                <button class="btn btn-icon" title="@L["Topbar_Help"]">
                     <i class="bi bi-question-circle"></i>
                 </button>
             </div>
@@ -92,6 +97,31 @@
 @code {
     private bool sidebarCollapsed = false;
 
+    /// <summary>
+    /// Mirrors the browser's language onto the signed-in account, once per app
+    /// load.
+    ///
+    /// Without this, someone whose language was detected from their browser and
+    /// who never touched the switcher would have an account still marked with
+    /// the default - and would get their reminder emails in a language they do
+    /// not read, while the UI in front of them is correct. The switcher pushes
+    /// on change; this covers the far more common case of never changing it.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            await Preferences.TrySaveLanguageAsync(Culture.CurrentCode);
+        }
+    }
+
     private void ToggleSidebar()
     {
         sidebarCollapsed = !sidebarCollapsed;
@@ -102,206 +132,17 @@
         var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         return path.Split('/')[0] switch
         {
-            "" or "board" => "Job Applications Board",
-            "calendar" => "Calendar",
-            "applications" => "Applications",
-            "tasks" => "Tasks",
-            "meetings" => "Meetings",
-            "companies" => "Companies",
-            "recruiters" => "Recruiters",
-            "profile" => "My Profile",
-            "settings" => "Settings",
-            _ => "MiFuturoTrabajo"
+            "" or "board" => L["PageTitle_Board"],
+            "calendar" => L["Nav_Calendar"],
+            "applications" => L["Nav_Applications"],
+            "tasks" => L["Nav_Tasks"],
+            "meetings" => L["Nav_Meetings"],
+            "companies" => L["Nav_Companies"],
+            "recruiters" => L["Nav_Recruiters"],
+            "cv-versions" => L["Nav_CvVersions"],
+            "profile" => L["Nav_MyProfile"],
+            "settings" => L["Nav_Settings"],
+            _ => L["PageTitle_Fallback"]
         };
     }
 }
-
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    .app-container {
-        display: flex;
-        height: 100vh;
-        background: #f5f5f5;
-    }
-
-    .sidebar {
-        width: 260px;
-        background: #212529;
-        color: white;
-        display: flex;
-        flex-direction: column;
-        transition: width 0.3s ease;
-    }
-
-    .sidebar-header {
-        padding: 24px 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .sidebar-header h3 {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
-
-    .tagline {
-        font-size: 12px;
-        color: rgba(255,255,255,0.6);
-    }
-
-    .nav-menu {
-        flex: 1;
-        padding: 12px 0;
-        overflow-y: auto;
-    }
-
-    .nav-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 20px;
-        color: rgba(255,255,255,0.8);
-        text-decoration: none;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-
-    .nav-item:hover {
-        background: rgba(255,255,255,0.1);
-        color: white;
-    }
-
-    .nav-item.active {
-        background: #0d6efd;
-        color: white;
-        border-right: 3px solid #0a58ca;
-    }
-
-    .nav-item i {
-        font-size: 18px;
-        width: 24px;
-    }
-
-    .nav-divider {
-        height: 1px;
-        background: rgba(255,255,255,0.1);
-        margin: 12px 20px;
-    }
-
-    .sidebar-footer {
-        padding: 16px;
-        border-top: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .user-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .user-info strong {
-        display: block;
-        font-size: 14px;
-    }
-
-    .user-info small {
-        display: block;
-        font-size: 12px;
-        color: rgba(255,255,255,0.6);
-    }
-
-    .main-content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .topbar {
-        height: 64px;
-        background: white;
-        border-bottom: 1px solid #dee2e6;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 24px;
-    }
-
-    .topbar-left,
-    .topbar-right {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .btn-menu {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: #495057;
-        padding: 8px;
-        display: flex;
-        align-items: center;
-    }
-
-    .breadcrumb {
-        font-size: 18px;
-        font-weight: 600;
-        color: #212529;
-    }
-
-    .btn-icon {
-        background: none;
-        border: none;
-        font-size: 20px;
-        cursor: pointer;
-        color: #6c757d;
-        padding: 8px;
-        position: relative;
-        display: flex;
-        align-items: center;
-    }
-
-    .btn-icon:hover {
-        color: #212529;
-    }
-
-    .btn-icon .badge {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        background: #dc3545;
-        color: white;
-        border-radius: 10px;
-        padding: 2px 6px;
-        font-size: 10px;
-        font-weight: 600;
-    }
-
-    .page-content {
-        flex: 1;
-        overflow-y: auto;
-        background: #f8f9fa;
-    }
-
-    @@media (max-width: 768px) {
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            height: 100vh;
-            z-index: 1000;
-            transform: translateX(-100%);
-        }
-
-        .sidebar.open {
-            transform: translateX(0);
-        }
-    }
-</style>
