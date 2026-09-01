@@ -76,16 +76,56 @@ if (-not $account) {
     exit 1
 }
 
+# `az account show` only reads the local token cache, so it keeps succeeding
+# long after the token has expired. Force a real token request here, or every
+# resource below gets misreported as 'not found'.
+$tokenErr = [System.IO.Path]::GetTempFileName()
+try {
+    az account get-access-token -o none 2>$tokenErr
+    if ($LASTEXITCODE -ne 0) {
+        Write-Bad "The Azure sign-in has expired or needs re-authentication."
+        $detail = (Get-Content $tokenErr -Raw)
+        if ($detail) {
+            foreach ($line in ($detail -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 3)) {
+                Write-Info $line.Trim()
+            }
+        }
+        Write-Bad "Run: az login --tenant $($account.tenantId)"
+        exit 1
+    }
+}
+finally { Remove-Item $tokenErr -Force -ErrorAction SilentlyContinue }
+
 Write-Host ""
 Write-Host "===========================================================" -ForegroundColor Cyan
 Write-Host "  MiFuturoTrabajo  -  $($Action.ToUpper())" -ForegroundColor Cyan
 Write-Host "  subscription: $($account.name)" -ForegroundColor DarkGray
 Write-Host "===========================================================" -ForegroundColor Cyan
 
+# Returns an object, not a string: a failed call and a genuinely missing
+# resource both produce empty stdout, and reporting the first as 'not found'
+# sends you hunting for a deleted app that is really just an expired token.
 function Get-SiteState ($rg, $name) {
-    $s = az webapp show -g $rg -n $name --query state -o tsv 2>$null
-    if ([string]::IsNullOrWhiteSpace($s)) { return 'NotFound' }
-    return $s.Trim()
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $out  = az webapp show -g $rg -n $name --query state -o tsv 2>$errFile
+        $code = $LASTEXITCODE
+        $err  = (Get-Content $errFile -Raw)
+
+        if ($code -eq 0 -and -not [string]::IsNullOrWhiteSpace($out)) {
+            $state = ($out | Select-Object -First 1).ToString().Trim()
+            return [pscustomobject]@{ State = $state; Error = $null }
+        }
+
+        if ($err -match 'ResourceNotFound|ResourceGroupNotFound|was not found|could not be found') {
+            return [pscustomobject]@{ State = 'NotFound'; Error = $null }
+        }
+
+        $detail = (($err -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 2) -join ' ').Trim()
+        if (-not $detail) { $detail = "az exited with code $code and said nothing" }
+        return [pscustomobject]@{ State = 'Error'; Error = $detail }
+    }
+    finally { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
 }
 
 # --- status -------------------------------------------------------------------
@@ -97,12 +137,13 @@ if ($Action -eq 'status') {
         @{ Label = 'API       '; Rg = $ApiRg;  Name = $ApiName },
         @{ Label = 'Functions '; Rg = $FuncRg; Name = $FuncName }
     )) {
-        $state = Get-SiteState $t.Rg $t.Name
-        switch ($state) {
+        $site = Get-SiteState $t.Rg $t.Name
+        switch ($site.State) {
             'Running'  { Write-OK   "$($t.Label) $($t.Name)  ->  Running" }
             'Stopped'  { Write-Warn "$($t.Label) $($t.Name)  ->  Stopped" }
-            'NotFound' { Write-Bad  "$($t.Label) $($t.Name)  ->  not found" }
-            default    { Write-Info "$($t.Label) $($t.Name)  ->  $state" }
+            'NotFound' { Write-Bad  "$($t.Label) $($t.Name)  ->  not found in $($t.Rg)" }
+            'Error'    { Write-Bad  "$($t.Label) $($t.Name)  ->  could not be read: $($site.Error)" }
+            default    { Write-Info "$($t.Label) $($t.Name)  ->  $($site.State)" }
         }
     }
 
@@ -137,7 +178,14 @@ foreach ($t in @(
     @{ Label = 'API';       Rg = $ApiRg;  Name = $ApiName;  Kind = 'webapp' },
     @{ Label = 'Functions'; Rg = $FuncRg; Name = $FuncName; Kind = 'functionapp' }
 )) {
-    $before = Get-SiteState $t.Rg $t.Name
+    $site   = Get-SiteState $t.Rg $t.Name
+    $before = $site.State
+
+    if ($before -eq 'Error') {
+        Write-Bad "$($t.Label): could not be read: $($site.Error)"
+        $failed = 1
+        continue
+    }
 
     if ($before -eq 'NotFound') {
         Write-Bad "$($t.Label): not found in $($t.Rg)"
@@ -153,14 +201,26 @@ foreach ($t in @(
     }
 
     Write-Info "$($t.Label): $before -> $want ..."
-    az $t.Kind $Action -g $t.Rg -n $t.Name --only-show-errors 2>$null | Out-Null
+
+    $actionErr = [System.IO.Path]::GetTempFileName()
+    try {
+        az $t.Kind $Action -g $t.Rg -n $t.Name --only-show-errors 2>$actionErr | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            $raw    = (Get-Content $actionErr -Raw)
+            $detail = (($raw -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 2) -join ' ').Trim()
+            Write-Bad "$($t.Label): az $($t.Kind) $Action failed: $detail"
+            $failed = 1
+            continue
+        }
+    }
+    finally { Remove-Item $actionErr -Force -ErrorAction SilentlyContinue }
 
     # Trust the reported state, not the exit code: the CLI returns 0 for a
     # stop that has not taken effect yet.
     $after = ''
     foreach ($attempt in 1..12) {
         Start-Sleep -Seconds 5
-        $after = Get-SiteState $t.Rg $t.Name
+        $after = (Get-SiteState $t.Rg $t.Name).State
         if ($after -eq $want) { break }
     }
 
