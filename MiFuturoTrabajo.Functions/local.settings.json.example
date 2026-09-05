@@ -11,6 +11,9 @@
     "AzureCommunicationServices:SenderAddress": "",
 
     "TaskReminderSchedule": "0 0 8 * * *",
-    "InterviewReminderSchedule": "0 */15 * * * *"
+    "InterviewReminderSchedule": "0 0 */3 * * *",
+
+    "_comment_Reminders": "Keep this in step with InterviewReminderSchedule - it is how the selection knows to send early rather than step over a reminder window narrower than the gap between runs.",
+    "Reminders:InterviewPollIntervalMinutes": "180"
   }
 }

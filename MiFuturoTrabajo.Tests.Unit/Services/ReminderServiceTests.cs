@@ -46,8 +46,15 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
             }
         }
 
-        private static ReminderService Build(ApplicationDbContext db, IEmailService email) =>
-            new(db, email, NullLogger<ReminderService>.Instance);
+        /// <summary>
+        /// Poll interval defaults to zero so most tests read as "is this
+        /// meeting's own window open right now", with no cadence mixed in.
+        /// Tests that are about the cadence pass it explicitly.
+        /// </summary>
+        private static ReminderService Build(
+            ApplicationDbContext db, IEmailService email, int pollIntervalMinutes = 0) =>
+            new(db, email, NullLogger<ReminderService>.Instance,
+                new ReminderOptions { InterviewPollIntervalMinutes = pollIntervalMinutes });
 
         private static Applicant AnApplicant(string email = "person@example.com") => new()
         {
@@ -160,8 +167,8 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 SendReminderEmail = true
             };
 
-            Assert.False(ReminderService.IsWithinLeadTime(meeting, Now));
-            Assert.True(ReminderService.IsWithinLeadTime(meeting, Now.AddMinutes(10)));
+            Assert.False(ReminderService.IsWithinLeadTime(meeting, Now, TimeSpan.Zero));
+            Assert.True(ReminderService.IsWithinLeadTime(meeting, Now.AddMinutes(10), TimeSpan.Zero));
         }
 
         [Fact]
@@ -179,8 +186,124 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
                 ReminderMinutesBefore = 15
             };
 
-            Assert.True(ReminderService.IsWithinLeadTime(tomorrow, Now));
-            Assert.False(ReminderService.IsWithinLeadTime(imminent, Now));
+            Assert.True(ReminderService.IsWithinLeadTime(tomorrow, Now, TimeSpan.Zero));
+            Assert.False(ReminderService.IsWithinLeadTime(imminent, Now, TimeSpan.Zero));
+        }
+
+        // ==============================================================
+        // Cadence - a lead time narrower than the gap between polls
+        // ==============================================================
+
+        /// <summary>
+        /// The regression the three-hourly schedule would otherwise have
+        /// introduced, at the level where it actually bites.
+        ///
+        /// Meeting at 11:30 with the entity's default 60-minute lead time.
+        /// Polls run at 09:00 and 12:00. The window is 10:30-11:30: the 09:00
+        /// run is too early, and by 12:00 the meeting has started, so
+        /// SelectDueMeetings no longer returns it at all. Nothing is sent and
+        /// nothing is logged as missed.
+        /// </summary>
+        [Fact]
+        public async Task SendInterviewReminders_DoesNotStepOverAWindowNarrowerThanThePoll()
+        {
+            using var db = NewContext();
+            var applicant = AnApplicant();
+            db.Applicants.Add(applicant);
+            db.Meetings.Add(new Meeting
+            {
+                ApplicantId = applicant.Id,
+                Title = "Technical screen",
+                StartDateTime = Now.AddHours(2.5),
+                ReminderMinutesBefore = 60,
+                SendReminderEmail = true
+            });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            var service = Build(db, email, pollIntervalMinutes: 180);
+
+            // The 09:00 run knows the next one is not until 12:00, by which
+            // time this is unreachable - so it sends now rather than never.
+            Assert.Equal(1, (await service.SendInterviewRemindersAsync(Now)).Sent);
+            Assert.Single(email.Sent);
+            Assert.Contains("Technical screen", email.Sent[0].Body);
+        }
+
+        /// <summary>
+        /// The same meeting, on a poll fine enough to hit its window, waits.
+        /// Firing early is a concession to cadence, not the new default.
+        /// </summary>
+        [Fact]
+        public async Task SendInterviewReminders_DoesNotFireEarlyWhenThePollIsFineEnough()
+        {
+            using var db = NewContext();
+            var applicant = AnApplicant();
+            db.Applicants.Add(applicant);
+            db.Meetings.Add(new Meeting
+            {
+                ApplicantId = applicant.Id,
+                StartDateTime = Now.AddHours(2.5),
+                ReminderMinutesBefore = 60,
+                SendReminderEmail = true
+            });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            var service = Build(db, email, pollIntervalMinutes: 15);
+
+            Assert.Equal(0, (await service.SendInterviewRemindersAsync(Now)).Sent);
+            Assert.Empty(email.Sent);
+        }
+
+        /// <summary>
+        /// The widening is exactly one poll interval, not an open horizon: a
+        /// meeting whose window opens after the next run still waits for it.
+        /// </summary>
+        [Fact]
+        public void IsWithinLeadTime_WidensByOnePollIntervalAndNoMore()
+        {
+            var meeting = new Meeting
+            {
+                StartDateTime = Now.AddHours(10),
+                ReminderMinutesBefore = 60
+            };
+
+            var poll = TimeSpan.FromHours(3);
+
+            // Window opens at 18:00; the next run is at 12:00, which is still
+            // early enough to catch it.
+            Assert.False(ReminderService.IsWithinLeadTime(meeting, Now, poll));
+
+            // From 15:00 the next run lands inside the window.
+            Assert.True(ReminderService.IsWithinLeadTime(meeting, Now.AddHours(6), poll));
+        }
+
+        /// <summary>
+        /// Firing early must not fire twice: ReminderSent is still the guard,
+        /// so the run that follows an early send has nothing to do.
+        /// </summary>
+        [Fact]
+        public async Task SendInterviewReminders_AnEarlySendIsStillSentOnce()
+        {
+            using var db = NewContext();
+            var applicant = AnApplicant();
+            db.Applicants.Add(applicant);
+            db.Meetings.Add(new Meeting
+            {
+                ApplicantId = applicant.Id,
+                StartDateTime = Now.AddHours(2.5),
+                ReminderMinutesBefore = 60,
+                SendReminderEmail = true
+            });
+            await db.SaveChangesAsync();
+
+            var email = new RecordingEmailService();
+            var service = Build(db, email, pollIntervalMinutes: 180);
+
+            Assert.Equal(1, (await service.SendInterviewRemindersAsync(Now)).Sent);
+            Assert.Equal(ReminderRun.Nothing, await service.SendInterviewRemindersAsync(Now.AddHours(2)));
+            Assert.Single(email.Sent);
         }
 
         // ==============================================================

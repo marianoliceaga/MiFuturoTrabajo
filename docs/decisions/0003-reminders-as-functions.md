@@ -33,6 +33,18 @@ Option 3.
 
 Schedules come from app settings (`%TaskReminderSchedule%`), not string literals, so cadence is tunable — and a job pausable, by pointing it at a far-future expression — without a redeploy.
 
+### Amendment, 2026-08-30 — `InterviewReminders` moved to `0 0 */3 * * *`
+
+The fifteen-minute poll was the largest single line on the Azure bill: blob operations against `AzureWebJobsStorage` — lease renewals and schedule bookkeeping, not CV traffic — accounted for roughly 95% of a run rate of about €0.57/month. Three hours cuts the per-execution share of that.
+
+It also breaks the reasoning in the table above, and the cost is not a delay. A meeting is selectable only between the moment its window opens and the moment it starts, so a lead time shorter than the gap between runs is not delivered late — it is **skipped silently**, and the next run reports nothing due. At three hours, only `ReminderMinutesBefore >= 180` is reliably notified. The entity default is 60, which lands roughly one time in three.
+
+So the selection now sends early rather than not at all. `IsWithinLeadTime` takes the poll interval and fires at the last run before the window opens, which makes a 60-minute reminder on a three-hourly poll arrive up to three hours ahead of the meeting. Early is a visible, harmless failure and missing is an invisible one — the same trade that already put the `ReminderSent` commit before the send rather than after it.
+
+The interval is configuration (`Reminders:InterviewPollIntervalMinutes`), not a constant, because it is only correct while it matches the cron. Two settings that must agree is a real cost; deriving one from the other means parsing NCRONTAB inside `Infrastructure`, which is host knowledge in the one project deliberately kept free of it. The asymmetry makes the drift survivable: set it too low and short-lead reminders are dropped again, set it too high and reminders merely arrive earlier than asked.
+
+Cadence is now visible to the tests that care — `Build(db, email, pollIntervalMinutes)` — and invisible to the ones that do not, which pass zero and keep reading as pure lead-time assertions. Three of them fail if the widening is removed.
+
 ## Consequences
 
 **A new deployable, and a package move.** `IEmailService` and `EmailTemplates` lived in the API. A Functions project cannot sensibly reference a web project — the same mistake that was removed when the API stopped referencing the Blazor client — so both moved to `Infrastructure`, which the API and Functions already reference.
