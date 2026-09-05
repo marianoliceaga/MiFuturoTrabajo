@@ -22,8 +22,30 @@ param communicationConnectionString string
 @description('Cron for the daily task digest.')
 param taskReminderSchedule string = '0 0 8 * * *'
 
-@description('Cron for the interview reminder poll.')
-param interviewReminderSchedule string = '0 */15 * * * *'
+@description('''
+Cron for the interview reminder poll.
+
+The poll interval is a floor on the lead time it can honour: a meeting is only
+selectable between the moment its window opens and the moment it starts, so a
+lead time shorter than the gap between runs is missed entirely rather than
+delivered late. At three hours, only meetings with ReminderMinutesBefore >= 180
+are reliably notified - the entity default is 60.
+''')
+param interviewReminderSchedule string = '0 0 */3 * * *'
+
+@description('''
+The same interval as interviewReminderSchedule, in minutes.
+
+The selection has to know how far apart its own runs are: a meeting is
+selectable only between the moment its window opens and the moment it starts,
+so a lead time shorter than the gap would fall between two polls. Knowing the
+gap lets it send early instead of not at all.
+
+Change this whenever the cron above changes. Too low drops short-lead
+reminders; too high only makes them arrive earlier than asked, so when in
+doubt, err high.
+''')
+param interviewReminderPollIntervalMinutes int = 180
 
 resource functionsPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${functionsName}-plan'
@@ -69,6 +91,7 @@ resource functions 'Microsoft.Web/sites@2023-12-01' = {
         // need a redeploy.
         { name: 'TaskReminderSchedule', value: taskReminderSchedule }
         { name: 'InterviewReminderSchedule', value: interviewReminderSchedule }
+        { name: 'Reminders__InterviewPollIntervalMinutes', value: string(interviewReminderPollIntervalMinutes) }
       ]
     }
   }

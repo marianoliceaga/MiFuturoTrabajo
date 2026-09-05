@@ -43,9 +43,17 @@ namespace MiFuturoTrabajo.Functions
         }
 
         /// <summary>
-        /// Every 15 minutes. The lead time is per meeting and can be as short as
-        /// a few minutes, so the poll has to be finer-grained than the reminder
-        /// it delivers.
+        /// Every three hours.
+        ///
+        /// A meeting is selectable only between the moment its window opens and
+        /// the moment it starts, so at this cadence a lead time shorter than
+        /// three hours - the entity default is 60 minutes - would fall between
+        /// two runs and never be sent at all.
+        ///
+        /// <see cref="ReminderOptions.InterviewPollIntervalMinutes"/> tells the
+        /// selection how far apart these runs are, so it sends at the last run
+        /// before the window opens instead. Such a reminder arrives up to three
+        /// hours early. That setting has to be changed in step with the cron.
         /// </summary>
         [Function(nameof(InterviewReminders))]
         public async Task InterviewReminders(

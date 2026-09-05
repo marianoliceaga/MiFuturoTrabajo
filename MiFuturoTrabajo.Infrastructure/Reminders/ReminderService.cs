@@ -14,6 +14,31 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
     }
 
     /// <summary>
+    /// Tunables for the reminder jobs, configurable under <c>Reminders:</c>.
+    /// </summary>
+    public class ReminderOptions
+    {
+        /// <summary>
+        /// How often the interview poll runs, in minutes. This must match the
+        /// cron in <c>InterviewReminderSchedule</c>.
+        ///
+        /// It is not a cosmetic setting. A meeting is selectable only between
+        /// the moment its reminder window opens and the moment it starts, so a
+        /// lead time shorter than the gap between runs would fall entirely
+        /// between two polls and never be sent. Telling the selection how far
+        /// apart the runs are is what lets it fire early instead of missing.
+        ///
+        /// Set it too low and short-lead reminders go back to being dropped.
+        /// Set it too high and every reminder simply arrives earlier than asked.
+        /// The second failure is the survivable one, so when the two drift, err
+        /// high.
+        /// </summary>
+        public int InterviewPollIntervalMinutes { get; set; } = 180;
+
+        public TimeSpan InterviewPollInterval => TimeSpan.FromMinutes(InterviewPollIntervalMinutes);
+    }
+
+    /// <summary>
     /// Decides who gets a reminder and sends it.
     ///
     /// Deliberately host-agnostic: no BackgroundService, no Functions types, and
@@ -34,13 +59,18 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _email;
         private readonly ILogger<ReminderService> _logger;
+        private readonly ReminderOptions _options;
 
         public ReminderService(
-            ApplicationDbContext context, IEmailService email, ILogger<ReminderService> logger)
+            ApplicationDbContext context,
+            IEmailService email,
+            ILogger<ReminderService> logger,
+            ReminderOptions options)
         {
             _context = context;
             _email = email;
             _logger = logger;
+            _options = options;
         }
 
         // ------------------------------------------------------------------
@@ -83,9 +113,27 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
                 m.StartDateTime <= horizon);
         }
 
-        /// <summary>Has this meeting entered its own notification window?</summary>
-        public static bool IsWithinLeadTime(Meeting meeting, DateTime nowUtc) =>
-            meeting.StartDateTime.AddMinutes(-meeting.ReminderMinutesBefore) <= nowUtc;
+        /// <summary>
+        /// Has this meeting entered its own notification window, or will it
+        /// have done so before the next poll?
+        ///
+        /// The second half is what makes a lead time shorter than the poll
+        /// interval work at all. A meeting is selectable only while it is still
+        /// in the future and its window is open - a 60-minute lead time on a
+        /// three-hourly poll leaves a 60-minute target that two runs out of
+        /// three step straight over, and the run after the meeting starts no
+        /// longer selects it. That is not a late reminder, it is no reminder,
+        /// and nothing in the logs says so.
+        ///
+        /// So the window is widened by one poll interval: a reminder that would
+        /// have been missed is sent at the last run before its window opens,
+        /// arriving up to <paramref name="pollInterval"/> early. Early is a
+        /// visible, harmless failure; missing is an invisible one. That is the
+        /// same reasoning that put the <c>ReminderSent</c> commit before the
+        /// send rather than after it.
+        /// </summary>
+        public static bool IsWithinLeadTime(Meeting meeting, DateTime nowUtc, TimeSpan pollInterval) =>
+            meeting.StartDateTime.AddMinutes(-meeting.ReminderMinutesBefore) <= nowUtc + pollInterval;
 
         // ------------------------------------------------------------------
         // Dispatch
@@ -112,7 +160,9 @@ namespace MiFuturoTrabajo.Infrastructure.Reminders
         {
             var candidates = await SelectDueMeetings(_context.Meetings, nowUtc).ToListAsync(ct);
 
-            var due = candidates.Where(m => IsWithinLeadTime(m, nowUtc)).ToList();
+            var due = candidates
+                .Where(m => IsWithinLeadTime(m, nowUtc, _options.InterviewPollInterval))
+                .ToList();
 
             return await DispatchAsync(
                 due,
