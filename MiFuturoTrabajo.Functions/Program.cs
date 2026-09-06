@@ -66,6 +66,14 @@ var host = new HostBuilder()
             return new NoOpEmailService(logger);
         });
 
+        // The selection needs to know how far apart its own runs are, so it
+        // can fire early rather than step over a reminder window narrower than
+        // the gap. Bound from configuration rather than hard-coded, because it
+        // has to be changed in step with InterviewReminderSchedule.
+        var reminderOptions = new ReminderOptions();
+        configuration.GetSection("Reminders").Bind(reminderOptions);
+        services.AddSingleton(reminderOptions);
+
         services.AddScoped<ReminderService>();
     })
     .Build();
