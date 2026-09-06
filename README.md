@@ -197,11 +197,11 @@ func start
 dotnet test
 ```
 
-**246 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
+**250 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
 
-| Unit (131) | | Integration (115) | |
+| Unit (135) | | Integration (115) | |
 |---|---|---|---|
-| `ReminderServiceTests` | 22 | `EmailAndTokenSecurityTests` | 20 |
+| `ReminderServiceTests` | 26 | `EmailAndTokenSecurityTests` | 20 |
 | `CvFileValidatorTests` | 17 | `CvTailoringTests` | 14 |
 | `JwtServiceTests` | 15 | `OAuthSecurityTests` | 13 |
 | `MappingServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
