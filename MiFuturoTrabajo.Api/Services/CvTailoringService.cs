@@ -19,8 +19,13 @@ namespace MiFuturoTrabajo.Api.Services
         /// Model id. Configurable rather than compiled in, because it is the
         /// single biggest lever on what this feature costs and the right answer
         /// depends on how the deployment is being used, not on the code.
+        ///
+        /// Sonnet is the default because this is a demo running on free tiers:
+        /// the allowance is five calls, and a default that quietly costs several
+        /// times more per call is the wrong one to ship unasked. A deployment
+        /// that wants a larger model sets it here.
         /// </summary>
-        public string Model { get; set; } = "claude-opus-5";
+        public string Model { get; set; } = "claude-sonnet-5";
 
         /// <summary>
         /// Optional: "low", "medium", "high", "xhigh", "max". Left unset so the
