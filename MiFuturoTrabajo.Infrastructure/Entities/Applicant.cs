@@ -17,6 +17,21 @@ namespace MiFuturoTrabajo.Infrastructure.Entities
         public string Cellphone { get; set; } = string.Empty;
         public DateTime CreatedOnDate { get; set; } = DateTime.UtcNow;
 
+        /// <summary>
+        /// AI assistance used in the current period. Kept here rather than in a
+        /// container of its own because every request that spends a credit has
+        /// already loaded this document to reach the CV, so counting is free -
+        /// the same reasoning that puts CV versions inside it.
+        ///
+        /// A counter that only ever climbs would be simpler, but this is a
+        /// metered feature with real per-call cost, and the meter has to reset.
+        /// <see cref="AiCreditsPeriodStartUtc"/> is when the current period
+        /// began; see <c>AiUsageWindow</c> for the rollover.
+        /// </summary>
+        public int AiCreditsUsed { get; set; }
+
+        public DateTime AiCreditsPeriodStartUtc { get; set; }
+
         // Embedded (owned) collections - stored inside this document.
         public List<CVVersion> CVVersions { get; set; } = new();
         public List<JobReference> PastJobReferences { get; set; } = new();

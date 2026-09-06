@@ -107,6 +107,20 @@ builder.Services.AddScoped<QuotaService>();
 
 builder.Services.AddScoped<DemoDataSeeder>();
 
+// AI assistance. Unlike email, an absent key is NOT fatal in Production: CV
+// tailoring is an extra, and a deployment without a key should still serve the
+// tracker rather than refuse to start. The endpoint reports itself unavailable
+// and the page disables itself, so the failure is visible where it matters -
+// in front of the user - instead of at 3am in a crash loop.
+//
+// Singleton: the client holds the connection pool, and rebuilding it per
+// request would throw that pool away on the one call in this app where the
+// round trip is measured in seconds.
+var aiOptions = new CvTailoringOptions();
+builder.Configuration.GetSection("Ai").Bind(aiOptions);
+builder.Services.AddSingleton(aiOptions);
+builder.Services.AddSingleton<ICvTailoringService, CvTailoringService>();
+
 // Email. Degrades to a no-op locally, but NOT in Production: an app that
 // silently stops sending password-reset mail is an app whose users cannot get
 // back into their accounts, and the failure is invisible until someone

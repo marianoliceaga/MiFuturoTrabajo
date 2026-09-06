@@ -19,6 +19,9 @@ namespace MiFuturoTrabajo.Tests.Integration
         /// <summary>Every email the API tried to send during the test run.</summary>
         public CapturingEmailService Emails { get; } = new();
 
+        /// <summary>Stands in for the model, and records what reached it.</summary>
+        public StubCvTailoringService Tailoring { get; } = new();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureServices(services =>
@@ -46,6 +49,25 @@ namespace MiFuturoTrabajo.Tests.Integration
                 }
 
                 services.AddSingleton<IEmailService>(Emails);
+
+                // The model call is stubbed: a real one would cost money per
+                // run, need a key in CI, and answer differently every time. The
+                // options object stays the real one bound from
+                // appsettings.Testing.json, so the allowance the controller
+                // enforces is the configured one.
+                var tailoringDescriptor = services.SingleOrDefault(
+                    d => d.ServiceType == typeof(ICvTailoringService));
+
+                if (tailoringDescriptor != null)
+                {
+                    services.Remove(tailoringDescriptor);
+                }
+
+                services.AddSingleton<ICvTailoringService>(provider =>
+                {
+                    Tailoring.Options = provider.GetRequiredService<CvTailoringOptions>();
+                    return Tailoring;
+                });
 
                 // Remove the existing DbContext registration
                 var descriptor = services.SingleOrDefault(

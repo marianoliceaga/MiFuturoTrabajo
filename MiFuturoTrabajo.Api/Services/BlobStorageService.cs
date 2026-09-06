@@ -159,6 +159,45 @@ namespace MiFuturoTrabajo.Api.Services
             }
         }
 
+        public async Task<byte[]?> DownloadAsync(
+            string blobPath, long maxBytes, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(blobPath)) return null;
+
+            var blob = _container.GetBlobClient(blobPath);
+
+            try
+            {
+                // Size first, from the properties call, so an unexpectedly large
+                // blob costs one metadata request instead of a full transfer
+                // into this process's memory.
+                var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+
+                if (properties.Value.ContentLength > maxBytes)
+                {
+                    _logger.LogWarning(
+                        "Refusing to read blob {BlobPath}: {Bytes} bytes exceeds the {MaxBytes} limit",
+                        blobPath, properties.Value.ContentLength, maxBytes);
+
+                    return null;
+                }
+
+                using var buffer = new MemoryStream();
+                await blob.DownloadToAsync(buffer, cancellationToken);
+
+                return buffer.ToArray();
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                // A row pointing at a blob that is gone is a real state - a
+                // failed upload, or a delete that half-completed. The caller
+                // handles absence; it is not an error worth throwing over.
+                _logger.LogWarning("Blob {BlobPath} was not found", blobPath);
+
+                return null;
+            }
+        }
+
         /// <summary>
         /// Quotes and control characters in a filename would break the
         /// Content-Disposition header, so they do not reach it.

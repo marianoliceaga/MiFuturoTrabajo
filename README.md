@@ -21,6 +21,7 @@ Everything listed here has been exercised against the deployed environment, not 
 | Interviews | Meetings with per-meeting email reminder lead times |
 | Tasks | Deadlines, completion, daily reminder digest |
 | CV versions | Real file upload to Blob Storage, expiring download links, default selection |
+| CV tailoring | Paste a job posting and get concrete rewrites, or a cover letter, from your stored CV — Claude reads the PDF itself |
 | Job references | Past employment, embedded in the applicant document |
 | Auth | Email/password with BCrypt, refresh tokens, account lockout, Google and Microsoft sign-in |
 | Email | Verification and password reset via Azure Communication Services |
@@ -35,6 +36,7 @@ Stated plainly, because a README that hides these is worse than one that admits 
 - **Transactional email does not send.** The ACS domain `ideapixel.com.ar` is provisioned, but its DKIM, SPF and domain-verification records have not been added at Cloudflare, so all five checks read `NotStarted`. Registration and password reset both still succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives. This is the one limitation that stops a listed feature from working.
 - **Microsoft sign-in is not verified end to end.** The Entra registration was wrong and is now fixed: the redirect URIs sit on the `SPA` platform (MSAL.js v2 redeems cross-origin with PKCE, so `Web` returns `AADSTS9002326`) with the correct `/login-callback` path. Server-side token validation is implemented and covered by 13 tests including forged-token attacks. What has not happened is a human completing an actual Microsoft sign-in against the deployed site.
 - **Google sign-in needs its origins registered.** The deployed origin has not been added to the OAuth client's authorised JavaScript origins in the Google Cloud console. Server-side validation was always sound — `GoogleJsonWebSignature.ValidateAsync` verifies against Google's keys — and the client-side bug that made it impossible is fixed, so this is the only thing left for it.
+- **CV tailoring has never made a live model call.** The feature is complete and the request it builds was verified byte-for-byte against a local listener — the document block, the JSON-schema output config and the refusal handling are all confirmed correct on the wire — but no deployment has had `Ai:ApiKey` set, so no real analysis has ever been produced or read. Everything around the call is covered by 14 integration tests against a stub. What is unproven is the quality of the advice, which is exactly the part tests cannot establish.
 - **Cosmos runs on serverless, not the free tier.** The free-tier slot in this subscription had not released when the deployment ran. Serverless costs cents per month at this volume; switching means creating a new account, since billing mode cannot be changed in place.
 
 ---
@@ -149,6 +151,14 @@ dotnet user-secrets --project MiFuturoTrabajo.Api set "Jwt:SecretKey" "$(openssl
 
 With no `AzureCommunicationServices` configured, email is not sent — instead the verification and reset **links are written to the API log**, which is where to look when testing those flows locally.
 
+CV tailoring needs an Anthropic API key. Without one the feature reports itself unavailable and the page disables itself with an explanation; nothing else is affected.
+
+```bash
+dotnet user-secrets --project MiFuturoTrabajo.Api set "Ai:ApiKey" "sk-ant-..."
+```
+
+It is the only feature here that costs money per request rather than per stored byte, so it is capped in four places: a per-account allowance (5 calls per 30 days), a burst limit of 4 requests per minute, an 8,000-character ceiling on the job description, and `MaxTokens` on the reply. `Ai:Model` is configuration because it is the largest single lever on that cost.
+
 ### Run
 
 ```bash
@@ -187,21 +197,25 @@ func start
 dotnet test
 ```
 
-**196 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, and a capturing mail service.
+**246 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
 
-| Unit (104) | | Integration (92) | |
+| Unit (131) | | Integration (115) | |
 |---|---|---|---|
-| `ReminderServiceTests` | 19 | `EmailAndTokenSecurityTests` | 19 |
-| `CvFileValidatorTests` | 17 | `OAuthSecurityTests` | 13 |
-| `JwtServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
-| `MappingServiceTests` | 15 | `AuthenticationFlowTests` | 12 |
-| `AuthControllerTests` | 14 | `CvUploadTests` | 11 |
-| `SecurityTokensTests` | 14 | `JobApplicationCrudTests` | 10 |
-| `PasswordHasherTests` | 10 | `KanbanBoardTests` | 10 |
+| `ReminderServiceTests` | 22 | `EmailAndTokenSecurityTests` | 20 |
+| `CvFileValidatorTests` | 17 | `CvTailoringTests` | 14 |
+| `JwtServiceTests` | 15 | `OAuthSecurityTests` | 13 |
+| `MappingServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
+| `AuthControllerTests` | 14 | `AuthenticationFlowTests` | 12 |
+| `SecurityTokensTests` | 14 | `CvUploadTests` | 11 |
+| `CvContentExtractorTests` | 12 | `JobApplicationCrudTests` | 10 |
+| `AiUsageWindowTests` | 12 | `KanbanBoardTests` | 10 |
+| `PasswordHasherTests` | 10 | `LanguagePreferenceTests` | 8 |
 | | | `QuotaEnforcementTests` | 2 |
 | | | `RateLimiterTests` | 2 |
 
 Several of these exist because they caught something real: `EmailAndTokenSecurityTests` reproduces an account-takeover path that used to work, and `OAuthSecurityTests` forges Microsoft tokens against a validator that used to accept them.
+
+`CvTailoringTests` never calls a model — that would cost money per run, need a key in CI, and answer differently every time. What it covers is everything wrapped around the call: that one account cannot analyse another's CV, that the allowance is spent exactly once and enforced, and that a request which could never have worked is refused before it costs anything.
 
 ---
 
@@ -240,6 +254,7 @@ All limited to 120 requests per minute per user.
 | Tasks | `/api/ApplicantTask` | `POST /ApplicantTaskAdd` |
 | CV versions | `/api/CVVersion` | `POST /upload` (multipart), `GET /{id}/download` |
 | Applicant | `/api/Applicant` | `GET /current`, `POST /UploadCV`, `GET /CV/{cvId}/download` |
+| CV tailoring | `/api/CvTailoring` | `GET /status`, `POST /` — limited to 4 requests per minute, not 120 |
 | Health | `/health` | Anonymous |
 
 Updates are `PATCH`, not `PUT`. A CV download returns a **short-lived link**, not the file — the blob container is private and the URL expires in 15 minutes.
@@ -247,6 +262,8 @@ Updates are `PATCH`, not `PUT`. A CV download returns a **short-lived link**, no
 ### Quotas
 
 Per account: 200 job applications · 100 companies · 100 recruiters · 300 meetings · 300 tasks · 10 CV versions. Exceeding one returns `429` with a message naming the limit.
+
+AI tailoring has a separate allowance — 5 calls per 30 days — because it is the one quota that counts money already spent rather than rows that exist. Deleting something gives back storage; it cannot give back a call that was already paid for, so that allowance renews on a rolling window instead. The `429` says when.
 
 ---
 
