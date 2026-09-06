@@ -1,0 +1,349 @@
+@page "/cv-tailoring"
+@using MiFuturoTrabajo.Shared.Models
+@using MiFuturoTrabajo.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Blazored.Toast.Services
+@attribute [Authorize]
+@inject ICvTailoringService TailoringService
+@inject ICVVersionService CVVersionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IToastService ToastService
+
+<div class="tailor-container">
+    <div class="tailor-header">
+        <div>
+            <h2>@L["Ai_Heading"]</h2>
+            <p class="tailor-subtitle">@L["Ai_Subtitle"]</p>
+        </div>
+        @if (status is { Enabled: true })
+        {
+            <div class="allowance @(status.Usage.Remaining == 0 ? "allowance-empty" : "")">
+                <span class="allowance-count">@L["Ai_AllowanceRemaining", status.Usage.Remaining, status.Usage.Limit]</span>
+                <span class="allowance-renews">@L["Ai_RenewsOn", status.Usage.RenewsAtUtc.ShortDate()]</span>
+            </div>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">@L["Common_Loading"]</div>
+    }
+    else if (status is { Enabled: false })
+    {
+        @* Not an error. The deployment simply has no key configured, and
+           saying so plainly beats a button that fails when pressed. *@
+        <div class="notice notice-muted">
+            <i class="bi bi-robot"></i>
+            <div>
+                <h4>@L["Ai_UnavailableHeading"]</h4>
+                <p>@L["Ai_UnavailableBody"]</p>
+            </div>
+        </div>
+    }
+    else if (!usableCvs.Any())
+    {
+        <div class="empty-state">
+            <i class="bi bi-file-earmark-text"></i>
+            <h4>@L["Ai_NoCvHeading"]</h4>
+            <p>@L["Ai_NoCvBody"]</p>
+            <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/cv-versions"))">
+                <i class="bi bi-upload"></i> @L["Ai_GoToCvs"]
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="tailor-grid">
+            <div class="tailor-form">
+                <div class="mb-3">
+                    <label class="form-label">@L["Ai_CvLabel"]</label>
+                    <select class="form-select" @bind="request.CvVersionId">
+                        @foreach (var cv in usableCvs)
+                        {
+                            <option value="@cv.Id">@cv.Name @(cv.IsDefault ? L["Ai_DefaultSuffix"] : "")</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="row">
+                    <div class="col mb-3">
+                        <label class="form-label">@L["Ai_JobTitleLabel"]</label>
+                        <input type="text" class="form-control" @bind="request.JobTitle"
+                               placeholder="@L["Ai_JobTitlePlaceholder"]" />
+                    </div>
+                    <div class="col mb-3">
+                        <label class="form-label">@L["Ai_CompanyLabel"]</label>
+                        <input type="text" class="form-control" @bind="request.CompanyName"
+                               placeholder="@L["Ai_CompanyPlaceholder"]" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">@L["Ai_JobDescriptionLabel"]</label>
+                    <textarea class="form-control tailor-description" rows="12"
+                              @bind="request.JobDescription" @bind:event="oninput"
+                              placeholder="@L["Ai_JobDescriptionPlaceholder"]"></textarea>
+                    <small class="form-text @(IsTooLong ? "text-danger" : "text-muted")">
+                        @L["Ai_CharCount", request.JobDescription?.Length ?? 0, MaxChars]
+                    </small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">@L["Ai_ModeLabel"]</label>
+                    <div class="mode-toggle">
+                        <button type="button"
+                                class="btn @(request.Mode == CvTailoringMode.Suggestions ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="@(() => request.Mode = CvTailoringMode.Suggestions)">
+                            <i class="bi bi-pencil-square"></i> @L["Ai_ModeSuggestions"]
+                        </button>
+                        <button type="button"
+                                class="btn @(request.Mode == CvTailoringMode.CoverLetter ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="@(() => request.Mode = CvTailoringMode.CoverLetter)">
+                            <i class="bi bi-envelope-paper"></i> @L["Ai_ModeCoverLetter"]
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-analyze" @onclick="Analyze" disabled="@(!CanSubmit)">
+                    @if (isWorking)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                        <span>@L["Ai_Working"]</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-stars"></i>
+                        <span>@L["Ai_Analyze"]</span>
+                    }
+                </button>
+
+                @if (isWorking)
+                {
+                    <p class="working-hint">@L["Ai_WorkingHint"]</p>
+                }
+
+                @* Stated before the user reads any advice, not after: the value
+                   of this tool depends on the person trusting that nothing it
+                   proposes was invented. *@
+                <p class="honesty-note">
+                    <i class="bi bi-shield-check"></i> @L["Ai_HonestyNote"]
+                </p>
+            </div>
+
+            <div class="tailor-results">
+                @if (result == null)
+                {
+                    <div class="results-placeholder">
+                        <i class="bi bi-clipboard-data"></i>
+                        <p>@L["Ai_ResultsPlaceholder"]</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="result-summary">
+                        <h4>@L["Ai_Summary"]</h4>
+                        <p>@result.Summary</p>
+                    </div>
+
+                    @if (result.Mode == CvTailoringMode.CoverLetter)
+                    {
+                        <div class="result-block">
+                            <div class="result-block-header">
+                                <h4>@L["Ai_CoverLetter"]</h4>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CopyCoverLetter">
+                                    <i class="bi bi-clipboard"></i> @L["Ai_Copy"]
+                                </button>
+                            </div>
+                            <pre class="cover-letter">@result.CoverLetter</pre>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (result.Strengths.Any())
+                        {
+                            <div class="result-block">
+                                <h4><i class="bi bi-check-circle text-success"></i> @L["Ai_Strengths"]</h4>
+                                @foreach (var strength in result.Strengths)
+                                {
+                                    <div class="item">
+                                        <p class="item-title">@strength.Point</p>
+                                        <p class="item-evidence">
+                                            <span class="item-label">@L["Ai_Evidence"]</span> @strength.Evidence
+                                        </p>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (result.Gaps.Any())
+                        {
+                            <div class="result-block">
+                                <h4><i class="bi bi-exclamation-triangle text-warning"></i> @L["Ai_Gaps"]</h4>
+                                @foreach (var gap in result.Gaps)
+                                {
+                                    <div class="item">
+                                        <p class="item-title">
+                                            @gap.Requirement
+                                            <span class="badge @(IsMustHave(gap) ? "bg-danger" : "bg-secondary")">
+                                                @(IsMustHave(gap) ? L["Ai_SeverityMustHave"] : L["Ai_SeverityNiceToHave"])
+                                            </span>
+                                        </p>
+                                        <p>@gap.Advice</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (result.Suggestions.Any())
+                        {
+                            <div class="result-block">
+                                <h4><i class="bi bi-pencil"></i> @L["Ai_Suggestions"]</h4>
+                                @foreach (var suggestion in result.Suggestions)
+                                {
+                                    <div class="item suggestion">
+                                        <p class="item-title">@suggestion.Section</p>
+                                        <div class="rewrite">
+                                            <div class="rewrite-side rewrite-current">
+                                                <span class="item-label">@L["Ai_Current"]</span>
+                                                <p>@suggestion.Current</p>
+                                            </div>
+                                            <div class="rewrite-side rewrite-proposed">
+                                                <span class="item-label">@L["Ai_Proposed"]</span>
+                                                <p>@suggestion.Proposed</p>
+                                            </div>
+                                        </div>
+                                        <p class="item-why">
+                                            <span class="item-label">@L["Ai_Why"]</span> @suggestion.Why
+                                        </p>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (result.MissingKeywords.Any())
+                        {
+                            <div class="result-block">
+                                <h4><i class="bi bi-tags"></i> @L["Ai_MissingKeywords"]</h4>
+                                <div class="keywords">
+                                    @foreach (var keyword in result.MissingKeywords)
+                                    {
+                                        <span class="keyword">@keyword</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CvTailoringStatusDto? status;
+    private List<CVVersionDto> usableCvs = new();
+    private CvTailoringRequestDto request = new();
+    private CvTailoringResultDto? result;
+    private bool isLoading = true;
+    private bool isWorking;
+
+    /// <summary>Falls back to the server's stated limit only once it is known.</summary>
+    private int MaxChars => status?.MaxJobDescriptionChars ?? 8000;
+
+    private bool IsTooLong => (request.JobDescription?.Length ?? 0) > MaxChars;
+
+    private bool CanSubmit =>
+        !isWorking
+        && !IsTooLong
+        && !string.IsNullOrWhiteSpace(request.JobDescription)
+        && !string.IsNullOrEmpty(request.CvVersionId)
+        && status is { Enabled: true, Usage.Remaining: > 0 };
+
+    private static bool IsMustHave(CvGapDto gap) =>
+        string.Equals(gap.Severity, "must-have", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The language the answer comes back in follows the UI, because the CV
+        // and the posting are often in different languages and neither one says
+        // which the reader wants.
+        request.Language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+        try
+        {
+            var statusTask = TailoringService.GetStatusAsync();
+            var cvTask = CVVersionService.GetAllAsync();
+
+            status = await statusTask;
+
+            // Only CVs with a document attached: the rest are notes-only rows
+            // and there would be nothing to read.
+            usableCvs = (await cvTask).Where(cv => cv.HasFile).ToList();
+
+            request.CvVersionId = usableCvs.FirstOrDefault(cv => cv.IsDefault)?.Id
+                                  ?? usableCvs.FirstOrDefault()?.Id
+                                  ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading CV tailoring page: {ex.Message}");
+            ToastService.ShowError(L["Ai_LoadFailed"]);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Analyze()
+    {
+        isWorking = true;
+        result = null;
+
+        try
+        {
+            result = await TailoringService.TailorAsync(request);
+
+            // The answer carries the allowance it just spent, so the counter
+            // updates without a second round trip.
+            if (status != null)
+            {
+                status.Usage = result.Usage;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // The server's refusals are specific and actionable, so they are
+            // shown as written rather than replaced with a generic failure.
+            Console.WriteLine($"CV tailoring failed: {ex.Message}");
+            ToastService.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CV tailoring failed: {ex.Message}");
+            ToastService.ShowError(L["Ai_Failed"]);
+        }
+        finally
+        {
+            isWorking = false;
+        }
+    }
+
+    private async Task CopyCoverLetter()
+    {
+        if (result == null) return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", result.CoverLetter);
+            ToastService.ShowSuccess(L["Ai_Copied"]);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Clipboard failed: {ex.Message}");
+            ToastService.ShowError(L["Ai_CopyFailed"]);
+        }
+    }
+}

@@ -1345,4 +1345,136 @@
   <data name="Companies_TelephonePlaceholder" xml:space="preserve">
     <value>+54 11 1234 5678</value>
   </data>
+  <data name="Nav_CvTailoring" xml:space="preserve">
+    <value>Ajustar CV</value>
+  </data>
+  <data name="Ai_Heading" xml:space="preserve">
+    <value>Ajustá tu CV</value>
+  </data>
+  <data name="Ai_Subtitle" xml:space="preserve">
+    <value>Pegá un aviso y recibí ajustes concretos, o una carta de presentación redactada a partir de tu CV.</value>
+  </data>
+  <data name="Ai_AllowanceRemaining" xml:space="preserve">
+    <value>Quedan {0} de {1}</value>
+  </data>
+  <data name="Ai_RenewsOn" xml:space="preserve">
+    <value>Se renueva el {0}</value>
+  </data>
+  <data name="Ai_UnavailableHeading" xml:space="preserve">
+    <value>La asistencia con IA no está disponible</value>
+  </data>
+  <data name="Ai_UnavailableBody" xml:space="preserve">
+    <value>Esta instalación no tiene configurado un proveedor de IA, así que el ajuste está desactivado. El resto de la aplicación funciona con normalidad.</value>
+  </data>
+  <data name="Ai_NoCvHeading" xml:space="preserve">
+    <value>No hay ningún CV con archivo adjunto</value>
+  </data>
+  <data name="Ai_NoCvBody" xml:space="preserve">
+    <value>El ajuste lee el documento en sí, así que primero subí un PDF o un .docx.</value>
+  </data>
+  <data name="Ai_GoToCvs" xml:space="preserve">
+    <value>Ir a mis versiones de CV</value>
+  </data>
+  <data name="Ai_CvLabel" xml:space="preserve">
+    <value>Qué CV</value>
+  </data>
+  <data name="Ai_DefaultSuffix" xml:space="preserve">
+    <value>(predeterminado)</value>
+  </data>
+  <data name="Ai_JobTitleLabel" xml:space="preserve">
+    <value>Puesto</value>
+  </data>
+  <data name="Ai_JobTitlePlaceholder" xml:space="preserve">
+    <value>Desarrollador backend</value>
+  </data>
+  <data name="Ai_CompanyLabel" xml:space="preserve">
+    <value>Empresa</value>
+  </data>
+  <data name="Ai_CompanyPlaceholder" xml:space="preserve">
+    <value>Dónde te postulás</value>
+  </data>
+  <data name="Ai_JobDescriptionLabel" xml:space="preserve">
+    <value>Descripción del puesto *</value>
+  </data>
+  <data name="Ai_JobDescriptionPlaceholder" xml:space="preserve">
+    <value>Pegá acá los requisitos del aviso...</value>
+  </data>
+  <data name="Ai_CharCount" xml:space="preserve">
+    <value>{0} / {1} caracteres</value>
+  </data>
+  <data name="Ai_ModeLabel" xml:space="preserve">
+    <value>Qué querés</value>
+  </data>
+  <data name="Ai_ModeSuggestions" xml:space="preserve">
+    <value>Sugerencias para el CV</value>
+  </data>
+  <data name="Ai_ModeCoverLetter" xml:space="preserve">
+    <value>Carta de presentación</value>
+  </data>
+  <data name="Ai_Analyze" xml:space="preserve">
+    <value>Analizar</value>
+  </data>
+  <data name="Ai_Working" xml:space="preserve">
+    <value>Trabajando...</value>
+  </data>
+  <data name="Ai_WorkingHint" xml:space="preserve">
+    <value>Esto tarda unos segundos. Se está leyendo todo tu CV contra el aviso.</value>
+  </data>
+  <data name="Ai_HonestyNote" xml:space="preserve">
+    <value>Nada de esto inventa experiencia que no tengas. Cada sugerencia reescribe algo que ya está en tu CV: lo que falta se informa como una brecha, nunca se agrega por vos.</value>
+  </data>
+  <data name="Ai_ResultsPlaceholder" xml:space="preserve">
+    <value>Acá va a aparecer tu análisis.</value>
+  </data>
+  <data name="Ai_Summary" xml:space="preserve">
+    <value>Resumen</value>
+  </data>
+  <data name="Ai_Strengths" xml:space="preserve">
+    <value>Lo que ya coincide</value>
+  </data>
+  <data name="Ai_Gaps" xml:space="preserve">
+    <value>Lo que falta</value>
+  </data>
+  <data name="Ai_Suggestions" xml:space="preserve">
+    <value>Reescrituras sugeridas</value>
+  </data>
+  <data name="Ai_MissingKeywords" xml:space="preserve">
+    <value>Términos que conviene agregar</value>
+  </data>
+  <data name="Ai_SeverityMustHave" xml:space="preserve">
+    <value>excluyente</value>
+  </data>
+  <data name="Ai_SeverityNiceToHave" xml:space="preserve">
+    <value>deseable</value>
+  </data>
+  <data name="Ai_Evidence" xml:space="preserve">
+    <value>En tu CV:</value>
+  </data>
+  <data name="Ai_Current" xml:space="preserve">
+    <value>Ahora</value>
+  </data>
+  <data name="Ai_Proposed" xml:space="preserve">
+    <value>Sugerido</value>
+  </data>
+  <data name="Ai_Why" xml:space="preserve">
+    <value>Por qué:</value>
+  </data>
+  <data name="Ai_CoverLetter" xml:space="preserve">
+    <value>Carta de presentación</value>
+  </data>
+  <data name="Ai_Copy" xml:space="preserve">
+    <value>Copiar</value>
+  </data>
+  <data name="Ai_Copied" xml:space="preserve">
+    <value>Carta copiada.</value>
+  </data>
+  <data name="Ai_CopyFailed" xml:space="preserve">
+    <value>No se pudo copiar al portapapeles.</value>
+  </data>
+  <data name="Ai_Failed" xml:space="preserve">
+    <value>No se pudo completar el análisis.</value>
+  </data>
+  <data name="Ai_LoadFailed" xml:space="preserve">
+    <value>No se pudo cargar la página.</value>
+  </data>
 </root>

@@ -1345,4 +1345,136 @@
   <data name="Companies_TelephonePlaceholder" xml:space="preserve">
     <value>+1 234 567 8900</value>
   </data>
+  <data name="Nav_CvTailoring" xml:space="preserve">
+    <value>CV tailoring</value>
+  </data>
+  <data name="Ai_Heading" xml:space="preserve">
+    <value>Tailor your CV</value>
+  </data>
+  <data name="Ai_Subtitle" xml:space="preserve">
+    <value>Paste a job posting and get concrete edits, or a cover letter drafted from your CV.</value>
+  </data>
+  <data name="Ai_AllowanceRemaining" xml:space="preserve">
+    <value>{0} of {1} left</value>
+  </data>
+  <data name="Ai_RenewsOn" xml:space="preserve">
+    <value>Renews {0}</value>
+  </data>
+  <data name="Ai_UnavailableHeading" xml:space="preserve">
+    <value>AI assistance is not available</value>
+  </data>
+  <data name="Ai_UnavailableBody" xml:space="preserve">
+    <value>This deployment has no AI provider configured, so tailoring is switched off. Everything else works as usual.</value>
+  </data>
+  <data name="Ai_NoCvHeading" xml:space="preserve">
+    <value>No CV with a file attached</value>
+  </data>
+  <data name="Ai_NoCvBody" xml:space="preserve">
+    <value>Tailoring reads the document itself, so upload a PDF or a .docx first.</value>
+  </data>
+  <data name="Ai_GoToCvs" xml:space="preserve">
+    <value>Go to my CV versions</value>
+  </data>
+  <data name="Ai_CvLabel" xml:space="preserve">
+    <value>Which CV</value>
+  </data>
+  <data name="Ai_DefaultSuffix" xml:space="preserve">
+    <value>(default)</value>
+  </data>
+  <data name="Ai_JobTitleLabel" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="Ai_JobTitlePlaceholder" xml:space="preserve">
+    <value>Backend Developer</value>
+  </data>
+  <data name="Ai_CompanyLabel" xml:space="preserve">
+    <value>Company</value>
+  </data>
+  <data name="Ai_CompanyPlaceholder" xml:space="preserve">
+    <value>Where you are applying</value>
+  </data>
+  <data name="Ai_JobDescriptionLabel" xml:space="preserve">
+    <value>Job description *</value>
+  </data>
+  <data name="Ai_JobDescriptionPlaceholder" xml:space="preserve">
+    <value>Paste the requirements from the posting here...</value>
+  </data>
+  <data name="Ai_CharCount" xml:space="preserve">
+    <value>{0} / {1} characters</value>
+  </data>
+  <data name="Ai_ModeLabel" xml:space="preserve">
+    <value>What do you want</value>
+  </data>
+  <data name="Ai_ModeSuggestions" xml:space="preserve">
+    <value>CV suggestions</value>
+  </data>
+  <data name="Ai_ModeCoverLetter" xml:space="preserve">
+    <value>Cover letter</value>
+  </data>
+  <data name="Ai_Analyze" xml:space="preserve">
+    <value>Analyse</value>
+  </data>
+  <data name="Ai_Working" xml:space="preserve">
+    <value>Working...</value>
+  </data>
+  <data name="Ai_WorkingHint" xml:space="preserve">
+    <value>This takes a few seconds. Your whole CV is being read against the posting.</value>
+  </data>
+  <data name="Ai_HonestyNote" xml:space="preserve">
+    <value>Nothing here invents experience you do not have. Every suggestion rewords something already in your CV — what is missing is reported as a gap, never written in for you.</value>
+  </data>
+  <data name="Ai_ResultsPlaceholder" xml:space="preserve">
+    <value>Your analysis will appear here.</value>
+  </data>
+  <data name="Ai_Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="Ai_Strengths" xml:space="preserve">
+    <value>What already matches</value>
+  </data>
+  <data name="Ai_Gaps" xml:space="preserve">
+    <value>What is missing</value>
+  </data>
+  <data name="Ai_Suggestions" xml:space="preserve">
+    <value>Suggested rewrites</value>
+  </data>
+  <data name="Ai_MissingKeywords" xml:space="preserve">
+    <value>Terms worth adding</value>
+  </data>
+  <data name="Ai_SeverityMustHave" xml:space="preserve">
+    <value>must have</value>
+  </data>
+  <data name="Ai_SeverityNiceToHave" xml:space="preserve">
+    <value>nice to have</value>
+  </data>
+  <data name="Ai_Evidence" xml:space="preserve">
+    <value>In your CV:</value>
+  </data>
+  <data name="Ai_Current" xml:space="preserve">
+    <value>Now</value>
+  </data>
+  <data name="Ai_Proposed" xml:space="preserve">
+    <value>Suggested</value>
+  </data>
+  <data name="Ai_Why" xml:space="preserve">
+    <value>Why:</value>
+  </data>
+  <data name="Ai_CoverLetter" xml:space="preserve">
+    <value>Cover letter</value>
+  </data>
+  <data name="Ai_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Ai_Copied" xml:space="preserve">
+    <value>Cover letter copied.</value>
+  </data>
+  <data name="Ai_CopyFailed" xml:space="preserve">
+    <value>Could not copy to the clipboard.</value>
+  </data>
+  <data name="Ai_Failed" xml:space="preserve">
+    <value>The analysis could not be completed.</value>
+  </data>
+  <data name="Ai_LoadFailed" xml:space="preserve">
+    <value>Could not load the page.</value>
+  </data>
 </root>

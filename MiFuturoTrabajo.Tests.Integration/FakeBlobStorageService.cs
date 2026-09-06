@@ -50,5 +50,19 @@ namespace MiFuturoTrabajo.Tests.Integration
             _blobs.TryRemove(blobPath, out _);
             return Task.CompletedTask;
         }
+
+        /// <summary>
+        /// Mirrors the real service including the size refusal, so a test can
+        /// exercise the oversized case without a storage account.
+        /// </summary>
+        public Task<byte[]?> DownloadAsync(string blobPath, long maxBytes, CancellationToken cancellationToken = default)
+        {
+            if (!_blobs.TryGetValue(blobPath, out var bytes))
+            {
+                return Task.FromResult<byte[]?>(null);
+            }
+
+            return Task.FromResult(bytes.LongLength > maxBytes ? null : bytes);
+        }
     }
 }

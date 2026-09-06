@@ -13,6 +13,12 @@ namespace MiFuturoTrabajo.Api.Services
     {
         public int AuthPermitPerMinute { get; set; } = 10;
         public int PerUserPermitPerMinute { get; set; } = 120;
+
+        /// <summary>
+        /// Deliberately tiny. An AI request costs real money and takes seconds,
+        /// so the honest usage pattern is a handful an hour, not two a second.
+        /// </summary>
+        public int AiPermitPerMinute { get; set; } = 4;
     }
 
     /// <summary>
@@ -29,6 +35,7 @@ namespace MiFuturoTrabajo.Api.Services
     {
         public const string AuthPolicy = "auth";
         public const string PerUserPolicy = "per-user";
+        public const string AiPolicy = "ai";
 
         public static IServiceCollection AddAppRateLimiting(
             this IServiceCollection services, RateLimitOptions limits)
@@ -78,6 +85,20 @@ namespace MiFuturoTrabajo.Api.Services
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = limits.PerUserPermitPerMinute,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+
+                // The AI endpoints. There is a per-account allowance behind
+                // these as well, but an allowance is not a burst control: it
+                // stops the tenth call this month, not the ten fired at once
+                // that each read the counter before any of them wrote it back.
+                options.AddPolicy(AiPolicy, context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: UserKey(context),
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = limits.AiPermitPerMinute,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
                         }));
