@@ -113,12 +113,13 @@ builder.Services.AddScoped<DemoDataSeeder>();
 // and the page disables itself, so the failure is visible where it matters -
 // in front of the user - instead of at 3am in a crash loop.
 //
-// Singleton: the client holds the connection pool, and rebuilding it per
-// request would throw that pool away on the one call in this app where the
-// round trip is measured in seconds.
+// Singleton, but the HTTP client comes from the factory rather than being held
+// as a field: a singleton holding one HttpClient never notices DNS moving under
+// it, and this is the one call in the app that leaves the datacentre.
 var aiOptions = new CvTailoringOptions();
 builder.Configuration.GetSection("Ai").Bind(aiOptions);
 builder.Services.AddSingleton(aiOptions);
+builder.Services.AddHttpClient(CvTailoringService.HttpClientName);
 builder.Services.AddSingleton<ICvTailoringService, CvTailoringService>();
 
 // Email. Degrades to a no-op locally, but NOT in Production: an app that

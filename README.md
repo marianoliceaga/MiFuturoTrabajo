@@ -21,7 +21,7 @@ Everything listed here has been exercised against the deployed environment, not 
 | Interviews | Meetings with per-meeting email reminder lead times |
 | Tasks | Deadlines, completion, daily reminder digest |
 | CV versions | Real file upload to Blob Storage, expiring download links, default selection |
-| CV tailoring | Paste a job posting and get concrete rewrites, or a cover letter, from your stored CV — Claude reads the PDF itself |
+| CV tailoring | Paste a job posting and get concrete rewrites, or a cover letter, from your stored CV — Gemini reads the PDF itself |
 | Job references | Past employment, embedded in the applicant document |
 | Auth | Email/password with BCrypt, refresh tokens, account lockout, Google and Microsoft sign-in |
 | Email | Verification and password reset via Azure Communication Services |
@@ -36,7 +36,7 @@ Stated plainly, because a README that hides these is worse than one that admits 
 - **Transactional email does not send.** The ACS domain `ideapixel.com.ar` is provisioned, but its DKIM, SPF and domain-verification records have not been added at Cloudflare, so all five checks read `NotStarted`. Registration and password reset both still succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives. This is the one limitation that stops a listed feature from working.
 - **Microsoft sign-in is not verified end to end.** The Entra registration was wrong and is now fixed: the redirect URIs sit on the `SPA` platform (MSAL.js v2 redeems cross-origin with PKCE, so `Web` returns `AADSTS9002326`) with the correct `/login-callback` path. Server-side token validation is implemented and covered by 13 tests including forged-token attacks. What has not happened is a human completing an actual Microsoft sign-in against the deployed site.
 - **Google sign-in needs its origins registered.** The deployed origin has not been added to the OAuth client's authorised JavaScript origins in the Google Cloud console. Server-side validation was always sound — `GoogleJsonWebSignature.ValidateAsync` verifies against Google's keys — and the client-side bug that made it impossible is fixed, so this is the only thing left for it.
-- **CV tailoring has never made a live model call.** The feature is complete and the request it builds was verified byte-for-byte against a local listener — the document block, the JSON-schema output config and the refusal handling are all confirmed correct on the wire — but no deployment has had `Ai:ApiKey` set, so no real analysis has ever been produced or read. Everything around the call is covered by 14 integration tests against a stub. What is unproven is the quality of the advice, which is exactly the part tests cannot establish.
+- **CV tailoring has never made a live model call.** The request it builds is asserted field by field by `CvTailoringServiceTests`, and matches the provider's documented example exactly — endpoint, revision header, the document part, the nested response schema. But no deployment has had `Ai:ApiKey` set, so no real analysis has ever been produced or read. Two things therefore remain unproven: the quality of the advice, which is exactly what tests cannot establish, and whether the documentation this request was built from is current. The request is pinned to an `Api-Revision` so that the second one fails loudly rather than quietly.
 - **Cosmos runs on serverless, not the free tier.** The free-tier slot in this subscription had not released when the deployment ran. Serverless costs cents per month at this volume; switching means creating a new account, since billing mode cannot be changed in place.
 
 ---
@@ -61,8 +61,8 @@ MiFuturoTrabajo.Api/                ASP.NET Core Web API
 MiFuturoTrabajo.Functions/          Reminder timer triggers (isolated worker)
 MiFuturoTrabajo.Infrastructure/     EF Core, entities, email, reminder logic
 MiFuturoTrabajo.Shared/             DTOs and enums, shared by client and API
-MiFuturoTrabajo.Tests.Unit/         104 tests
-MiFuturoTrabajo.Tests.Integration/  92 tests
+MiFuturoTrabajo.Tests.Unit/         160 tests
+MiFuturoTrabajo.Tests.Integration/  115 tests
 infra/                              Bicep templates
 ```
 
@@ -151,7 +151,7 @@ dotnet user-secrets --project MiFuturoTrabajo.Api set "Jwt:SecretKey" "$(openssl
 
 With no `AzureCommunicationServices` configured, email is not sent — instead the verification and reset **links are written to the API log**, which is where to look when testing those flows locally.
 
-CV tailoring needs an Anthropic API key. Without one the feature reports itself unavailable and the page disables itself with an explanation; nothing else is affected.
+CV tailoring needs a Google AI Studio API key. Without one the feature reports itself unavailable and the page disables itself with an explanation; nothing else is affected.
 
 ```bash
 dotnet user-secrets --project MiFuturoTrabajo.Api set "Ai:ApiKey" "sk-ant-..."
@@ -197,25 +197,26 @@ func start
 dotnet test
 ```
 
-**246 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
+**275 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
 
-| Unit (131) | | Integration (115) | |
+| Unit (160) | | Integration (115) | |
 |---|---|---|---|
-| `ReminderServiceTests` | 22 | `EmailAndTokenSecurityTests` | 20 |
-| `CvFileValidatorTests` | 17 | `CvTailoringTests` | 14 |
-| `JwtServiceTests` | 15 | `OAuthSecurityTests` | 13 |
-| `MappingServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
-| `AuthControllerTests` | 14 | `AuthenticationFlowTests` | 12 |
-| `SecurityTokensTests` | 14 | `CvUploadTests` | 11 |
-| `CvContentExtractorTests` | 12 | `JobApplicationCrudTests` | 10 |
-| `AiUsageWindowTests` | 12 | `KanbanBoardTests` | 10 |
-| `PasswordHasherTests` | 10 | `LanguagePreferenceTests` | 8 |
+| `ReminderServiceTests` | 26 | `EmailAndTokenSecurityTests` | 20 |
+| `CvTailoringServiceTests` | 25 | `CvTailoringTests` | 14 |
+| `CvFileValidatorTests` | 17 | `OAuthSecurityTests` | 13 |
+| `JwtServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
+| `MappingServiceTests` | 15 | `AuthenticationFlowTests` | 12 |
+| `AuthControllerTests` | 14 | `CvUploadTests` | 11 |
+| `SecurityTokensTests` | 14 | `JobApplicationCrudTests` | 10 |
+| `CvContentExtractorTests` | 12 | `KanbanBoardTests` | 10 |
+| `AiUsageWindowTests` | 12 | `LanguagePreferenceTests` | 8 |
+| `PasswordHasherTests` | 10 | | |
 | | | `QuotaEnforcementTests` | 2 |
 | | | `RateLimiterTests` | 2 |
 
 Several of these exist because they caught something real: `EmailAndTokenSecurityTests` reproduces an account-takeover path that used to work, and `OAuthSecurityTests` forges Microsoft tokens against a validator that used to accept them.
 
-`CvTailoringTests` never calls a model — that would cost money per run, need a key in CI, and answer differently every time. What it covers is everything wrapped around the call: that one account cannot analyse another's CV, that the allowance is spent exactly once and enforced, and that a request which could never have worked is refused before it costs anything.
+Neither `CvTailoringTests` nor `CvTailoringServiceTests` calls a model — that would cost money per run, need a key in CI, and answer differently every time. Between them they cover everything on either side of the call. `CvTailoringTests` takes the endpoint: that one account cannot analyse another's CV, that the allowance is spent exactly once and enforced, and that a request which could never have worked is refused before it costs anything. `CvTailoringServiceTests` takes the wire, which is this repository's problem because the request is hand-built rather than produced by a vendor SDK: it asserts the exact JSON that goes out, and drives the parser through a decline, a truncation, malformed JSON and each HTTP failure.
 
 ---
 
