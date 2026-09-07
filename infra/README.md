@@ -42,7 +42,9 @@ The template is idempotent — re-running it converges rather than duplicating.
 
 ## Secrets, which are deliberately not in the template
 
-Anything in a Bicep parameter ends up in deployment history, readable by anyone with access to the resource group. These three are set separately, once.
+Anything in a Bicep parameter ends up in deployment history, readable by anyone with access to the resource group. These are set separately, once.
+
+**They do not survive a redeploy.** `siteConfig.appSettings` is declared inline in `main.bicep`, and ARM replaces that collection wholesale rather than merging into it - so re-running the template drops every setting below. Losing `Jwt__SecretKey` invalidates every token already issued. Re-apply them after any infrastructure deployment, or read the current values back first.
 
 **JWT signing key.** Generate 48 random bytes and set it:
 
@@ -57,6 +59,19 @@ az webapp config appsettings set -g rg-mifuturotrabajo -n <api-app-name> --setti
 ```
 
 The demo password is *meant* to be public — put it on the login page. Treat that account as compromised by design: it holds nothing real, and per-user quotas cap what anyone can do with it.
+
+**Gemini API key**, for CV tailoring. Without it the feature reports itself unavailable and the page disables itself; the rest of the app is unaffected, so this one is genuinely optional.
+
+```bash
+az webapp config appsettings set -g rg-mifuturotrabajo -n <api-app-name> --settings "Ai__ApiKey=<AI Studio key>"
+```
+
+Check the key before setting it. A key that is well-formed but not enabled for the Generative Language API is rejected with `400`, not `401`, and `200` here is the only thing that means it works:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}
+" -H "x-goog-api-key: <key>" https://generativelanguage.googleapis.com/v1beta/models
+```
 
 **OAuth client IDs.** Public values, but they belong with the rest of the configuration:
 
