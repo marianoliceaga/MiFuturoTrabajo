@@ -36,7 +36,7 @@ Stated plainly, because a README that hides these is worse than one that admits 
 - **Transactional email does not send.** The ACS domain `ideapixel.com.ar` is provisioned, but its DKIM, SPF and domain-verification records have not been added at Cloudflare, so all five checks read `NotStarted`. Registration and password reset both still succeed and log that the message could not be sent — the send path is deliberately non-fatal — but no mail arrives. This is the one limitation that stops a listed feature from working.
 - **Microsoft sign-in is not verified end to end.** The Entra registration was wrong and is now fixed: the redirect URIs sit on the `SPA` platform (MSAL.js v2 redeems cross-origin with PKCE, so `Web` returns `AADSTS9002326`) with the correct `/login-callback` path. Server-side token validation is implemented and covered by 13 tests including forged-token attacks. What has not happened is a human completing an actual Microsoft sign-in against the deployed site.
 - **Google sign-in needs its origins registered.** The deployed origin has not been added to the OAuth client's authorised JavaScript origins in the Google Cloud console. Server-side validation was always sound — `GoogleJsonWebSignature.ValidateAsync` verifies against Google's keys — and the client-side bug that made it impossible is fixed, so this is the only thing left for it.
-- **CV tailoring has never made a live model call.** The request it builds is asserted field by field by `CvTailoringServiceTests`, and matches the provider's documented example exactly — endpoint, revision header, the document part, the nested response schema. But no deployment has had `Ai:ApiKey` set, so no real analysis has ever been produced or read. Two things therefore remain unproven: the quality of the advice, which is exactly what tests cannot establish, and whether the documentation this request was built from is current. The request is pinned to an `Api-Revision` so that the second one fails loudly rather than quietly.
+- **CV tailoring has never produced a real answer.** One live call has been made. It reached `generativelanguage.googleapis.com`, which answered in 1.5s — so the endpoint, the transport and the error path are real, and that call found a bug in this code: the provider rejects a bad key with `400 API_KEY_INVALID` rather than `401`, which this code had been reporting as a malformed request. What it did not do is produce advice: the key on hand was rejected, and a rejected key is refused before the request body is ever looked at. So the body's shape is still confirmed only against documentation and `CvTailoringServiceTests`, never by the server, and the quality of the advice remains entirely unknown. The request is pinned to an `Api-Revision` header so a server-side change fails loudly rather than quietly reshaping it.
 - **Cosmos runs on serverless, not the free tier.** The free-tier slot in this subscription had not released when the deployment ran. Serverless costs cents per month at this volume; switching means creating a new account, since billing mode cannot be changed in place.
 
 ---
@@ -61,7 +61,7 @@ MiFuturoTrabajo.Api/                ASP.NET Core Web API
 MiFuturoTrabajo.Functions/          Reminder timer triggers (isolated worker)
 MiFuturoTrabajo.Infrastructure/     EF Core, entities, email, reminder logic
 MiFuturoTrabajo.Shared/             DTOs and enums, shared by client and API
-MiFuturoTrabajo.Tests.Unit/         160 tests
+MiFuturoTrabajo.Tests.Unit/         161 tests
 MiFuturoTrabajo.Tests.Integration/  115 tests
 infra/                              Bicep templates
 ```
@@ -197,12 +197,12 @@ func start
 dotnet test
 ```
 
-**275 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
+**276 tests, all passing.** No emulator, no storage account, no network: the suite ships its own `appsettings.Testing.json`, an in-memory blob store, a capturing mail service, and a stub for the model.
 
-| Unit (160) | | Integration (115) | |
+| Unit (161) | | Integration (115) | |
 |---|---|---|---|
 | `ReminderServiceTests` | 26 | `EmailAndTokenSecurityTests` | 20 |
-| `CvTailoringServiceTests` | 25 | `CvTailoringTests` | 14 |
+| `CvTailoringServiceTests` | 26 | `CvTailoringTests` | 14 |
 | `CvFileValidatorTests` | 17 | `OAuthSecurityTests` | 13 |
 | `JwtServiceTests` | 15 | `OAuthAccountLinkingTests` | 13 |
 | `MappingServiceTests` | 15 | `AuthenticationFlowTests` | 12 |

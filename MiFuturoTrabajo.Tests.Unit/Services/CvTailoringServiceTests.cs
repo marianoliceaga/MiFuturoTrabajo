@@ -306,6 +306,34 @@ namespace MiFuturoTrabajo.Tests.Unit.Services
         }
 
         [Fact]
+        public async Task ARejectedKeyReadsAsMisconfigurationEvenThoughItArrivesAsA400()
+        {
+            // This is the real body the provider returned for a bad key, and it
+            // is a 400 rather than a 401. Reported as "malformed request" it
+            // sends whoever is debugging to read the JSON we send rather than
+            // the key we send it with.
+            var (service, _) = Build(
+                statusCode: HttpStatusCode.BadRequest,
+                respondWith: """
+                    {
+                      "error": {
+                        "code": 400,
+                        "message": "API key not valid. Please pass a valid API key.",
+                        "status": "INVALID_ARGUMENT",
+                        "details": [
+                          { "@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "API_KEY_INVALID" }
+                        ]
+                      }
+                    }
+                    """);
+
+            var (result, error) = await service.TailorAsync(PdfInput());
+
+            Assert.Null(result);
+            Assert.Contains("misconfigured", error);
+        }
+
+        [Fact]
         public async Task AnUnreachableProviderIsReportedRatherThanThrown()
         {
             var (service, _) = Build(throws: new HttpRequestException("no route to host"));

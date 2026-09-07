@@ -255,6 +255,18 @@ namespace MiFuturoTrabajo.Api.Services
         /// </summary>
         private string DescribeFailure(HttpStatusCode status, string body)
         {
+            // A key this API will not accept comes back as 400 API_KEY_INVALID,
+            // not as 401. Going by the status alone files a misconfigured
+            // deployment under "malformed request", which sends whoever is
+            // debugging it to read the JSON we send instead of the key we send
+            // it with. Found by the first real call this feature ever made.
+            if (body.Contains("API_KEY_INVALID", StringComparison.Ordinal))
+            {
+                _logger.LogError("The configured Ai:ApiKey was rejected. Body: {Body}", body);
+
+                return "AI assistance is misconfigured on this deployment.";
+            }
+
             switch (status)
             {
                 case HttpStatusCode.TooManyRequests:
